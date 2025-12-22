@@ -1,32 +1,25 @@
-# CausalIQ Repo Template - Development Roadmap
+# CausalIQ Analysis - Development Roadmap
 
-**Last updated**: November 21, 2025  
+**Last updated**: December 22, 2025  
 
 This project roadmap fits into the [overall ecosystem roadmap](https:/https://causaliq.org/projects/ecosystem_roadmap/)
 
-## 🎯 Current Release
+## 🚧  Under development
 
-**✅ BACKGROUND**: 1.1 Maintenance
-
-Commits:
-
-- `4a1b021` fix: change template shorthand CLI command from "crt" to "cqcrt"
-- `67cef98` fix: default CI testing to just Python 3.11 on Ubuntu
+- none
 
 ---
 
-## ✅ Previous Releases
+## ✅ Implemented Features
+
+- none
 
 *See Git commit history for detailed implementation progress*
 
-- 📋 **1.0 Foundation**: ready for use as template for new CausalIQ repos
+## 🛣️ Upcoming Releases
+
+- **Release v0.1.0 - Foundation Metrics**: CausalIQ and Bayesys structural graph metrics and KL metric.
+- **Release v0.2.0 - Legacy Trace**: Support for reading and writing structure learning traces in legacy pickle format (this will be superseded by a more open format).
+- **Release v0.3.0 - Graph Averaging**: Graph averaging to produce arc probabilities.
 
 
-## 🛣️ Upcoming Implementation
-
-### Release 1.1: Maintenance
-**Key Deliverables**: Maintenance 
-
-**Commit 1.1.0: Maintenance Task**
-
-- [ ] **maintenance** - as required

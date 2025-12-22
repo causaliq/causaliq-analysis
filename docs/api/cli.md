@@ -1,10 +1,10 @@
-# Template CLI
+# CausalIQ Analysis CLI
 
-This template repo provides a simple template CLI as a starting point for CLI implementations.
+This CLI provides commands for analysing and visualising learned causal graphs, including structural metrics, stability assessment, significance tests, and publication-ready tables and charts.
 
 ## CLI entry point
 
-::: causaliq_repo_template.cli
+::: causaliq_analysis.cli
     options:
         show_root_heading: true
         show_source: false

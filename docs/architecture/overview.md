@@ -1,8 +1,8 @@
-# Architecture Vision for causaliq-repo-template
+# Architecture Vision for causaliq-analysis
 
 ## CausalIQ Ecosystem
 
-causaliq-repo-template is a component of the overall [CausalIQ ecosystem architecture](https://causaliq.org/projects/ecosystem_architecture/).
+causaliq-analysis is a component of the overall [CausalIQ ecosystem architecture](https://causaliq.org/projects/ecosystem_architecture/).
 
 
 ## Architectural Principles 

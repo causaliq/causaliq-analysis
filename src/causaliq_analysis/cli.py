@@ -1,9 +1,9 @@
-"""Command-line interface for causaliq-repo-template."""
+"""Command-line interface for causaliq-analysis."""
 
 import click
 
 
-@click.command(name="causaliq-repo-template")
+@click.command(name="causaliq-analysis")
 @click.version_option(version="0.1.0")
 @click.argument(
     "name",
@@ -23,7 +23,7 @@ def cli(name: str, greet: str) -> None:
 
 def main() -> None:
     """Entry point for the CLI."""
-    cli(prog_name="causaliq-repo-template (cqcrt)")
+    cli(prog_name="causaliq-analysis (cqalys)")
 
 
 if __name__ == "__main__":  # pragma: no cover
