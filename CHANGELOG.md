@@ -8,8 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project structure and scaffolding with environment setup, dummy CLI,
-  pytest testing and CI testing on github.
+- Nothing yet
 
 ### Changed
 - Nothing yet
@@ -27,16 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 
-## [0.1.0 Release Name] - 2025-12-21
+## [0.1.0] - 2025-12-27
 
 ### Added
-- **First new feature**: Sentence describing feature
-- etc.
-
+- **PDAG Comparison**: Complete structural graph comparison with precision, recall, F1, SHD metrics
+- **Bayesys Compatibility**: Half-match metrics, BSF, and DDM scores for Bayesys v1.3-v1.6 compatibility
+- **KL Divergence**: Kullback-Leibler divergence calculation for probability distributions
+- **100% Test Coverage**: Comprehensive test suite with full code coverage (76 tests)
+- **CLI Interface**: Basic CLI with version reporting and greeting functionality
+- **API Documentation**: Complete documentation for metrics module following mkdocs pattern
+- **Sanity Check Validation**: Built-in consistency checks for metric calculations
 
 ### Changed
-- **First changed feature**: sentence describing change to feature
-- etc.
+- Initial project structure and scaffolding with environment setup, CLI foundation, pytest testing and CI testing on github
 
 ### Fixed
 - sentence describing first fix

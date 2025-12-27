@@ -2,9 +2,11 @@
 
 import click
 
+from . import __version__
+
 
 @click.command(name="causaliq-analysis")
-@click.version_option(version="0.1.0")
+@click.version_option(version=__version__)
 @click.argument(
     "name",
     metavar="NAME",
