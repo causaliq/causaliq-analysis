@@ -52,6 +52,7 @@ nav:
       - Example: architecture/example_design_note.md
   - API Reference: 
     - API Overview: api/overview.md
+    - Metrics: api/metrics.md
     - CLI: api/cli.md
 
 plugins:

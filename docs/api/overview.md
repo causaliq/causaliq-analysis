@@ -9,3 +9,7 @@ of the API and avoid overlong pages.
 ### [CLI](cli.md)
 
 This provides a skeleton CLI implementation.
+
+### [Metrics](metrics.md)
+
+This module provides functions for analysing and comparing causal graphs, including structural metrics, Kullback-Leibler divergence calculations, and Bayesys compatibility metrics.

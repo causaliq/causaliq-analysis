@@ -19,11 +19,11 @@ This repo provides tools for analysing and visualising learned causal graphs, in
 
 Currently implemented:
 
-- none yet
+- **Release v0.1.0 - Foundation Metrics**: CausalIQ and Bayesys structural graph metrics and KL metric.
+
 
 Planned releases:
 
-- **Release v0.1.0 - Foundation Metrics**: CausalIQ and Bayesys structural graph metrics and KL metric.
 - **Release v0.2.0 - Legacy Trace**: Support for reading and writing structure learning traces in legacy pickle format (this will be superseded by a more open format).
 - **Release v0.3.0 - Graph Averaging**: Graph averaging to produce arc probabilities.
 
