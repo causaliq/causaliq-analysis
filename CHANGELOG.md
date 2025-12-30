@@ -26,6 +26,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 
+## [0.2.0] - 2025-12-30
+
+### Added
+- **Graph Module**: Enumerations for describing changes made to causal graphs during structure learning
+  - `GraphActionDetail` enum for recording trace entry details (arcs, score deltas, statistics)
+  - `GraphAction` enum for structure learning activities (INIT, ADD, DEL, REV, STOP, PAUSE, NONE)
+- **Trace Module**: Comprehensive tracing of structure learning processes
+  - `Trace` class for recording and analyzing causal graph evolution during algorithm execution
+  - `DiffType` enum for comparing traces and identifying differences
+  - `CompatibilityUnpickler` for backward compatibility with older module structures
+  - Support for trace comparison, score updates, variable renaming, and statistical summaries
+- **Enhanced Documentation**: Complete API documentation for all modules
+  - Detailed documentation for graph and trace modules with usage examples
+  - Updated API overview with descriptions of all available modules
+  - Comprehensive coverage of key methods and integration patterns
+
+### Changed
+- **Documentation Structure**: Expanded API documentation to include graph and trace modules
+- **Module Organization**: Better separation of concerns between graph actions and trace functionality
+
+
 ## [0.1.0] - 2025-12-27
 
 ### Added
