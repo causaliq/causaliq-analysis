@@ -1,7 +1,7 @@
 # Test the Trace update_scores function
 
-from os import remove
-from shutil import copy
+from os import makedirs
+from shutil import copy, rmtree
 
 import pytest
 from causaliq_core.utils import values_same
@@ -74,21 +74,29 @@ def test_trace_update_scores_ok_1_():  # update asia, bic scores
 
 # Test update asia, bic scores
 def test_trace_update_scores_ok_2_():  # update asia, bic scores and save
+    makedirs(TESTDATA_DIR + "trace/tmp/HC/ORDER/BASE", exist_ok=True)
     copy(
         TESTDATA_DIR + "trace/HC/ORDER/BASE/asia.pkl.gz",
-        TESTDATA_DIR + "trace/tmp/asia.pkl.gz",
+        TESTDATA_DIR + "trace/tmp/HC/ORDER/BASE/asia.pkl.gz",
     )
+    makedirs(TESTDATA_DIR + "trace/tmp/datasets", exist_ok=True)
+    copy(
+        TESTDATA_DIR + "trace/datasets/asia.data.gz",
+        TESTDATA_DIR + "trace/tmp/datasets/asia.data.gz",
+    )
+
     scores = Trace.update_scores(
-        series="tmp",
+        series="HC/ORDER/BASE",
         networks=["asia"],
         score="bic",
-        root_dir=TESTDATA_DIR + "trace",
+        root_dir=TESTDATA_DIR + "trace/tmp",
         save=True,
     )
     assert len(scores) == 110
     assert values_same(scores[("asia", "N10_0")][0], -45.44360605, sf=10)
     assert values_same(scores[("asia", "N200_6")][1], -491.1460852, sf=10)
-    remove(TESTDATA_DIR + "trace/tmp/asia.pkl.gz")
+    rmtree(TESTDATA_DIR + "trace/tmp/HC")
+    rmtree(TESTDATA_DIR + "trace/tmp/datasets")
 
 
 # Test update asia, loglik scores
