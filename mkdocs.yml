@@ -53,6 +53,8 @@ nav:
   - API Reference: 
     - API Overview: api/overview.md
     - Metrics: api/metrics.md
+    - Graph: api/graph.md
+    - Trace: api/trace.md
     - CLI: api/cli.md
 
 plugins:
