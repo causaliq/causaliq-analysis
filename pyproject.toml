@@ -33,6 +33,7 @@ dependencies = [
     "click>=8.0.0",
     "causaliq-core",
     "causaliq-data",
+    "compress-pickle",
 ]
 
 [project.optional-dependencies]

@@ -68,7 +68,7 @@ class GraphAction(EnumWithAttrs):
     # this makes sure that mandatory is read-only
     @property
     def mandatory(self) -> set:
-        return self._mandatory_
+        return self._mandatory_.copy()
 
     # this makes sure that priority is read-only
     @property
