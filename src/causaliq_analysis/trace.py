@@ -7,7 +7,7 @@ from gzip import BadGzipFile
 from os import makedirs
 from re import compile
 from time import asctime, localtime, time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from causaliq_core import SOFTWARE_VERSION
 from causaliq_core.graph import DAG, SDG, extend_pdag
@@ -16,7 +16,7 @@ from causaliq_core.utils.random import Randomise
 from causaliq_data import NumPy
 from causaliq_data.score import dag_score
 from compress_pickle import dump  # type: ignore
-from pandas import DataFrame  # type: ignore
+from pandas import DataFrame
 
 from causaliq_analysis.graph import GraphAction, GraphActionDetail
 
@@ -66,6 +66,32 @@ class CompatibilityUnpickler(pickle.Unpickler):
         # Add more specific class mappings as needed
     }
 
+    class PlaceholderEnum:
+        """Placeholder class for missing enum-like classes from legacy modules.
+
+        This handles unpickling of enum instances that reference classes not
+        available in the current environment (e.g., learn.hc_worker.Prefer).
+
+        The issue: Legacy pickle files contain references to EnumWithAttrs
+        classes from the 'learn' module that don't exist in standalone
+        causaliq_analysis. When unpickling, Python tries to instantiate these
+        enums with arguments, but a simple empty class fails with
+        "takes no arguments" error.
+
+        This placeholder accepts any arguments during construction to allow
+        successful unpickling while maintaining compatibility with the
+        discovery repo.
+        """
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            # Accept any arguments during unpickling to avoid TypeError
+            self.args = args
+            self.kwargs = kwargs
+
+        def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+            # Create instance that can be unpickled successfully
+            return object.__new__(cls)
+
     def find_class(self, module: str, name: str) -> Any:
         """Override find_class to handle module path changes.
 
@@ -79,6 +105,18 @@ class CompatibilityUnpickler(pickle.Unpickler):
         # Check if this specific class has been moved
         if (module, name) in self.CLASS_MAPPING:
             module = self.CLASS_MAPPING[(module, name)]
+            return super().find_class(module, name)
+
+        # Handle missing learn.* classes with safe fallback
+        if module.startswith("learn.") and module != "learn.trace":
+            try:
+                # Try to import the real class first
+                # (for discovery repo compatibility)
+                return super().find_class(module, name)
+            except ModuleNotFoundError:
+                # If module doesn't exist, return a placeholder class
+                # that can handle enum-like behavior
+                return type(name, (self.PlaceholderEnum,), {})
 
         return super().find_class(module, name)
 
@@ -901,7 +939,7 @@ class Trace:
 
         ref_df = ref.get()
         trace_df = self.get()
-        compare = list(
+        compare: List[str] = list(
             set(trace_df.columns[trace_df.notnull().any()]).intersection(
                 set(ref_df.columns[ref_df.notnull().any()])
             )
@@ -909,12 +947,19 @@ class Trace:
             | {"arc", "activity", "delta/score"}
         )
 
-        ref_records = ref_df[compare].to_dict(
-            "records"
-        )  # list of ref entries (dicts)
-        trace_records = trace_df[compare].to_dict(
-            "records"
-        )  # list of trace entries
+        # DataFrame subset .to_dict() - pandas stubs differ across versions
+        # Mypy on Python 3.11 sees df[list] as Series, ignore and cast
+        ref_df_subset = ref_df[compare]
+        ref_dict = ref_df_subset.to_dict(  # type: ignore[call-overload,unused-ignore]  # noqa: E501
+            orient="records"
+        )
+        ref_records = cast(List[Dict[str, Any]], ref_dict)
+
+        trace_df_subset = trace_df[compare]
+        trace_dict = trace_df_subset.to_dict(  # type: ignore[call-overload,unused-ignore]  # noqa: E501
+            orient="records"
+        )
+        trace_records = cast(List[Dict[str, Any]], trace_dict)
 
         if (
             len(ref_records) < 2

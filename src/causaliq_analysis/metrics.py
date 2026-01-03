@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Set, Union
 
 from causaliq_core.graph import BAYESYS_VERSIONS, EdgeType
 from causaliq_core.utils import ln
-from pandas import Series  # type: ignore
+from pandas import Series
 
 
 def pdag_compare(
@@ -197,7 +197,8 @@ def kl(dist: Series, ref_dist: Series) -> float:
     result = 0.0
     for key, prob in dist.items():
         prob = prob if prob > 0 else 1e-16
-        ref_prob = ref_dist[key] if ref_dist[key] > 0 else 1e-16
+        ref_val = ref_dist[key]  # type: ignore[call-overload,unused-ignore]  # noqa: E501
+        ref_prob = ref_val if ref_val > 0 else 1e-16
         result += prob * ln(prob / ref_prob)
 
     return result

@@ -1,0 +1,19 @@
+# Example workflow for graph averaging using causaliq-analysis
+description: "Graph averaging workflow example"
+root_dir: "c:/dev/causaliq/discovery/experiments/"
+series: "TABU/SAMPLE/BASE"
+
+# Matrix to test multiple configurations
+matrix:
+  network: ["asia", "sports"]
+  sample_size: ["10k", "100k"]
+
+steps:
+  - name: "Graph averaging"
+    uses: "causaliq-analysis"
+    with:
+      operation: "graph-average"
+      basis: "pdag"
+      seeds: "0,1"
+      traces: "{{series}}/{{network}}.pkl.gz"
+      result: "{{root_dir}}/{{series}}/{{network}}_{{sample_size}}_average.csv"

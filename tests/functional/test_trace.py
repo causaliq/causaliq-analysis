@@ -988,3 +988,100 @@ def test_trace_save_ok_3():
     assert isinstance(traces["entry1"], Trace)
     assert traces["entry1"].context["id"] == "newdir/single/entry1"
     rmtree(TESTDATA_DIR + "trace/tmp/newdir")
+
+
+# Test PlaceholderEnum initialization to cover lines 88-89 in trace.py
+def test_placeholder_enum_initialization():
+    """Test PlaceholderEnum accepts arbitrary args and kwargs
+    during unpickling."""
+    from causaliq_analysis.trace import CompatibilityUnpickler
+
+    # Create an instance of PlaceholderEnum with args and kwargs
+    # This covers lines 88-89 where args and kwargs are stored
+    placeholder = CompatibilityUnpickler.PlaceholderEnum(
+        "arg1", "arg2", key1="value1", key2="value2"
+    )
+
+    # Verify that args and kwargs were stored correctly
+    assert placeholder.args == ("arg1", "arg2")
+    assert placeholder.kwargs == {"key1": "value1", "key2": "value2"}
+
+    # Test with no arguments
+    empty_placeholder = CompatibilityUnpickler.PlaceholderEnum()
+    assert empty_placeholder.args == ()
+    assert empty_placeholder.kwargs == {}
+
+
+# Test PlaceholderEnum __new__ method
+def test_placeholder_enum_new():
+    """Test PlaceholderEnum __new__ method creates instances successfully."""
+    from causaliq_analysis.trace import CompatibilityUnpickler
+
+    # Test that __new__ can create instances with any arguments
+    instance = CompatibilityUnpickler.PlaceholderEnum(
+        "test_arg", test_kwarg=123
+    )
+
+    # Verify it's an instance of PlaceholderEnum
+    assert isinstance(instance, CompatibilityUnpickler.PlaceholderEnum)
+    assert instance.args == ("test_arg",)
+    assert instance.kwargs == {"test_kwarg": 123}
+
+
+# Test find_class method with existing module (successful import case)
+def test_compatibility_unpickler_find_class_success():
+    """Test find_class with learn.trace module that exists and should be
+    found successfully."""
+    from io import BytesIO
+
+    from causaliq_analysis.trace import CompatibilityUnpickler
+
+    unpickler = CompatibilityUnpickler(BytesIO(b""))
+
+    # Test with learn.trace which exists and should not trigger fallback
+    result = unpickler.find_class("learn.trace", "Trace")
+
+    # Should return the actual Trace class from causaliq_analysis.trace
+    from causaliq_analysis.trace import Trace
+
+    assert result is Trace
+
+
+# Test find_class method with missing module (ModuleNotFoundError case)
+def test_compatibility_unpickler_find_class_module_not_found():
+    """Test find_class when learn.* module doesn't exist, should return
+    placeholder class."""
+    from io import BytesIO
+
+    from causaliq_analysis.trace import CompatibilityUnpickler
+
+    unpickler = CompatibilityUnpickler(BytesIO(b""))
+
+    # Test with non-existent learn.nonexistent module
+    result = unpickler.find_class("learn.nonexistent", "SomeClass")
+
+    # Should return a dynamically created class inheriting from PlaceholderEnum
+    assert issubclass(result, CompatibilityUnpickler.PlaceholderEnum)
+    assert result.__name__ == "SomeClass"
+
+    # Test that we can create an instance of the returned class
+    instance = result("arg1", "arg2", key="value")
+    assert isinstance(instance, CompatibilityUnpickler.PlaceholderEnum)
+    assert instance.args == ("arg1", "arg2")
+    assert instance.kwargs == {"key": "value"}
+
+
+# Test find_class method with non-learn module (should use normal path)
+def test_compatibility_unpickler_find_class_non_learn_module():
+    """Test find_class with non-learn module uses normal resolution."""
+    from io import BytesIO
+
+    from causaliq_analysis.trace import CompatibilityUnpickler
+
+    unpickler = CompatibilityUnpickler(BytesIO(b""))
+
+    # Test with a standard module that should use normal resolution
+    result = unpickler.find_class("builtins", "int")
+
+    # Should return the built-in int class
+    assert result is int

@@ -45,6 +45,7 @@ dev = [
     "isort>=5.10.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
+    "pandas-stubs>=2.0.0",
     "types-requests>=2.32.0",
     "pre-commit>=2.20.0",
     "build>=0.8.0",
@@ -54,6 +55,9 @@ test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
+]
+workflow = [
+    "causaliq-workflow>=0.1.0",
 ]
 docs = [
     "mkdocs>=1.5.0",
@@ -179,5 +183,12 @@ module = [
     "scipy.*",
     "scipy.stats", 
     "scipy.special"
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "causaliq_workflow",
+    "causaliq_workflow.*"
 ]
 ignore_missing_imports = true

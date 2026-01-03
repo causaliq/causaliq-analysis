@@ -16,9 +16,34 @@ __license__ = "MIT"
 # Version tuple for programmatic access
 VERSION = tuple(map(int, __version__.split(".")))
 
-__all__ = [
-    "__version__",
-    "__author__",
-    "__email__",
-    "VERSION",
-]
+# Import main functions
+from causaliq_analysis.graph import (  # noqa: E402, F401
+    _validate_average_params,
+    average,
+)
+
+# Import workflow action for auto-discovery (if causaliq-workflow is installed)
+try:
+    from causaliq_analysis.workflow_action import (  # noqa: E402, F401
+        CausalIQAction,
+    )
+
+    __all__ = [
+        "__version__",
+        "__author__",
+        "__email__",
+        "VERSION",
+        "average",
+        "_validate_average_params",
+        "CausalIQAction",
+    ]
+except ImportError:
+    # causaliq-workflow not installed, skip workflow integration
+    __all__ = [
+        "__version__",
+        "__author__",
+        "__email__",
+        "VERSION",
+        "average",
+        "_validate_average_params",
+    ]
