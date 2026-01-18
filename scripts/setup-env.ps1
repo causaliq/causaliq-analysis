@@ -15,7 +15,7 @@ function Show-Help {
     Write-Host "  .\scripts\setup-env.ps1 [options]" -ForegroundColor White
     Write-Host ""
     Write-Host "OPTIONS:" -ForegroundColor Yellow
-    Write-Host "  (no args)        Create Python 3.9-3.12 virtual environments" -ForegroundColor White
+    Write-Host "  (no args)        Create Python 3.9-3.13 virtual environments" -ForegroundColor White
     Write-Host "  -Install         Create environments AND install causaliq-analysis package" -ForegroundColor White
     Write-Host "  -InstallOnly     Install causaliq-analysis package in existing environments" -ForegroundColor White
     Write-Host "  -Help            Show this help message" -ForegroundColor White
@@ -67,9 +67,9 @@ function Install-InEnvironment {
         Write-Host "  Upgrading pip, setuptools, and wheel..." -ForegroundColor Gray
         & $PythonExe -m pip install  --upgrade pip setuptools wheel --quiet
         
-        # Install the package with dependencies
+        # Install the package with dependencies (using Test PyPI for dev releases)
         Write-Host "  Installing causaliq-analysis with dev dependencies..." -ForegroundColor Gray
-        & $PythonExe -m pip install --force-reinstall -e ".[dev,test,docs]"
+        & $PythonExe -m pip install --extra-index-url https://test.pypi.org/simple/ --force-reinstall -e ".[dev,test,docs]"
         
         deactivate
         Write-Host "  $DisplayName installation complete!" -ForegroundColor Green
@@ -125,6 +125,7 @@ if ($InstallOnly) {
     Install-InEnvironment -EnvName "py310" -DisplayName "Python 3.10"
     Install-InEnvironment -EnvName "py311" -DisplayName "Python 3.11"
     Install-InEnvironment -EnvName "py312" -DisplayName "Python 3.12"
+    Install-InEnvironment -EnvName "py313" -DisplayName "Python 3.13"
 } else {
     # Create environments (and optionally install)
     Write-Host "Setting up Python virtual environments..." -ForegroundColor Blue
@@ -137,6 +138,7 @@ if ($InstallOnly) {
     Setup-PythonEnv -Version "3.10" -DisplayName "Python 3.10" -EnvName "py310"
     Setup-PythonEnv -Version "3.11" -DisplayName "Python 3.11" -EnvName "py311"
     Setup-PythonEnv -Version "3.12" -DisplayName "Python 3.12" -EnvName "py312"
+    Setup-PythonEnv -Version "3.13" -DisplayName "Python 3.13" -EnvName "py313"
 }
 
 Write-Host ""
@@ -151,6 +153,7 @@ if (-not $InstallOnly) {
     Write-Host "  .\scripts\activate.ps1 310    (Python 3.10)" -ForegroundColor Gray
     Write-Host "  .\scripts\activate.ps1 311    (Python 3.11)" -ForegroundColor Gray
     Write-Host "  .\scripts\activate.ps1 312    (Python 3.12)" -ForegroundColor Gray
+    Write-Host "  .\scripts\activate.ps1 313    (Python 3.13)" -ForegroundColor Gray
     Write-Host ""
 }
 
