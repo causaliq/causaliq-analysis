@@ -680,13 +680,13 @@ def test_graph_average_real_average_function(
 
     # Create mock traces using actual Trace class
     class MockGraph:
-        def __init__(self, nodes):
+        def __init__(self, nodes, edges=None):
             self.nodes = nodes
-            self.edges = {}  # Empty edges dict for simple test
+            self.edges = edges if edges is not None else {}
 
-    # Create simple graphs for averaging
-    graph1 = MockGraph(["A", "B"])
-    graph2 = MockGraph(["A", "B"])
+    # Create simple graphs for averaging with edges so rows aren't dropped
+    graph1 = MockGraph(["A", "B"], {("A", "B"): "DIRECTED"})
+    graph2 = MockGraph(["A", "B"], {("A", "B"): "DIRECTED"})
 
     # Create real Trace objects with proper context and result
     trace1 = Trace({"N": 1000})

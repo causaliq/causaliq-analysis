@@ -88,13 +88,13 @@ if (-not $Fast) {
     $allPassed = $allPassed -and $mypyResult
 }
 
-# 5. Tests
+# 5. Tests (use -rfE to show only failures/errors in summary, not skips)
 if ($Fast) {
-    $testResult = Test-Command "python -m pytest -v tests/unit/ tests/functional/" "Fast tests"
+    $testResult = Test-Command "python -m pytest -v -rfE tests/unit/ tests/functional/" "Fast tests"
 } elseif ($IncludeSlow) {
-    $testResult = Test-Command "python -m pytest -v --cov=src/causaliq_analysis --cov-report=term-missing" "Full test suite with slow tests"
+    $testResult = Test-Command "python -m pytest -v -rfE --cov=src/causaliq_analysis --cov-report=term-missing" "Full test suite with slow tests"
 } else {
-    $testResult = Test-Command "python -m pytest -v --cov=src/causaliq_analysis --cov-report=term-missing -m 'not slow'" "Full test suite (excluding slow tests)"
+    $testResult = Test-Command "python -m pytest -v -rfE --cov=src/causaliq_analysis --cov-report=term-missing -m 'not slow'" "Full test suite (excluding slow tests)"
 }
 $allPassed = $allPassed -and $testResult
 

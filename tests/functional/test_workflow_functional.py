@@ -288,14 +288,34 @@ def test_workflow_conservative_execution(monkeypatch):
         def mock_average_func(traces, sample_size, pdag, seeds):
             return pd.DataFrame({"col": [1, 2]})
 
+        # Patch at the source modules first
         monkeypatch.setattr(
-            "causaliq_analysis.workflow_action.Trace", MockTraceReader
+            "causaliq_analysis.trace.Trace.read", MockTraceReader.read
         )
         monkeypatch.setattr(
-            "causaliq_analysis.workflow_action.average", mock_average_func
+            "causaliq_analysis.graph.average", mock_average_func
         )
 
-        result = action.run(inputs, mode="compare", logger=mock_logger)
+        # Force reload workflow_action to pick up the patched imports
+        import sys
+
+        # Remove from cache if present, then re-import
+        if "causaliq_analysis.workflow_action" in sys.modules:
+            del sys.modules["causaliq_analysis.workflow_action"]
+
+        from causaliq_analysis import workflow_action  # noqa: F401
+        from causaliq_analysis.workflow_action import (
+            CausalIQAnalysisAction as ReloadedAction,
+        )
+
+        action_reloaded = ReloadedAction()
+
+        # Provide root_dir to avoid path validation before mock intercepts
+        inputs["root_dir"] = temp_dir
+
+        result = action_reloaded.run(
+            inputs, mode="compare", logger=mock_logger
+        )
         assert result["status"] == "success"
         assert result["num_graphs"] == 5  # Length of mock traces dict
 
