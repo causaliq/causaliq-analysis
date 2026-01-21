@@ -2,9 +2,10 @@
 # Will be migrated to causaliq_core.graph
 
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Tuple
+from math import log2
+from typing import TYPE_CHECKING, Any, Dict, Tuple, Union
 
-from causaliq_core.graph import dag_to_pdag
+from causaliq_core.graph import DAG, PDAG, EdgeType, dag_to_pdag
 from causaliq_core.utils import EnumWithAttrs
 from pandas import DataFrame
 
@@ -84,6 +85,22 @@ class GraphAction(EnumWithAttrs):
 
 # for PC delete used for removing arc, v-struct needed for v-struct,
 # and orientate for arc orientation
+
+
+def _to_pdag(graph: Union[DAG, PDAG]) -> PDAG:
+    """
+    Convert a graph to PDAG if it's a DAG, or return as-is if already a PDAG.
+
+    Args:
+        graph: A DAG or PDAG graph object
+
+    Returns:
+        PDAG: The graph as a PDAG
+    """
+    # Check DAG first since DAG is a subclass of PDAG
+    if isinstance(graph, DAG):
+        return dag_to_pdag(graph)
+    return graph
 
 
 def _validate_average_params(
@@ -189,8 +206,8 @@ def average(
 
     # Convert to PDAG if requested
     if pdag:
-        # Convert DAG to PDAG (may introduce undirected edges)
-        reference_graph = dag_to_pdag(first_trace.result)  # type: ignore
+        # Convert DAG to PDAG (or use as-is if already PDAG)
+        reference_graph = _to_pdag(first_trace.result)  # type: ignore
     else:
         reference_graph = first_trace.result  # type: ignore[assignment]
 
@@ -202,8 +219,8 @@ def average(
         if trace.result is None:
             raise ValueError(f"trace {trace_id} has no result graph")
         if pdag:
-            # Convert DAG to PDAG (may introduce undirected edges)
-            graph = dag_to_pdag(trace.result)  # type: ignore[arg-type]
+            # Convert DAG to PDAG (or use as-is if already PDAG)
+            graph = _to_pdag(trace.result)  # type: ignore[arg-type]
         else:
             graph = trace.result  # type: ignore[assignment]
         if sorted(graph.nodes) != nodes:
@@ -232,8 +249,8 @@ def average(
     # Count edges across all matching traces
     for trace in matching_traces.values():
         if pdag:
-            # Convert DAG to PDAG (may introduce undirected edges)
-            graph = dag_to_pdag(trace.result)  # type: ignore[arg-type]
+            # Convert DAG to PDAG (or use as-is if already PDAG)
+            graph = _to_pdag(trace.result)  # type: ignore[arg-type]
         else:
             graph = trace.result  # type: ignore[assignment]
 
@@ -273,15 +290,224 @@ def average(
     # Convert counts to probabilities and create DataFrame
     rows = []
     for (node_a, node_b), counts in edge_counts.items():
+        p_a_to_b = counts["A->B"] / n_graphs
+        p_b_to_a = counts["B->A"] / n_graphs
+        p_undirected = counts["A-B"] / n_graphs
+        p_no_edge = counts["none"] / n_graphs
+
+        # Skip rows where there is no edge in any graph
+        if p_no_edge == 1.0:
+            continue
+
+        # Calculate existence uncertainty: H(p_exist, p_no_edge)
+        p_exist = p_a_to_b + p_b_to_a + p_undirected
+        if p_exist == 0.0 or p_exist == 1.0 or p_no_edge == 0.0:
+            # No uncertainty
+            h_exist = 0.0
+        else:
+            h_exist = -p_exist * log2(p_exist) - p_no_edge * log2(p_no_edge)
+
+        # Calculate direction uncertainty (given edge exists)
+        # Treat undirected as "unknown direction"
+        # H_dir = p_undirected/p_exist + (p_directed/p_exist) *
+        #         H(p_a|dir, p_b|dir)
+        p_directed = p_a_to_b + p_b_to_a
+        if p_directed == 0.0:
+            # All edges are undirected - maximum direction uncertainty
+            h_orient = 1.0
+        else:
+            # Entropy of direction given edge is directed
+            p_a_given_dir = p_a_to_b / p_directed
+            p_b_given_dir = p_b_to_a / p_directed
+            if p_a_given_dir == 0.0 or p_a_given_dir == 1.0:
+                h_dir_given_directed = 0.0
+            else:
+                h_dir_given_directed = -p_a_given_dir * log2(
+                    p_a_given_dir
+                ) - p_b_given_dir * log2(p_b_given_dir)
+            # Weighted combination: undirected contributes max uncertainty (1)
+            h_orient = (p_undirected / p_exist) * 1.0 + (
+                p_directed / p_exist
+            ) * h_dir_given_directed
+
         row = {
             "node_a": node_a,
             "node_b": node_b,
-            "p_a_to_b": counts["A->B"] / n_graphs,
-            "p_b_to_a": counts["B->A"] / n_graphs,
-            "p_undirected": counts["A-B"] / n_graphs,
-            "p_no_edge": counts["none"] / n_graphs,
+            "p_a_to_b": p_a_to_b,
+            "p_b_to_a": p_b_to_a,
+            "p_undirected": p_undirected,
+            "p_no_edge": p_no_edge,
+            "h_exist": h_exist,
+            "h_orient": h_orient,
         }
         rows.append(row)
 
     df = DataFrame(rows)
     return df
+
+
+def compare_to_truth(averaged: DataFrame, true_graph: DAG) -> DataFrame:
+    """
+    Add columns comparing averaged edge probabilities to a true DAG.
+
+    For each edge in the averaged DataFrame, determines:
+    - true_edge: The true edge type in the ground truth graph
+    - exist_ok: Whether the highest probability edge state matches
+    - orient_ok: If edge exists in both, whether direction matches
+
+    Also adds rows for edges that exist in the true graph but were completely
+    missed by averaging (p_no_edge=1.0, so omitted from averaged DataFrame).
+
+    Args:
+        averaged: DataFrame from average() with columns node_a, node_b,
+            p_a_to_b, p_b_to_a, p_undirected, p_no_edge, h_exist,
+            h_orient
+        true_graph: The ground truth DAG to compare against
+
+    Returns:
+        DataFrame with additional columns: true_edge, exist_ok,
+        orient_ok
+
+    Example:
+        >>> from causaliq_core.bn.io import read_bn
+        >>> true_dag = read_bn("asia.xdsl").dag
+        >>> result = compare_to_truth(averaged_df, true_dag)
+    """
+
+    def get_true_edge(node_a: str, node_b: str) -> str:
+        """Determine the true edge state between two nodes."""
+        # Check A->B
+        edge_a_to_b = true_graph.edges.get((node_a, node_b))
+        if edge_a_to_b == EdgeType.DIRECTED:
+            return "a_to_b"
+        elif edge_a_to_b == EdgeType.UNDIRECTED:
+            return "undirected"
+
+        # Check B->A
+        edge_b_to_a = true_graph.edges.get((node_b, node_a))
+        if edge_b_to_a == EdgeType.DIRECTED:
+            return "b_to_a"
+        elif edge_b_to_a == EdgeType.UNDIRECTED:  # pragma: no cover
+            # Undirected edges are always stored alphabetically, and
+            # node_a < node_b so this branch is unreachable,
+            # but kept for defensive completeness
+            return "undirected"
+
+        return "no_edge"
+
+    def get_predicted_edge(row: Any) -> str:
+        """Determine the predicted edge state (highest probability)."""
+        probs: Dict[str, float] = {
+            "a_to_b": row["p_a_to_b"],
+            "b_to_a": row["p_b_to_a"],
+            "undirected": row["p_undirected"],
+            "no_edge": row["p_no_edge"],
+        }
+        return max(probs, key=lambda k: probs[k])
+
+    # Track which node pairs are already in the averaged DataFrame
+    averaged_pairs = set()
+    if len(averaged) > 0:
+        averaged_pairs = set(zip(averaged["node_a"], averaged["node_b"]))
+
+    results = []
+    for _, row in averaged.iterrows():
+        node_a = row["node_a"]
+        node_b = row["node_b"]
+
+        true_edge = get_true_edge(node_a, node_b)
+        predicted_edge = get_predicted_edge(row)
+
+        # Existence: does an edge exist (any type) or not?
+        true_exists = true_edge != "no_edge"
+        predicted_exists = predicted_edge != "no_edge"
+        exist_ok = true_exists == predicted_exists
+
+        # Direction: if both have edge, does direction match?
+        if true_exists and predicted_exists:
+            if true_edge == "undirected":
+                # True edge is undirected - any prediction is acceptable
+                orient_ok = True
+            elif predicted_edge == "undirected":
+                # Predicted undirected but true is directed
+                # - failed to discover direction
+                orient_ok = False
+            else:
+                orient_ok = true_edge == predicted_edge
+        else:
+            # No edge in one or both - direction not applicable
+            orient_ok = None
+
+        results.append(
+            {
+                **row.to_dict(),
+                "true_edge": true_edge,
+                "exist_ok": exist_ok,
+                "orient_ok": orient_ok,
+            }
+        )
+
+    # Add rows for true edges that were completely missed (p_no_edge=1.0)
+    for edge_key, edge_type in true_graph.edges.items():
+        from_node, to_node = edge_key
+        # Ensure alphabetical order for node_a, node_b
+        node_a, node_b = (
+            (from_node, to_node)
+            if from_node < to_node
+            else (to_node, from_node)
+        )
+
+        # Skip if already in averaged DataFrame
+        if (node_a, node_b) in averaged_pairs:
+            continue
+
+        # Determine true edge type from perspective of (node_a, node_b)
+        if edge_type == EdgeType.UNDIRECTED:
+            true_edge = "undirected"
+        elif from_node == node_a:
+            true_edge = "a_to_b"
+        else:
+            true_edge = "b_to_a"
+
+        # This edge was completely missed - p_no_edge was 1.0
+        results.append(
+            {
+                "node_a": node_a,
+                "node_b": node_b,
+                "p_a_to_b": 0.0,
+                "p_b_to_a": 0.0,
+                "p_undirected": 0.0,
+                "p_no_edge": 1.0,
+                "true_edge": true_edge,
+                "h_exist": 0.0,
+                "exist_ok": False,
+                "h_orient": 0.0,
+                "orient_ok": None,
+            }
+        )
+
+    # Create DataFrame and format columns
+    df = DataFrame(results)
+    if len(df) == 0:
+        return df
+
+    # Round entropy values to 3 decimal places
+    df["h_exist"] = df["h_exist"].round(3)
+    df["h_orient"] = df["h_orient"].round(3)
+
+    # Reorder columns: true_edge after p_no_edge,
+    # exist_ok after h_exist
+    column_order = [
+        "node_a",
+        "node_b",
+        "p_a_to_b",
+        "p_b_to_a",
+        "p_undirected",
+        "p_no_edge",
+        "true_edge",
+        "h_exist",
+        "exist_ok",
+        "h_orient",
+        "orient_ok",
+    ]
+    return DataFrame(df[column_order])

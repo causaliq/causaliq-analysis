@@ -1,11 +1,97 @@
 """Command-line interface for causaliq-analysis."""
 
+from math import isnan
 from pathlib import Path
+from typing import Optional
 
 import click
+from pandas import DataFrame
 
 from . import __version__
 from .validation import parse_sample_size, parse_seeds_cli
+
+
+def _interpret_correlation(corr: float) -> str:
+    """Return interpretation label for a correlation coefficient."""
+    abs_corr = abs(corr)
+    if abs_corr >= 0.8:
+        return "very strong"
+    elif abs_corr >= 0.6:
+        return "strong"
+    elif abs_corr >= 0.4:
+        return "moderate"
+    elif abs_corr >= 0.2:
+        return "weak"
+    else:
+        return "negligible"
+
+
+def _report_entropy_correlations(df: DataFrame) -> None:
+    """Report correlation between entropy measures and correctness."""
+    # Existence correlation: h_exist vs exist_ok
+    exist_data = df[["h_exist", "exist_ok"]].dropna()
+    if len(exist_data) > 1:
+        # Check for zero variance before computing correlation
+        h_exist_var = exist_data["h_exist"].var()
+        exist_ok_var = exist_data["exist_ok"].astype(float).var()
+
+        if h_exist_var == 0 and exist_ok_var == 0:
+            click.echo(
+                "  h_exist vs exist_ok: cannot compute "
+                "(no variance in h_exist or exist_ok)"
+            )
+        elif h_exist_var == 0:
+            click.echo(
+                "  h_exist vs exist_ok: cannot compute (h_exist variance = 0)"
+            )
+        elif exist_ok_var == 0:
+            click.echo(
+                "  h_exist vs exist_ok: cannot compute (exist_ok variance= 0)"
+            )
+        else:
+            corr_exist = exist_data["h_exist"].corr(
+                exist_data["exist_ok"].astype(float)
+            )
+            if not isnan(corr_exist):
+                interp = _interpret_correlation(corr_exist)
+                click.echo(
+                    f"  h_exist vs exist_ok correlation: "
+                    f"{corr_exist:.3f} ({interp})"
+                )
+
+    # Orientation correlation: h_orient vs orient_ok
+    # Only for rows where orient_ok is not None (edge exists in both)
+    orient_data = df[["h_orient", "orient_ok"]].dropna()
+    if len(orient_data) > 1:
+        # Check for zero variance before computing correlation
+        h_orient_var = orient_data["h_orient"].var()
+        orient_ok_var = orient_data["orient_ok"].astype(float).var()
+
+        if h_orient_var == 0 and orient_ok_var == 0:
+            click.echo(
+                "  h_orient vs orient_ok: cannot compute "
+                "(no variance in h_orient or orient_ok)"
+            )
+        elif h_orient_var == 0:
+            click.echo(
+                "  h_orient vs orient_ok: cannot compute "
+                "(no variance in h_orient)"
+            )
+        elif orient_ok_var == 0:
+            click.echo(
+                "  h_orient vs orient_ok: cannot compute "
+                "(no variance in orient_ok)"
+            )
+        else:
+            corr_orient = orient_data["h_orient"].corr(
+                orient_data["orient_ok"].astype(float)
+            )
+            if not isnan(corr_orient):
+                interp = _interpret_correlation(corr_orient)
+                click.echo(
+                    f"  h_orient vs orient_ok correlation: "
+                    f"{corr_orient:.3f} ({interp})"
+                )
 
 
 @click.group(name="causaliq-analysis")
@@ -49,6 +135,14 @@ def cli() -> None:
     type=click.Path(exists=True),
     help="Root directory containing experiment traces",
 )
+@click.option(
+    "--true-graph",
+    "true_graph",
+    default=None,
+    type=click.Path(),
+    help="Path to true graph (.xdsl or .dsc) relative to --root-dir. "
+    "If provided, adds comparison columns to output.",
+)
 def graph_average_cmd(
     network: str,
     sample_size: str,
@@ -57,6 +151,7 @@ def graph_average_cmd(
     output: str,
     series: str,
     root_dir: str,
+    true_graph: Optional[str],
 ) -> None:
     """
     Compute edge probabilities by averaging graphs across multiple experiments.
@@ -65,8 +160,18 @@ def graph_average_cmd(
         cqalys graph-average --network=asia --N=10k --seeds=0,1
                              --basis=pdag --output=average.csv
                              --series=TABU/SAMPLE/BASE --root-dir=experiments
+
+        # With ground truth comparison:
+        cqalys graph-average --network=asia --N=10k --seeds=0,1
+                             --basis=pdag --output=average.csv
+                             --series=TABU/SAMPLE/BASE --root-dir=experiments
+                             --true-graph=networks/asia.xdsl
     """
-    from causaliq_analysis.graph import _validate_average_params, average
+    from causaliq_analysis.graph import (
+        _validate_average_params,
+        average,
+        compare_to_truth,
+    )
     from causaliq_analysis.trace import Trace
 
     # Parse sample size (handle formats like "10k", "100k", or plain integers)
@@ -135,6 +240,27 @@ def graph_average_cmd(
         )
     except Exception as e:
         raise click.ClickException(f"Failed to compute average: {e}")
+
+    # Compare to ground truth if provided
+    if true_graph:
+        from causaliq_core.bn.io import read_bn
+
+        true_graph_path = Path(root_dir) / true_graph
+        if not true_graph_path.exists():
+            raise click.ClickException(
+                f"True graph file not found: {true_graph_path}"
+            )
+        try:
+            true_dag = read_bn(str(true_graph_path)).dag
+            df = compare_to_truth(df, true_dag)
+            click.echo(f"Compared against true graph: {true_graph}")
+
+            # Report correlation between entropy and correctness
+            _report_entropy_correlations(df)
+        except Exception as e:
+            raise click.ClickException(
+                f"Failed to load or compare true graph: {e}"
+            )
 
     # Write output
     try:

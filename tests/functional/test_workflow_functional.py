@@ -105,10 +105,8 @@ def test_workflow_action_sample_size_required():
 
 
 # Test traces not found error in workflow action
-def test_workflow_action_traces_not_found():
+def test_workflow_action_traces_not_found(monkeypatch):
     """Test that workflow action handles case when no traces are found."""
-    from unittest.mock import patch
-
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
         CausalIQAnalysisAction,
@@ -126,15 +124,16 @@ def test_workflow_action_traces_not_found():
     }
 
     # Mock Trace.read to return None (no traces found)
-    with patch(
-        "causaliq_analysis.workflow_action.Trace.read", return_value=None
+    monkeypatch.setattr(
+        "causaliq_analysis.workflow_action.Trace.read",
+        lambda partial_id, root_dir: None,
+    )
+    with pytest.raises(
+        ActionExecutionError,
+        match="No traces found for nonexistent_series/nonexistent_network",
     ):
-        with pytest.raises(
-            ActionExecutionError,
-            match="No traces found for nonexistent_series/nonexistent_network",
-        ):
-            # Use "run" mode to actually try loading traces
-            action.run(inputs, mode="run")
+        # Use "run" mode to actually try loading traces
+        action.run(inputs, mode="run")
 
 
 # Test different ways to specify trace file patterns

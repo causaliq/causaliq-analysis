@@ -814,3 +814,242 @@ def test_average_function_b_to_a_edge():
 
     # At least one direction should be non-zero
     assert row["p_a_to_b"] + row["p_b_to_a"] > 0
+
+
+# -----------------------------------------------------------------------------
+# Tests for --true-graph CLI option
+# -----------------------------------------------------------------------------
+
+
+def test_graph_average_with_true_graph_success(
+    cli_runner, monkeypatch, tmp_path
+):
+    """Test successful comparison against true graph."""
+    import pandas as pd
+    from causaliq_core.graph import DAG
+
+    # Mock trace data
+    mock_traces = {
+        "asia_N1000_0": type("MockTrace", (), {"context": {"N": 1000}})(),
+    }
+
+    # Mock average result (multiple rows to trigger correlation calculation)
+    mock_df = pd.DataFrame(
+        {
+            "node_a": ["A", "B", "C"],
+            "node_b": ["B", "C", "D"],
+            "p_a_to_b": [0.9, 0.6, 0.3],
+            "p_b_to_a": [0.1, 0.3, 0.6],
+            "p_undirected": [0.0, 0.0, 0.0],
+            "p_no_edge": [0.0, 0.1, 0.1],
+            "h_exist": [0.0, 0.3, 0.5],
+            "h_orient": [0.469, 0.722, 0.9],
+        }
+    )
+
+    # Mock compare_to_truth result
+    mock_compared_df = mock_df.copy()
+    mock_compared_df["true_edge"] = ["a_to_b", "a_to_b", "b_to_a"]
+    mock_compared_df["exist_ok"] = [True, True, False]
+    mock_compared_df["orient_ok"] = [True, False, False]
+
+    # Mock BN with dag property
+    mock_dag = DAG(
+        ["A", "B", "C", "D"],
+        [("A", "->", "B"), ("B", "->", "C"), ("D", "->", "C")],
+    )
+    mock_bn = type("MockBN", (), {"dag": mock_dag})()
+
+    def mock_trace_read(partial_id, root_dir):
+        return mock_traces
+
+    def mock_validate_params(sample_size, pdag, seeds):
+        pass
+
+    def mock_average(traces, sample_size, pdag, seeds):
+        return mock_df
+
+    def mock_read_bn(path):
+        return mock_bn
+
+    def mock_compare_to_truth(averaged, true_graph):
+        return mock_compared_df
+
+    monkeypatch.setattr("causaliq_analysis.trace.Trace.read", mock_trace_read)
+    monkeypatch.setattr(
+        "causaliq_analysis.graph._validate_average_params",
+        mock_validate_params,
+    )
+    monkeypatch.setattr("causaliq_analysis.graph.average", mock_average)
+    monkeypatch.setattr("causaliq_core.bn.io.read_bn", mock_read_bn)
+    monkeypatch.setattr(
+        "causaliq_analysis.graph.compare_to_truth",
+        mock_compare_to_truth,
+    )
+
+    output_file = tmp_path / "test_output.csv"
+    root_dir = tmp_path / "root"
+    root_dir.mkdir()
+
+    # Create a fake true graph file
+    true_graph_file = root_dir / "networks" / "asia.xdsl"
+    true_graph_file.parent.mkdir(parents=True)
+    true_graph_file.write_text("<fake>content</fake>")
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "graph-average",
+            "--network=asia",
+            "--N=1000",
+            "--seeds=0",
+            "--basis=dag",
+            f"--output={output_file}",
+            "--series=TABU/SAMPLE/BASE",
+            f"--root-dir={root_dir}",
+            "--true-graph=networks/asia.xdsl",
+        ],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert "Compared against true graph: networks/asia.xdsl" in result.output
+    assert "h_exist vs exist_ok correlation:" in result.output
+    assert "h_orient vs orient_ok correlation:" in result.output
+    assert output_file.exists()
+
+
+def test_graph_average_true_graph_not_found(cli_runner, monkeypatch, tmp_path):
+    """Test error when true graph file doesn't exist."""
+    import pandas as pd
+
+    # Mock trace data
+    mock_traces = {
+        "asia_N1000_0": type("MockTrace", (), {"context": {"N": 1000}})(),
+    }
+
+    # Mock average result
+    mock_df = pd.DataFrame(
+        {
+            "node_a": ["A"],
+            "node_b": ["B"],
+            "p_a_to_b": [0.9],
+            "p_b_to_a": [0.1],
+            "p_undirected": [0.0],
+            "p_no_edge": [0.0],
+            "h_exist": [0.0],
+            "h_orient": [0.469],
+        }
+    )
+
+    def mock_trace_read(partial_id, root_dir):
+        return mock_traces
+
+    def mock_validate_params(sample_size, pdag, seeds):
+        pass
+
+    def mock_average(traces, sample_size, pdag, seeds):
+        return mock_df
+
+    monkeypatch.setattr("causaliq_analysis.trace.Trace.read", mock_trace_read)
+    monkeypatch.setattr(
+        "causaliq_analysis.graph._validate_average_params",
+        mock_validate_params,
+    )
+    monkeypatch.setattr("causaliq_analysis.graph.average", mock_average)
+
+    output_file = tmp_path / "test_output.csv"
+    root_dir = tmp_path / "root"
+    root_dir.mkdir()
+
+    # Don't create the true graph file - it should fail
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "graph-average",
+            "--network=asia",
+            "--N=1000",
+            "--seeds=0",
+            "--basis=dag",
+            f"--output={output_file}",
+            "--series=TABU/SAMPLE/BASE",
+            f"--root-dir={root_dir}",
+            "--true-graph=networks/nonexistent.xdsl",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "True graph file not found" in result.output
+
+
+def test_graph_average_true_graph_load_error(
+    cli_runner, monkeypatch, tmp_path
+):
+    """Test error when true graph fails to load."""
+    import pandas as pd
+
+    # Mock trace data
+    mock_traces = {
+        "asia_N1000_0": type("MockTrace", (), {"context": {"N": 1000}})(),
+    }
+
+    # Mock average result
+    mock_df = pd.DataFrame(
+        {
+            "node_a": ["A"],
+            "node_b": ["B"],
+            "p_a_to_b": [0.9],
+            "p_b_to_a": [0.1],
+            "p_undirected": [0.0],
+            "p_no_edge": [0.0],
+            "h_exist": [0.0],
+            "h_orient": [0.469],
+        }
+    )
+
+    def mock_trace_read(partial_id, root_dir):
+        return mock_traces
+
+    def mock_validate_params(sample_size, pdag, seeds):
+        pass
+
+    def mock_average(traces, sample_size, pdag, seeds):
+        return mock_df
+
+    def mock_read_bn(path):
+        raise ValueError("Invalid file format")
+
+    monkeypatch.setattr("causaliq_analysis.trace.Trace.read", mock_trace_read)
+    monkeypatch.setattr(
+        "causaliq_analysis.graph._validate_average_params",
+        mock_validate_params,
+    )
+    monkeypatch.setattr("causaliq_analysis.graph.average", mock_average)
+    monkeypatch.setattr("causaliq_core.bn.io.read_bn", mock_read_bn)
+
+    output_file = tmp_path / "test_output.csv"
+    root_dir = tmp_path / "root"
+    root_dir.mkdir()
+
+    # Create a fake true graph file (but mock will fail to load it)
+    true_graph_file = root_dir / "networks" / "bad.xdsl"
+    true_graph_file.parent.mkdir(parents=True)
+    true_graph_file.write_text("invalid content")
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "graph-average",
+            "--network=asia",
+            "--N=1000",
+            "--seeds=0",
+            "--basis=dag",
+            f"--output={output_file}",
+            "--series=TABU/SAMPLE/BASE",
+            f"--root-dir={root_dir}",
+            "--true-graph=networks/bad.xdsl",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to load or compare true graph" in result.output

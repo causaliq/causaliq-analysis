@@ -111,10 +111,10 @@ def test_core_graph_functionality():
 
 
 # Test workflow_action module import with successful causaliq_workflow imports
-def test_workflow_action_successful_imports():
+def test_workflow_action_successful_imports(monkeypatch):
     """Test workflow_action module when causaliq_workflow imports succeed."""
     import sys
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock
 
     # Create mock classes
     mock_action = MagicMock()
@@ -124,34 +124,38 @@ def test_workflow_action_successful_imports():
     mock_workflow_context = MagicMock()
 
     # Mock the causaliq_workflow modules to simulate successful imports
-    with patch.dict(
-        "sys.modules",
-        {
-            "causaliq_workflow": MagicMock(),
-            "causaliq_workflow.action": MagicMock(
-                Action=mock_action,
-                ActionExecutionError=mock_action_execution_error,
-                ActionInput=mock_action_input,
-            ),
-            "causaliq_workflow.logger": MagicMock(
-                WorkflowLogger=mock_workflow_logger
-            ),
-            "causaliq_workflow.registry": MagicMock(
-                WorkflowContext=mock_workflow_context
-            ),
-        },
-    ):
-        # Remove workflow_action from cache if it exists
-        workflow_action_module = "causaliq_analysis.workflow_action"
-        if workflow_action_module in sys.modules:
-            del sys.modules[workflow_action_module]
+    monkeypatch.setitem(sys.modules, "causaliq_workflow", MagicMock())
+    monkeypatch.setitem(
+        sys.modules,
+        "causaliq_workflow.action",
+        MagicMock(
+            Action=mock_action,
+            ActionExecutionError=mock_action_execution_error,
+            ActionInput=mock_action_input,
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "causaliq_workflow.logger",
+        MagicMock(WorkflowLogger=mock_workflow_logger),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "causaliq_workflow.registry",
+        MagicMock(WorkflowContext=mock_workflow_context),
+    )
 
-        # Import should succeed with WORKFLOW_AVAILABLE = True
-        import causaliq_analysis.workflow_action as workflow_action
+    # Remove workflow_action from cache if it exists
+    workflow_action_module = "causaliq_analysis.workflow_action"
+    if workflow_action_module in sys.modules:
+        monkeypatch.delitem(sys.modules, workflow_action_module)
 
-        # Verify successful import path was taken (lines 36-39 covered)
-        assert workflow_action.WORKFLOW_AVAILABLE is True
+    # Import should succeed with WORKFLOW_AVAILABLE = True
+    import causaliq_analysis.workflow_action as workflow_action
 
-        # Verify the workflow action class is available
-        assert hasattr(workflow_action, "CausalIQAnalysisAction")
-        assert hasattr(workflow_action, "CausalIQAction")
+    # Verify successful import path was taken (lines 36-39 covered)
+    assert workflow_action.WORKFLOW_AVAILABLE is True
+
+    # Verify the workflow action class is available
+    assert hasattr(workflow_action, "CausalIQAnalysisAction")
+    assert hasattr(workflow_action, "CausalIQAction")
