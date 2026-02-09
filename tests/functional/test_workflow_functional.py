@@ -144,8 +144,7 @@ def test_workflow_traces_pattern_building(monkeypatch):
     action = CausalIQAnalysisAction()
 
     class MockLogger:
-        def log_task(self, message):
-            pass
+        is_terminal_logging = True
 
     mock_logger = MockLogger()
 
@@ -181,8 +180,7 @@ def test_workflow_result_path_generation():
     action = CausalIQAnalysisAction()
 
     class MockLogger:
-        def log_task(self, message):
-            pass
+        is_terminal_logging = True
 
     mock_logger = MockLogger()
 
@@ -222,8 +220,7 @@ def test_workflow_parameter_expansion_compatibility():
     }
 
     class MockLogger:
-        def log_task(self, message):
-            pass
+        is_terminal_logging = True
 
     mock_logger = MockLogger()
 
@@ -256,10 +253,7 @@ def test_workflow_conservative_execution(monkeypatch):
 
         class MockLogger:
             def __init__(self):
-                self.calls = []
-
-            def log_task(self, message):
-                self.calls.append(message)
+                self.is_terminal_logging = True
 
         mock_logger = MockLogger()
 

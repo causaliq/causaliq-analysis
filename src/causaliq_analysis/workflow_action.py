@@ -19,9 +19,9 @@ WORKFLOW_AVAILABLE = False
 if TYPE_CHECKING:  # pragma: no cover
     # Import types for type checking only (mypy sees these)
     from causaliq_workflow.action import (
-        Action,
         ActionExecutionError,
         ActionInput,
+        CausalIQAction,
     )
     from causaliq_workflow.logger import WorkflowLogger
     from causaliq_workflow.registry import WorkflowContext
@@ -29,9 +29,9 @@ else:
     # Runtime imports with fallback stubs (Python executes this)
     try:
         from causaliq_workflow.action import (
-            Action,
             ActionExecutionError,
             ActionInput,
+            CausalIQAction,
         )
         from causaliq_workflow.logger import WorkflowLogger
         from causaliq_workflow.registry import WorkflowContext
@@ -39,7 +39,7 @@ else:
         WORKFLOW_AVAILABLE = True
     except ImportError:
         # Define minimal stubs for runtime when workflow not installed
-        class Action:
+        class CausalIQAction:  # type: ignore[no-redef]
             pass
 
         class ActionExecutionError(Exception):
@@ -71,7 +71,7 @@ from causaliq_analysis.validation import (  # noqa: E402
 )
 
 
-class CausalIQAnalysisAction(Action):
+class CausalIQAnalysisAction(CausalIQAction):
     """
     CausalIQ Analysis action for workflow integration.
 
@@ -246,8 +246,8 @@ class CausalIQAnalysisAction(Action):
 
             # Dry-run mode: just validate and report
             if mode == "dry-run":
-                if logger:
-                    logger.log_task(
+                if logger and logger.is_terminal_logging:
+                    print(
                         f"Would average graphs for {partial_id} "
                         f"with N={sample_size}, basis={basis}"
                     )
@@ -259,10 +259,8 @@ class CausalIQAnalysisAction(Action):
 
             # Check if output exists (for run mode conservative execution)
             if mode == "run" and result_path_obj.exists():
-                if logger:
-                    logger.log_task(
-                        f"Output {result_path} already exists, skipping"
-                    )
+                if logger and logger.is_terminal_logging:
+                    print(f"Output {result_path} already exists, skipping")
                 return {
                     "result_file": str(result_path_obj),
                     "num_graphs": 0,
@@ -270,8 +268,8 @@ class CausalIQAnalysisAction(Action):
                 }
 
             # Load traces
-            if logger:
-                logger.log_task(f"Loading traces from {partial_id}...")
+            if logger and logger.is_terminal_logging:
+                print(f"Loading traces from {partial_id}...")
 
             traces = Trace.read(partial_id=partial_id, root_dir=root_dir)
             if traces is None:
@@ -280,8 +278,8 @@ class CausalIQAnalysisAction(Action):
                 )
 
             # Compute average
-            if logger:
-                logger.log_task(
+            if logger and logger.is_terminal_logging:
+                print(
                     f"Computing average for N={sample_size}, "
                     f"basis={basis}, seeds={seed_tuple}..."
                 )
@@ -297,10 +295,8 @@ class CausalIQAnalysisAction(Action):
             result_path_obj.parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(result_path_obj, index=False)
 
-            if logger:
-                logger.log_task(
-                    f"Edge probabilities written to {result_path_obj}"
-                )
+            if logger and logger.is_terminal_logging:
+                print(f"Edge probabilities written to {result_path_obj}")
 
             return {
                 "result_file": str(result_path_obj),
@@ -310,7 +306,3 @@ class CausalIQAnalysisAction(Action):
 
         except Exception as e:
             raise ActionExecutionError(f"Graph averaging failed: {e}") from e
-
-
-# Export as CausalIQAction for workflow auto-discovery
-CausalIQAction = CausalIQAnalysisAction

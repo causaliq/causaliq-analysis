@@ -63,8 +63,8 @@ causaliq-workflow is available."""
     assert hasattr(causaliq_analysis, "_validate_average_params")
 
     # Workflow integration should also be available
-    assert hasattr(causaliq_analysis, "CausalIQAction")
-    assert "CausalIQAction" in causaliq_analysis.__all__
+    assert hasattr(causaliq_analysis, "CausalIQAnalysisAction")
+    assert "CausalIQAnalysisAction" in causaliq_analysis.__all__
 
 
 # Test package version and metadata are always available
@@ -108,6 +108,60 @@ def test_core_graph_functionality():
     # Should be in exports
     assert "average" in causaliq_analysis.__all__
     assert "_validate_average_params" in causaliq_analysis.__all__
+
+
+# Test workflow_action module fallback stubs when causaliq_workflow unavailable
+def test_workflow_action_fallback_stubs(monkeypatch):
+    """Test workflow_action defines fallback stubs if workflow unavailable."""
+    import sys
+
+    # Remove any cached modules
+    modules_to_remove = [
+        m
+        for m in list(sys.modules.keys())
+        if m.startswith("causaliq_workflow")
+        or m.startswith("causaliq_analysis")
+    ]
+    for module in modules_to_remove:
+        monkeypatch.delitem(sys.modules, module)
+
+    # Make causaliq_workflow.action raise ImportError
+    import builtins
+
+    original_import = builtins.__import__
+
+    def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name.startswith("causaliq_workflow"):
+            raise ImportError(f"No module named '{name}'")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
+    # Import workflow_action - should use fallback stubs
+    from causaliq_analysis import workflow_action
+
+    # Verify fallback path was taken
+    assert workflow_action.WORKFLOW_AVAILABLE is False
+
+    # Verify stub classes exist
+    assert hasattr(workflow_action, "CausalIQAction")
+    assert hasattr(workflow_action, "ActionExecutionError")
+    assert hasattr(workflow_action, "ActionInput")
+    assert hasattr(workflow_action, "WorkflowContext")
+    assert hasattr(workflow_action, "WorkflowLogger")
+
+    # Verify ActionExecutionError is an Exception subclass
+    assert issubclass(workflow_action.ActionExecutionError, Exception)
+
+    # Verify ActionInput is a dataclass with expected fields
+    action_input = workflow_action.ActionInput(
+        name="test", description="test desc"
+    )
+    assert action_input.name == "test"
+    assert action_input.description == "test desc"
+    assert action_input.required is False
+    assert action_input.default is None
+    assert action_input.type_hint == "Any"
 
 
 # Test workflow_action module import with successful causaliq_workflow imports

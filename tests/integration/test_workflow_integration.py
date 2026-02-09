@@ -65,20 +65,18 @@ def test_parse_sample_size_various_formats():
     """Test sample size parsing with various input formats."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
-
-    action = CausalIQAnalysisAction()
+    from causaliq_analysis.validation import parse_sample_size
 
     # Test integer input
-    assert action._parse_sample_size(1000) == 1000
+    assert parse_sample_size(1000) == 1000
 
     # Test string formats
-    assert action._parse_sample_size("1000") == 1000
-    assert action._parse_sample_size("10k") == 10000
-    assert action._parse_sample_size("10K") == 10000
-    assert action._parse_sample_size("1.5k") == 1500
-    assert action._parse_sample_size("2m") == 2000000
-    assert action._parse_sample_size("2M") == 2000000
+    assert parse_sample_size("1000") == 1000
+    assert parse_sample_size("10k") == 10000
+    assert parse_sample_size("10K") == 10000
+    assert parse_sample_size("1.5k") == 1500
+    assert parse_sample_size("2m") == 2000000
+    assert parse_sample_size("2M") == 2000000
 
 
 # Test sample size parsing with invalid formats
@@ -86,15 +84,13 @@ def test_parse_sample_size_invalid_formats():
     """Test sample size parsing with invalid formats."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
-
-    action = CausalIQAnalysisAction()
+    from causaliq_analysis.validation import parse_sample_size
 
     with pytest.raises(ValueError):
-        action._parse_sample_size("invalid")
+        parse_sample_size("invalid")
 
     with pytest.raises(ValueError):
-        action._parse_sample_size([1000])
+        parse_sample_size([1000])
 
 
 # Test seeds parsing with various input formats
@@ -102,17 +98,15 @@ def test_parse_seeds_various_formats():
     """Test seeds parsing with various input formats."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
-
-    action = CausalIQAnalysisAction()
+    from causaliq_analysis.validation import parse_seeds_workflow
 
     # Test different input types
-    assert action._parse_seeds((0, 1)) == (0, 1)
-    assert action._parse_seeds([0, 1]) == (0, 1)
-    assert action._parse_seeds("0,1") == (0, 1)
-    assert action._parse_seeds("0, 1, 2") == (0, 1, 2)
-    assert action._parse_seeds("") == ()
-    assert action._parse_seeds(None) == ()
+    assert parse_seeds_workflow((0, 1)) == (0, 1)
+    assert parse_seeds_workflow([0, 1]) == (0, 1)
+    assert parse_seeds_workflow("0,1") == (0, 1)
+    assert parse_seeds_workflow("0, 1, 2") == (0, 1, 2)
+    assert parse_seeds_workflow("") == ()
+    assert parse_seeds_workflow(None) == ()
 
 
 # Test seeds parsing with invalid formats
@@ -120,15 +114,13 @@ def test_parse_seeds_invalid_formats():
     """Test seeds parsing with invalid formats."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
-
-    action = CausalIQAnalysisAction()
+    from causaliq_analysis.validation import parse_seeds_workflow
 
     with pytest.raises(ValueError):
-        action._parse_seeds("invalid,seeds")
+        parse_seeds_workflow("invalid,seeds")
 
     with pytest.raises(ValueError):
-        action._parse_seeds({"not": "valid"})
+        parse_seeds_workflow({"not": "valid"})
 
 
 # Test workflow action in dry-run mode
@@ -153,9 +145,7 @@ def test_workflow_action_dry_run_mode(monkeypatch):
     class MockLogger:
         def __init__(self):
             self.calls = []
-
-        def log_task(self, message):
-            self.calls.append(message)
+            self.is_terminal_logging = True
 
     mock_logger = MockLogger()
 
@@ -181,9 +171,6 @@ def test_workflow_action_dry_run_mode(monkeypatch):
     assert "status" in result
     assert result["status"] == "dry-run"
     assert result["num_graphs"] == 0
-
-    # Verify logging
-    assert len(mock_logger.calls) == 1
 
 
 # Test workflow action in run mode when output already exists
@@ -215,10 +202,7 @@ def test_workflow_action_run_mode_with_existing_output():
 
         class MockLogger:
             def __init__(self):
-                self.calls = []
-
-            def log_task(self, message):
-                self.calls.append(message)
+                self.is_terminal_logging = True
 
         mock_logger = MockLogger()
 
@@ -227,9 +211,6 @@ def test_workflow_action_run_mode_with_existing_output():
         # Verify skipped execution
         assert result["status"] == "skipped"
         assert result["num_graphs"] == 0
-
-        # Verify logging about skipping
-        assert len(mock_logger.calls) == 1
     finally:
         # Clean up test file
         if result_path.exists():
@@ -313,10 +294,7 @@ def test_full_workflow_execution_with_real_data():
 
         class MockLogger:
             def __init__(self):
-                self.calls = []
-
-            def log_task(self, message):
-                self.calls.append(message)
+                self.is_terminal_logging = True
 
         mock_logger = MockLogger()
 
@@ -341,9 +319,6 @@ def test_full_workflow_execution_with_real_data():
             ]
             for col in expected_columns:
                 assert col in df.columns
-
-        # Verify logging occurred
-        assert len(mock_logger.calls) >= 1
 
     finally:
         # Clean up generated result file
@@ -377,10 +352,7 @@ def test_workflow_action_with_trace_data():
 
     class MockLogger:
         def __init__(self):
-            self.calls = []
-
-        def log_task(self, message):
-            self.calls.append(message)
+            self.is_terminal_logging = True
 
     mock_logger = MockLogger()
 
@@ -390,31 +362,28 @@ def test_workflow_action_with_trace_data():
     assert result["status"] == "dry-run"
     assert result["num_graphs"] == 0
     assert "result_file" in result
-    assert len(mock_logger.calls) >= 1
 
 
-# Test that CausalIQAction alias exists for auto-discovery
-def test_causaliq_action_alias():
-    """Test that CausalIQAction alias exists for auto-discovery."""
+# Test that CausalIQAction base class is imported correctly
+def test_causaliq_action_base_class():
+    """Test that CausalIQAction base class is imported from workflow."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import (
-        CausalIQAction,
-        CausalIQAnalysisAction,
-    )
+    from causaliq_workflow import CausalIQAction
 
-    # Verify the alias points to the correct class
-    assert CausalIQAction is CausalIQAnalysisAction
+    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
+
+    # Verify CausalIQAnalysisAction inherits from CausalIQAction
+    assert issubclass(CausalIQAnalysisAction, CausalIQAction)
 
 
 # Test that workflow action is exported from main package when available
 def test_workflow_action_in_package_exports():
-    """Test that workflow action is exported from main package \
-when available."""
+    """Test that CausalIQAnalysisAction is exported from main package."""
     pytest.importorskip("causaliq_workflow")
 
     import causaliq_analysis
 
     # Should be available in __all__ when workflow is installed
-    assert "CausalIQAction" in causaliq_analysis.__all__
-    assert hasattr(causaliq_analysis, "CausalIQAction")
+    assert "CausalIQAnalysisAction" in causaliq_analysis.__all__
+    assert hasattr(causaliq_analysis, "CausalIQAnalysisAction")
