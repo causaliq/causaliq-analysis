@@ -42,9 +42,9 @@ def test_workflow_yaml_parsing():
 # Test workflow action metadata is correctly defined
 def test_workflow_action_metadata():
     """Test workflow action metadata is correctly defined."""
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     # Verify metadata
     assert action.name == "causaliq-analysis"
@@ -64,22 +64,18 @@ def test_workflow_action_input_validation(monkeypatch):
     """Test that workflow action validates inputs correctly."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
-        CausalIQAnalysisAction,
+        AnalysisActionProvider,
     )
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
-    # Test missing operation
-    with pytest.raises(ActionExecutionError):
-        action.run({}, mode="dry-run")
-
-    # Test invalid operation
-    with pytest.raises(ActionExecutionError, match="Unknown operation"):
-        action.run({"operation": "invalid-op"}, mode="dry-run")
+    # Test invalid action
+    with pytest.raises(ActionExecutionError, match="Unknown action"):
+        action.run("invalid-op", {}, mode="dry-run")
 
     # Test missing required parameters for graph-average
     with pytest.raises(ActionExecutionError):
-        action.run({"operation": "graph-average"}, mode="dry-run")
+        action.run("graph-average", {}, mode="dry-run")
 
 
 # Test sample_size validation in workflow action
@@ -87,21 +83,20 @@ def test_workflow_action_sample_size_required():
     """Test that workflow action requires sample_size parameter."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
-        CausalIQAnalysisAction,
+        AnalysisActionProvider,
     )
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     # Test missing sample_size (None) - should trigger the specific error
-    inputs = {
-        "operation": "graph-average",
+    parameters = {
         "series": "test_series",
         "network": "test_network",
         # sample_size is missing/None
     }
 
     with pytest.raises(ActionExecutionError, match="sample_size is required"):
-        action.run(inputs, mode="dry-run")
+        action.run("graph-average", parameters, mode="dry-run")
 
 
 # Test traces not found error in workflow action
@@ -109,14 +104,13 @@ def test_workflow_action_traces_not_found(monkeypatch):
     """Test that workflow action handles case when no traces are found."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
-        CausalIQAnalysisAction,
+        AnalysisActionProvider,
     )
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
-    # Valid inputs but traces won't be found
-    inputs = {
-        "operation": "graph-average",
+    # Valid parameters but traces won't be found
+    parameters = {
         "series": "nonexistent_series",
         "network": "nonexistent_network",
         "sample_size": 1000,
@@ -133,15 +127,15 @@ def test_workflow_action_traces_not_found(monkeypatch):
         match="No traces found for nonexistent_series/nonexistent_network",
     ):
         # Use "run" mode to actually try loading traces
-        action.run(inputs, mode="run")
+        action.run("graph-average", parameters, mode="run")
 
 
 # Test different ways to specify trace file patterns
 def test_workflow_traces_pattern_building(monkeypatch):
     """Test different ways to specify trace file patterns."""
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     class MockLogger:
         is_terminal_logging = True
@@ -149,43 +143,44 @@ def test_workflow_traces_pattern_building(monkeypatch):
     mock_logger = MockLogger()
 
     # Test with direct traces pattern
-    inputs = {
-        "operation": "graph-average",
+    parameters = {
         "traces": "TABU/SAMPLE/BASE/asia.pkl.gz",
         "sample_size": "10k",
         "seeds": "0,1",
     }
 
-    result = action.run(inputs, mode="dry-run", logger=mock_logger)
+    result = action.run(
+        "graph-average", parameters, mode="dry-run", logger=mock_logger
+    )
     assert result["status"] == "dry-run"
 
     # Test with series + network
-    inputs = {
-        "operation": "graph-average",
+    parameters = {
         "series": "TABU/SAMPLE/BASE",
         "network": "asia",
         "sample_size": "10k",
         "seeds": "0,1",
     }
 
-    result = action.run(inputs, mode="dry-run", logger=mock_logger)
+    result = action.run(
+        "graph-average", parameters, mode="dry-run", logger=mock_logger
+    )
     assert result["status"] == "dry-run"
 
 
 # Test automatic result path generation
 def test_workflow_result_path_generation():
     """Test automatic result path generation."""
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     class MockLogger:
         is_terminal_logging = True
 
     mock_logger = MockLogger()
 
-    inputs = {
-        "operation": "graph-average",
+    parameters = {
         "root_dir": "/test/experiments",
         "series": "TABU/SAMPLE/BASE",
         "network": "asia",
@@ -193,7 +188,9 @@ def test_workflow_result_path_generation():
         "seeds": "0,1",
     }
 
-    result = action.run(inputs, mode="dry-run", logger=mock_logger)
+    result = action.run(
+        "graph-average", parameters, mode="dry-run", logger=mock_logger
+    )
 
     # Should generate default output path
     # (normalize path separators for Windows)
@@ -205,13 +202,12 @@ def test_workflow_result_path_generation():
 # Test that parameter values work with typical workflow templating
 def test_workflow_parameter_expansion_compatibility():
     """Test that parameter values work with typical workflow templating."""
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     # Simulate template expansion
-    expanded_inputs = {
-        "operation": "graph-average",
+    expanded_parameters = {
         "series": "TABU/SAMPLE/BASE",
         "network": "asia",
         "sample_size": "10k",
@@ -224,7 +220,12 @@ def test_workflow_parameter_expansion_compatibility():
 
     mock_logger = MockLogger()
 
-    result = action.run(expanded_inputs, mode="dry-run", logger=mock_logger)
+    result = action.run(
+        "graph-average",
+        expanded_parameters,
+        mode="dry-run",
+        logger=mock_logger,
+    )
     assert result["status"] == "dry-run"
     assert "asia_10k.csv" in result["result_file"]
 
@@ -234,16 +235,15 @@ def test_workflow_conservative_execution(monkeypatch):
     """Test conservative execution behavior (skip if output exists)."""
     import pandas as pd
 
-    from causaliq_analysis.workflow_action import CausalIQAnalysisAction
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     with tempfile.TemporaryDirectory() as temp_dir:
         result_file = Path(temp_dir) / "existing_result.csv"
         result_file.write_text("existing,data\n1,2")
 
-        inputs = {
-            "operation": "graph-average",
+        parameters = {
             "series": "TABU/SAMPLE/BASE",
             "network": "asia",
             "sample_size": "10k",
@@ -258,7 +258,9 @@ def test_workflow_conservative_execution(monkeypatch):
         mock_logger = MockLogger()
 
         # Run mode should skip if output exists
-        result = action.run(inputs, mode="run", logger=mock_logger)
+        result = action.run(
+            "graph-average", parameters, mode="run", logger=mock_logger
+        )
         assert result["status"] == "skipped"
 
         # Compare mode should re-run regardless
@@ -296,21 +298,27 @@ def test_workflow_conservative_execution(monkeypatch):
         if "causaliq_analysis.workflow_action" in sys.modules:
             del sys.modules["causaliq_analysis.workflow_action"]
 
-        from causaliq_analysis import workflow_action  # noqa: F401
-        from causaliq_analysis.workflow_action import (
-            CausalIQAnalysisAction as ReloadedAction,
-        )
+        try:
+            from causaliq_analysis import workflow_action  # noqa: F401
+            from causaliq_analysis.workflow_action import (
+                AnalysisActionProvider as ReloadedAction,
+            )
 
-        action_reloaded = ReloadedAction()
+            action_reloaded = ReloadedAction()
 
-        # Provide root_dir to avoid path validation before mock intercepts
-        inputs["root_dir"] = temp_dir
+            # Provide root_dir to avoid path validation before mock intercepts
+            parameters["root_dir"] = temp_dir
 
-        result = action_reloaded.run(
-            inputs, mode="compare", logger=mock_logger
-        )
-        assert result["status"] == "success"
-        assert result["num_graphs"] == 5  # Length of mock traces dict
+            result = action_reloaded.run(
+                "graph-average", parameters, mode="compare", logger=mock_logger
+            )
+            assert result["status"] == "success"
+            assert result["num_graphs"] == 5  # Length of mock traces dict
+        finally:
+            # Clean up reloaded module so subsequent tests get fresh import
+            # without the mocked bindings
+            if "causaliq_analysis.workflow_action" in sys.modules:
+                del sys.modules["causaliq_analysis.workflow_action"]
 
 
 # Test error handling in workflow execution
@@ -318,14 +326,13 @@ def test_workflow_error_handling():
     """Test error handling in workflow execution."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
-        CausalIQAnalysisAction,
+        AnalysisActionProvider,
     )
 
-    action = CausalIQAnalysisAction()
+    action = AnalysisActionProvider()
 
     # Test with invalid sample size formats
-    inputs = {
-        "operation": "graph-average",
+    parameters = {
         "series": "TABU/SAMPLE/BASE",
         "network": "asia",
         "sample_size": "invalid_size",
@@ -333,11 +340,10 @@ def test_workflow_error_handling():
     }
 
     with pytest.raises(ActionExecutionError):
-        action.run(inputs, mode="dry-run")
+        action.run("graph-average", parameters, mode="dry-run")
 
     # Test with invalid seeds format
-    inputs = {
-        "operation": "graph-average",
+    parameters = {
         "series": "TABU/SAMPLE/BASE",
         "network": "asia",
         "sample_size": "10k",
@@ -345,7 +351,7 @@ def test_workflow_error_handling():
     }
 
     with pytest.raises(ActionExecutionError):
-        action.run(inputs, mode="dry-run")
+        action.run("graph-average", parameters, mode="dry-run")
 
 
 # Test that sample workflow definitions are functional
@@ -367,4 +373,4 @@ def test_sample_workflow_definitions():
             if "uses" in step:
                 assert step["uses"] == "causaliq-analysis"
             if "with" in step:
-                assert step["with"]["operation"] == "graph-average"
+                assert step["with"]["action"] == "graph-average"

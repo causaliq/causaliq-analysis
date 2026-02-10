@@ -25,7 +25,8 @@ from causaliq_analysis.graph import (  # noqa: E402, F401
 # Import workflow action for auto-discovery (if causaliq-workflow is installed)
 try:
     from causaliq_analysis.workflow_action import (  # noqa: E402, F401
-        CausalIQAnalysisAction,
+        ActionProvider,
+        AnalysisActionProvider,
     )
 
     __all__ = [
@@ -35,7 +36,8 @@ try:
         "VERSION",
         "average",
         "_validate_average_params",
-        "CausalIQAnalysisAction",
+        "ActionProvider",
+        "AnalysisActionProvider",
     ]
 except ImportError:
     # causaliq-workflow not installed, skip workflow integration

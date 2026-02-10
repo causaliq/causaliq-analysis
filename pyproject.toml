@@ -31,11 +31,11 @@ classifiers = [
 keywords = ["causaliq"]
 requires-python = ">=3.9"
 dependencies = [
-    "causaliq-workflow>=0.1.1.dev5",
+    "causaliq-workflow>=0.1.1.dev7",
     "click>=8.0.0",
     "causaliq-core",
     "causaliq-data",
-    "causaliq-knowledge>=0.3.0",
+    "causaliq-knowledge>=0.4.0",
     "compress-pickle",
 ]
 

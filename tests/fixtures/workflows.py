@@ -10,7 +10,7 @@ steps:
   - name: "Graph averaging"
     uses: "causaliq-analysis"
     with:
-      operation: "graph-average"
+      action: "graph-average"
       network: "test_network"
       sample_size: "1k"
       basis: "pdag"
@@ -32,7 +32,7 @@ steps:
   - name: "Graph averaging"
     uses: "causaliq-analysis"
     with:
-      operation: "graph-average"
+      action: "graph-average"
       basis: "pdag"
       seeds: "0,1"
       traces: "{{series}}/{{network}}.pkl.gz"
@@ -51,7 +51,7 @@ steps:
   - name: "Graph averaging"
     uses: "causaliq-analysis"
     with:
-      operation: "graph-average"
+      action: "graph-average"
       basis: "pdag"
       seeds: "0,1"
       traces: "{{series}}/{{network}}.pkl.gz"

@@ -21,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from causaliq_workflow.action import (
         ActionExecutionError,
         ActionInput,
-        CausalIQAction,
+        BaseActionProvider,
     )
     from causaliq_workflow.logger import WorkflowLogger
     from causaliq_workflow.registry import WorkflowContext
@@ -31,7 +31,7 @@ else:
         from causaliq_workflow.action import (
             ActionExecutionError,
             ActionInput,
-            CausalIQAction,
+            BaseActionProvider,
         )
         from causaliq_workflow.logger import WorkflowLogger
         from causaliq_workflow.registry import WorkflowContext
@@ -39,7 +39,7 @@ else:
         WORKFLOW_AVAILABLE = True
     except ImportError:
         # Define minimal stubs for runtime when workflow not installed
-        class CausalIQAction:  # type: ignore[no-redef]
+        class BaseActionProvider:  # type: ignore[no-redef]
             pass
 
         class ActionExecutionError(Exception):
@@ -71,15 +71,15 @@ from causaliq_analysis.validation import (  # noqa: E402
 )
 
 
-class CausalIQAnalysisAction(CausalIQAction):
+class AnalysisActionProvider(BaseActionProvider):
     """
-    CausalIQ Analysis action for workflow integration.
+    CausalIQ Analysis action provider for workflow integration.
 
     Supports multiple operations on causal graphs including:
     - graph-average: Compute edge probabilities across multiple learned graphs
     """
 
-    # Action metadata
+    # Provider metadata
     name = "causaliq-analysis"
     version = "0.2.0"
     description = "Analysis and visualization of causal graphs"
@@ -87,9 +87,9 @@ class CausalIQAnalysisAction(CausalIQAction):
 
     # Input specifications
     inputs = {
-        "operation": ActionInput(
-            name="operation",
-            description="Operation to perform (e.g., 'graph-average')",
+        "action": ActionInput(
+            name="action",
+            description="Action to perform (e.g., 'graph-average')",
             required=True,
             type_hint="str",
         ),
@@ -160,7 +160,8 @@ class CausalIQAnalysisAction(CausalIQAction):
 
     def run(
         self,
-        inputs: Dict[str, Any],
+        action: str,
+        parameters: Dict[str, Any],
         mode: str = "dry-run",
         context: Optional[WorkflowContext] = None,
         logger: Optional[WorkflowLogger] = None,
@@ -169,7 +170,8 @@ class CausalIQAnalysisAction(CausalIQAction):
         Execute the analysis action.
 
         Args:
-            inputs: Action input parameters
+            action: Action to perform (e.g., 'graph-average')
+            parameters: Action parameter values
             mode: Execution mode ('dry-run', 'run', 'compare')
             context: Workflow context for optimization
             logger: Optional logger for reporting
@@ -180,34 +182,32 @@ class CausalIQAnalysisAction(CausalIQAction):
         Raises:
             ActionExecutionError: If execution fails
         """
-        operation = inputs.get("operation", "").lower()
-
-        if operation == "graph-average":
-            return self._run_graph_average(inputs, mode, context, logger)
+        if action == "graph-average":
+            return self._run_graph_average(parameters, mode, context, logger)
         else:
             raise ActionExecutionError(
-                f"Unknown operation: {operation}. "
-                f"Supported operations: graph-average"
+                f"Unknown action: {action}. "
+                f"Supported actions: graph-average"
             )
 
     def _run_graph_average(
         self,
-        inputs: Dict[str, Any],
+        parameters: Dict[str, Any],
         mode: str,
         context: Optional[WorkflowContext],
         logger: Optional[WorkflowLogger],
     ) -> Dict[str, Any]:
         """Execute graph averaging operation."""
         try:
-            # Extract and validate inputs
-            traces_pattern = inputs.get("traces")
-            root_dir = inputs.get("root_dir", "experiments")
-            series = inputs.get("series")
-            network = inputs.get("network")
-            sample_size_input = inputs.get("sample_size")
-            basis = inputs.get("basis", "dag")
-            seeds_input = inputs.get("seeds", "")
-            result_path = inputs.get("result")
+            # Extract and validate parameters
+            traces_pattern = parameters.get("traces")
+            root_dir = parameters.get("root_dir", "experiments")
+            series = parameters.get("series")
+            network = parameters.get("network")
+            sample_size_input = parameters.get("sample_size")
+            basis = parameters.get("basis", "dag")
+            seeds_input = parameters.get("seeds", "")
+            result_path = parameters.get("result")
 
             # Build trace path pattern
             if traces_pattern:
@@ -306,3 +306,7 @@ class CausalIQAnalysisAction(CausalIQAction):
 
         except Exception as e:
             raise ActionExecutionError(f"Graph averaging failed: {e}") from e
+
+
+# Export as ActionProvider for auto-discovery by causaliq-workflow
+ActionProvider = AnalysisActionProvider
