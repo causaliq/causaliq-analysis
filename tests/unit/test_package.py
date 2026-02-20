@@ -45,8 +45,8 @@ def test_package_graceful_degradation_without_workflow(monkeypatch):
     assert "_validate_average_params" in causaliq_analysis.__all__
 
     # Workflow integration should not be available
-    assert "BaseActionProvider" not in causaliq_analysis.__all__
-    assert not hasattr(causaliq_analysis, "BaseActionProvider")
+    assert "CausalIQActionProvider" not in causaliq_analysis.__all__
+    assert not hasattr(causaliq_analysis, "CausalIQActionProvider")
 
 
 # Test package properly exports workflow integration when available
@@ -146,7 +146,7 @@ def test_workflow_action_fallback_stubs(monkeypatch):
     assert workflow_action.WORKFLOW_AVAILABLE is False
 
     # Verify stub classes exist
-    assert hasattr(workflow_action, "BaseActionProvider")
+    assert hasattr(workflow_action, "CausalIQActionProvider")
     assert hasattr(workflow_action, "ActionExecutionError")
     assert hasattr(workflow_action, "ActionInput")
     assert hasattr(workflow_action, "WorkflowContext")
@@ -215,4 +215,4 @@ def test_workflow_action_successful_imports(monkeypatch):
     # Verify the workflow action class is available
     assert hasattr(workflow_action, "AnalysisActionProvider")
     assert hasattr(workflow_action, "ActionProvider")
-    assert hasattr(workflow_action, "BaseActionProvider")
+    assert hasattr(workflow_action, "CausalIQActionProvider")

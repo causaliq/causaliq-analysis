@@ -18,20 +18,22 @@ WORKFLOW_AVAILABLE = False
 # optional causaliq_workflow package isn't installed.
 if TYPE_CHECKING:  # pragma: no cover
     # Import types for type checking only (mypy sees these)
-    from causaliq_workflow.action import (
+    from causaliq_core import (
         ActionExecutionError,
         ActionInput,
-        BaseActionProvider,
+        ActionResult,
+        CausalIQActionProvider,
     )
     from causaliq_workflow.logger import WorkflowLogger
     from causaliq_workflow.registry import WorkflowContext
 else:
     # Runtime imports with fallback stubs (Python executes this)
     try:
-        from causaliq_workflow.action import (
+        from causaliq_core import (
             ActionExecutionError,
             ActionInput,
-            BaseActionProvider,
+            ActionResult,
+            CausalIQActionProvider,
         )
         from causaliq_workflow.logger import WorkflowLogger
         from causaliq_workflow.registry import WorkflowContext
@@ -39,11 +41,14 @@ else:
         WORKFLOW_AVAILABLE = True
     except ImportError:
         # Define minimal stubs for runtime when workflow not installed
-        class BaseActionProvider:  # type: ignore[no-redef]
+        class CausalIQActionProvider:  # type: ignore[no-redef]
             pass
 
         class ActionExecutionError(Exception):
             pass
+
+        # Type alias stub for ActionResult
+        ActionResult = tuple  # type: ignore[misc]
 
         @dataclass
         class ActionInput:
@@ -71,7 +76,7 @@ from causaliq_analysis.validation import (  # noqa: E402
 )
 
 
-class AnalysisActionProvider(BaseActionProvider):
+class AnalysisActionProvider(CausalIQActionProvider):
     """
     CausalIQ Analysis action provider for workflow integration.
 
@@ -165,7 +170,7 @@ class AnalysisActionProvider(BaseActionProvider):
         mode: str = "dry-run",
         context: Optional[WorkflowContext] = None,
         logger: Optional[WorkflowLogger] = None,
-    ) -> Dict[str, Any]:
+    ) -> ActionResult:
         """
         Execute the analysis action.
 
@@ -177,7 +182,7 @@ class AnalysisActionProvider(BaseActionProvider):
             logger: Optional logger for reporting
 
         Returns:
-            Dictionary of outputs
+            Tuple of (status, metadata, objects)
 
         Raises:
             ActionExecutionError: If execution fails
@@ -196,7 +201,7 @@ class AnalysisActionProvider(BaseActionProvider):
         mode: str,
         context: Optional[WorkflowContext],
         logger: Optional[WorkflowLogger],
-    ) -> Dict[str, Any]:
+    ) -> ActionResult:
         """Execute graph averaging operation."""
         try:
             # Extract and validate parameters
@@ -251,21 +256,29 @@ class AnalysisActionProvider(BaseActionProvider):
                         f"Would average graphs for {partial_id} "
                         f"with N={sample_size}, basis={basis}"
                     )
-                return {
-                    "result_file": str(result_path_obj),
-                    "num_graphs": 0,
-                    "status": "dry-run",
-                }
+                return (
+                    "skipped",
+                    {
+                        "message": "Dry-run mode",
+                        "result_file": str(result_path_obj),
+                        "num_graphs": 0,
+                    },
+                    [],
+                )
 
             # Check if output exists (for run mode conservative execution)
             if mode == "run" and result_path_obj.exists():
                 if logger and logger.is_terminal_logging:
                     print(f"Output {result_path} already exists, skipping")
-                return {
-                    "result_file": str(result_path_obj),
-                    "num_graphs": 0,
-                    "status": "skipped",
-                }
+                return (
+                    "skipped",
+                    {
+                        "message": "Output already exists",
+                        "result_file": str(result_path_obj),
+                        "num_graphs": 0,
+                    },
+                    [],
+                )
 
             # Load traces
             if logger and logger.is_terminal_logging:
@@ -298,11 +311,14 @@ class AnalysisActionProvider(BaseActionProvider):
             if logger and logger.is_terminal_logging:
                 print(f"Edge probabilities written to {result_path_obj}")
 
-            return {
-                "result_file": str(result_path_obj),
-                "num_graphs": len(traces),
-                "status": "success",
-            }
+            return (
+                "success",
+                {
+                    "result_file": str(result_path_obj),
+                    "num_graphs": len(traces),
+                },
+                [],
+            )
 
         except Exception as e:
             raise ActionExecutionError(f"Graph averaging failed: {e}") from e

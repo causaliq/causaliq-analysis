@@ -165,13 +165,13 @@ def test_workflow_action_dry_run_mode(monkeypatch):
     result = action.run(
         "graph-average", parameters, mode="dry-run", logger=mock_logger
     )
+    status, metadata, objects = result
 
     # Verify output structure
-    assert "result_file" in result
-    assert "num_graphs" in result
-    assert "status" in result
-    assert result["status"] == "dry-run"
-    assert result["num_graphs"] == 0
+    assert "result_file" in metadata
+    assert "num_graphs" in metadata
+    assert status == "skipped"
+    assert metadata["num_graphs"] == 0
 
 
 # Test workflow action in run mode when output already exists
@@ -209,10 +209,11 @@ def test_workflow_action_run_mode_with_existing_output():
         result = action.run(
             "graph-average", parameters, mode="run", logger=mock_logger
         )
+        status, metadata, objects = result
 
         # Verify skipped execution
-        assert result["status"] == "skipped"
-        assert result["num_graphs"] == 0
+        assert status == "skipped"
+        assert metadata["num_graphs"] == 0
     finally:
         # Clean up test file
         if result_path.exists():
@@ -295,16 +296,17 @@ def test_full_workflow_execution_with_real_data():
         result = action.run(
             "graph-average", parameters, mode="compare", logger=mock_logger
         )
+        status, metadata, objects = result
 
         # Verify execution results - handle case where no matching traces found
-        assert result["status"] in ["success", "failed"]
-        if result["status"] == "success":
-            assert result["num_graphs"] > 0
-            assert Path(result["result_file"]).exists()
+        assert status in ["success", "error"]
+        if status == "success":
+            assert metadata["num_graphs"] > 0
+            assert Path(metadata["result_file"]).exists()
             # Verify CSV structure if file was created
             import pandas as pd
 
-            df = pd.read_csv(result["result_file"])
+            df = pd.read_csv(metadata["result_file"])
             expected_columns = [
                 "node_a",
                 "node_b",
@@ -355,23 +357,24 @@ def test_workflow_action_with_trace_data():
     result = action.run(
         "graph-average", parameters, mode="dry-run", logger=mock_logger
     )
+    status, metadata, objects = result
 
-    assert result["status"] == "dry-run"
-    assert result["num_graphs"] == 0
-    assert "result_file" in result
+    assert status == "skipped"
+    assert metadata["num_graphs"] == 0
+    assert "result_file" in metadata
 
 
-# Test that BaseActionProvider base class is imported correctly
-def test_base_action_provider_class():
-    """Test that BaseActionProvider base class is imported from workflow."""
+# Test that CausalIQActionProvider base class is imported correctly
+def test_causaliq_action_provider_class():
+    """Test that CausalIQActionProvider base class is imported from core."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_workflow import BaseActionProvider
+    from causaliq_core import CausalIQActionProvider
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    # Verify AnalysisActionProvider inherits from BaseActionProvider
-    assert issubclass(AnalysisActionProvider, BaseActionProvider)
+    # Verify AnalysisActionProvider inherits from CausalIQActionProvider
+    assert issubclass(AnalysisActionProvider, CausalIQActionProvider)
 
 
 # Test that workflow action is exported from main package when available

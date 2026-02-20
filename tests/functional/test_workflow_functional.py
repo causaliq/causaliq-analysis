@@ -152,7 +152,8 @@ def test_workflow_traces_pattern_building(monkeypatch):
     result = action.run(
         "graph-average", parameters, mode="dry-run", logger=mock_logger
     )
-    assert result["status"] == "dry-run"
+    status, metadata, objects = result
+    assert status == "skipped"
 
     # Test with series + network
     parameters = {
@@ -165,7 +166,8 @@ def test_workflow_traces_pattern_building(monkeypatch):
     result = action.run(
         "graph-average", parameters, mode="dry-run", logger=mock_logger
     )
-    assert result["status"] == "dry-run"
+    status, metadata, objects = result
+    assert status == "skipped"
 
 
 # Test automatic result path generation
@@ -191,11 +193,12 @@ def test_workflow_result_path_generation():
     result = action.run(
         "graph-average", parameters, mode="dry-run", logger=mock_logger
     )
+    status, metadata, objects = result
 
     # Should generate default output path
     # (normalize path separators for Windows)
     expected_path = "/test/experiments/TABU/SAMPLE/BASE/asia_10000.csv"
-    actual_path = result["result_file"].replace("\\", "/")
+    actual_path = metadata["result_file"].replace("\\", "/")
     assert actual_path == expected_path
 
 
@@ -226,8 +229,9 @@ def test_workflow_parameter_expansion_compatibility():
         mode="dry-run",
         logger=mock_logger,
     )
-    assert result["status"] == "dry-run"
-    assert "asia_10k.csv" in result["result_file"]
+    status, metadata, objects = result
+    assert status == "skipped"
+    assert "asia_10k.csv" in metadata["result_file"]
 
 
 # Test conservative execution behavior (skip if output exists)
@@ -261,7 +265,8 @@ def test_workflow_conservative_execution(monkeypatch):
         result = action.run(
             "graph-average", parameters, mode="run", logger=mock_logger
         )
-        assert result["status"] == "skipped"
+        status, metadata, objects = result
+        assert status == "skipped"
 
         # Compare mode should re-run regardless
         class MockTrace:
@@ -312,8 +317,9 @@ def test_workflow_conservative_execution(monkeypatch):
             result = action_reloaded.run(
                 "graph-average", parameters, mode="compare", logger=mock_logger
             )
-            assert result["status"] == "success"
-            assert result["num_graphs"] == 5  # Length of mock traces dict
+            status, metadata, objects = result
+            assert status == "success"
+            assert metadata["num_graphs"] == 5  # Length of mock traces dict
         finally:
             # Clean up reloaded module so subsequent tests get fresh import
             # without the mocked bindings
