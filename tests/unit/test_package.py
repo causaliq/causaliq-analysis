@@ -39,10 +39,8 @@ def test_package_graceful_degradation_without_workflow(monkeypatch):
     import causaliq_analysis
 
     # Core functionality should be available
-    assert hasattr(causaliq_analysis, "average")
-    assert hasattr(causaliq_analysis, "_validate_average_params")
-    assert "average" in causaliq_analysis.__all__
-    assert "_validate_average_params" in causaliq_analysis.__all__
+    assert hasattr(causaliq_analysis, "merge_graphs")
+    assert "merge_graphs" in causaliq_analysis.__all__
 
     # Workflow integration should not be available
     assert "CausalIQActionProvider" not in causaliq_analysis.__all__
@@ -59,8 +57,7 @@ causaliq-workflow is available."""
     import causaliq_analysis
 
     # Core functionality should be available
-    assert hasattr(causaliq_analysis, "average")
-    assert hasattr(causaliq_analysis, "_validate_average_params")
+    assert hasattr(causaliq_analysis, "merge_graphs")
 
     # Workflow integration should also be available
     assert hasattr(causaliq_analysis, "ActionProvider")
@@ -95,21 +92,19 @@ def test_package_metadata():
     assert len(causaliq_analysis.VERSION) >= 2
 
 
-# Test core graph functionality is always available
-def test_core_graph_functionality():
-    """Test core graph functionality is always available."""
+# Test core merge functionality is always available
+def test_core_merge_functionality():
+    """Test core merge functionality is always available."""
     import causaliq_analysis
 
-    # Core graph functions should be available
-    from causaliq_analysis import _validate_average_params, average
+    # Core merge function should be available
+    from causaliq_analysis import merge_graphs
 
     # Should be callable
-    assert callable(average)
-    assert callable(_validate_average_params)
+    assert callable(merge_graphs)
 
     # Should be in exports
-    assert "average" in causaliq_analysis.__all__
-    assert "_validate_average_params" in causaliq_analysis.__all__
+    assert "merge_graphs" in causaliq_analysis.__all__
 
 
 # Test workflow_action module fallback stubs when causaliq_workflow unavailable

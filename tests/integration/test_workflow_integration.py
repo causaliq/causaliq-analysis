@@ -1,7 +1,7 @@
 """
 Integration tests for causaliq-analysis workflow action functionality.
 
-These tests verify that the CausalIQAnalysisAction works correctly when
+These tests verify that the AnalysisActionProvider works correctly when
 causaliq-workflow is available, testing the full integration between
 the two packages.
 """
@@ -14,7 +14,7 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
-# Test that workflow action can be imported when workflow is available
+# Test that workflow action can be imported when workflow is available.
 def test_workflow_action_import():
     """Test that workflow action can be imported when workflow is available."""
     # Skip if workflow package not available
@@ -25,10 +25,10 @@ def test_workflow_action_import():
     action = AnalysisActionProvider()
     assert action.name == "causaliq-analysis"
     assert action.version == "0.3.0"
-    assert "causal graphs" in action.description
+    assert "causal graph" in action.description
 
 
-# Test that workflow action has proper input specifications
+# Test that workflow action has proper input specifications.
 def test_workflow_action_inputs_specification():
     """Test that workflow action has proper input specifications."""
     pytest.importorskip("causaliq_workflow")
@@ -42,12 +42,10 @@ def test_workflow_action_inputs_specification():
     assert action.inputs["action"].required is True
 
     # Check optional inputs with defaults
-    assert "basis" in action.inputs
-    assert action.inputs["basis"].default == "dag"
     assert action.inputs["root_dir"].default == "experiments"
 
 
-# Test that workflow action has proper output specifications
+# Test that workflow action has proper output specifications.
 def test_workflow_action_outputs_specification():
     """Test that workflow action has proper output specifications."""
     pytest.importorskip("causaliq_workflow")
@@ -56,12 +54,12 @@ def test_workflow_action_outputs_specification():
 
     action = AnalysisActionProvider()
 
-    # Check core outputs exist (may have additional outputs for new actions)
-    core_outputs = {"result_file", "num_graphs", "status"}
+    # Check core outputs exist
+    core_outputs = {"num_graphs", "status", "skipped"}
     assert core_outputs.issubset(set(action.outputs.keys()))
 
 
-# Test sample size parsing with various input formats
+# Test sample size parsing with various input formats.
 def test_parse_sample_size_various_formats():
     """Test sample size parsing with various input formats."""
     pytest.importorskip("causaliq_workflow")
@@ -80,7 +78,7 @@ def test_parse_sample_size_various_formats():
     assert parse_sample_size("2M") == 2000000
 
 
-# Test sample size parsing with invalid formats
+# Test sample size parsing with invalid formats.
 def test_parse_sample_size_invalid_formats():
     """Test sample size parsing with invalid formats."""
     pytest.importorskip("causaliq_workflow")
@@ -94,7 +92,7 @@ def test_parse_sample_size_invalid_formats():
         parse_sample_size([1000])
 
 
-# Test seeds parsing with various input formats
+# Test seeds parsing with various input formats.
 def test_parse_seeds_various_formats():
     """Test seeds parsing with various input formats."""
     pytest.importorskip("causaliq_workflow")
@@ -110,7 +108,7 @@ def test_parse_seeds_various_formats():
     assert parse_seeds_workflow(None) == ()
 
 
-# Test seeds parsing with invalid formats
+# Test seeds parsing with invalid formats.
 def test_parse_seeds_invalid_formats():
     """Test seeds parsing with invalid formats."""
     pytest.importorskip("causaliq_workflow")
@@ -124,104 +122,7 @@ def test_parse_seeds_invalid_formats():
         parse_seeds_workflow({"not": "valid"})
 
 
-# Test workflow action in dry-run mode
-def test_workflow_action_dry_run_mode(monkeypatch):
-    """Test workflow action in dry-run mode."""
-    pytest.importorskip("causaliq_workflow")
-
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    action = AnalysisActionProvider()
-
-    parameters = {
-        "series": "TABU/SAMPLE/BASE",
-        "network": "asia",
-        "sample_size": "10k",
-        "basis": "pdag",
-        "seeds": "0,1",
-    }
-
-    # Mock logger
-    class MockLogger:
-        def __init__(self):
-            self.calls = []
-            self.is_terminal_logging = True
-
-    mock_logger = MockLogger()
-
-    # Mock trace and average functions that should not be called
-    class MockTrace:
-        @staticmethod
-        def read(partial_id, root_dir):
-            raise AssertionError("Should not be called in dry-run mode")
-
-    def mock_average_func(*args, **kwargs):
-        raise AssertionError("Should not be called in dry-run mode")
-
-    monkeypatch.setattr("causaliq_analysis.workflow_action.Trace", MockTrace)
-    monkeypatch.setattr(
-        "causaliq_analysis.workflow_action.average", mock_average_func
-    )
-
-    result = action.run(
-        "graph-average", parameters, mode="dry-run", logger=mock_logger
-    )
-    status, metadata, objects = result
-
-    # Verify output structure
-    assert "result_file" in metadata
-    assert "num_graphs" in metadata
-    assert status == "skipped"
-    assert metadata["num_graphs"] == 0
-
-
-# Test workflow action in run mode when output already exists
-def test_workflow_action_run_mode_with_existing_output():
-    """Test workflow action in run mode when output already exists."""
-    pytest.importorskip("causaliq_workflow")
-
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    action = AnalysisActionProvider()
-
-    # Use tracked test data directory
-    test_data_dir = Path(__file__).parent.parent / "data" / "integration"
-    test_data_dir.mkdir(exist_ok=True)
-
-    # Create existing output file in the test data directory
-    result_path = test_data_dir / "existing_result.csv"
-    result_path.write_text("existing,data")
-
-    try:
-        parameters = {
-            "root_dir": str(test_data_dir.parent / "functional" / "trace"),
-            "series": "TABU/BASE3",
-            "network": "covid_c",
-            "sample_size": "1000",
-            "result": str(result_path),
-        }
-
-        class MockLogger:
-            def __init__(self):
-                self.is_terminal_logging = True
-
-        mock_logger = MockLogger()
-
-        result = action.run(
-            "graph-average", parameters, mode="run", logger=mock_logger
-        )
-        status, metadata, objects = result
-
-        # Verify skipped execution
-        assert status == "skipped"
-        assert metadata["num_graphs"] == 0
-    finally:
-        # Clean up test file
-        if result_path.exists():
-            result_path.unlink()
-
-
-# Test workflow action with unknown action
+# Test workflow action with unknown action.
 def test_workflow_action_unknown_action():
     """Test workflow action with unknown action."""
     pytest.importorskip("causaliq_workflow")
@@ -237,7 +138,7 @@ def test_workflow_action_unknown_action():
         action.run("unknown-action", {}, mode="run")
 
 
-# Test workflow action with missing required parameters
+# Test workflow action with missing required parameters.
 def test_workflow_action_missing_required_parameters():
     """Test workflow action with missing required parameters."""
     pytest.importorskip("causaliq_workflow")
@@ -249,123 +150,12 @@ def test_workflow_action_missing_required_parameters():
 
     action = AnalysisActionProvider()
 
-    # Missing required parameters for graph-average
-    with pytest.raises(ActionExecutionError):
-        action.run("graph-average", {}, mode="run")
+    # Missing required parameters for migrate_trace
+    with pytest.raises(ActionExecutionError, match="Must provide"):
+        action.run("migrate_trace", {}, mode="run")
 
 
-# Test full workflow execution with real trace data (slow test)
-@pytest.mark.slow
-def test_full_workflow_execution_with_real_data():
-    """Test full workflow execution using tracked trace data files."""
-    pytest.importorskip("causaliq_workflow")
-
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    action = AnalysisActionProvider()
-
-    # Use tracked test data
-    test_data_dir = (
-        Path(__file__).parent.parent / "data" / "functional" / "trace"
-    )
-    if not (test_data_dir / "TABU" / "BASE3" / "covid_c.pkl.gz").exists():
-        pytest.skip("Test trace data not available")
-
-    # Create output directory in integration test data
-    output_dir = Path(__file__).parent.parent / "data" / "integration"
-    output_dir.mkdir(exist_ok=True)
-
-    result_file = output_dir / "covid_c_test_result.csv"
-
-    try:
-        parameters = {
-            "root_dir": str(test_data_dir),
-            "series": "TABU/BASE3",
-            "network": "covid_c",
-            "sample_size": "1000",  # Will need to match what's in the trace
-            "basis": "pdag",
-            "seeds": "",  # Use all available seeds
-            "result": str(result_file),
-        }
-
-        class MockLogger:
-            def __init__(self):
-                self.is_terminal_logging = True
-
-        mock_logger = MockLogger()
-
-        result = action.run(
-            "graph-average", parameters, mode="compare", logger=mock_logger
-        )
-        status, metadata, objects = result
-
-        # Verify execution results - handle case where no matching traces found
-        assert status in ["success", "error"]
-        if status == "success":
-            assert metadata["num_graphs"] > 0
-            assert Path(metadata["result_file"]).exists()
-            # Verify CSV structure if file was created
-            import pandas as pd
-
-            df = pd.read_csv(metadata["result_file"])
-            expected_columns = [
-                "node_a",
-                "node_b",
-                "p_a_to_b",
-                "p_b_to_a",
-                "p_undirected",
-                "p_no_edge",
-            ]
-            for col in expected_columns:
-                assert col in df.columns
-
-    finally:
-        # Clean up generated result file
-        if result_file.exists():
-            result_file.unlink()
-
-
-# Test workflow action with partial trace data
-def test_workflow_action_with_trace_data():
-    """Test workflow action behavior with real trace files."""
-    pytest.importorskip("causaliq_workflow")
-
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    action = AnalysisActionProvider()
-
-    # Use tracked test data
-    test_data_dir = (
-        Path(__file__).parent.parent / "data" / "functional" / "trace"
-    )
-
-    # Test with a known trace file pattern that should exist
-    parameters = {
-        "root_dir": str(test_data_dir),
-        "traces": "TABU/BASE3/covid_c.pkl.gz",
-        "sample_size": "1000",
-        "basis": "dag",
-        "seeds": "",
-    }
-
-    class MockLogger:
-        def __init__(self):
-            self.is_terminal_logging = True
-
-    mock_logger = MockLogger()
-
-    # Test dry-run mode - should not fail regardless of trace content
-    result = action.run(
-        "graph-average", parameters, mode="dry-run", logger=mock_logger
-    )
-    status, metadata, objects = result
-
-    assert status == "skipped"
-    assert metadata["num_graphs"] == 0
-    assert "result_file" in metadata
-
-
-# Test that CausalIQActionProvider base class is imported correctly
+# Test that CausalIQActionProvider base class is imported correctly.
 def test_causaliq_action_provider_class():
     """Test that CausalIQActionProvider base class is imported from core."""
     pytest.importorskip("causaliq_workflow")
@@ -378,7 +168,7 @@ def test_causaliq_action_provider_class():
     assert issubclass(AnalysisActionProvider, CausalIQActionProvider)
 
 
-# Test that workflow action is exported from main package when available
+# Test that workflow action is exported from main package when available.
 def test_workflow_action_in_package_exports():
     """Test that ActionProvider is exported from main package."""
     pytest.importorskip("causaliq_workflow")
@@ -390,3 +180,64 @@ def test_workflow_action_in_package_exports():
     assert hasattr(causaliq_analysis, "ActionProvider")
     assert "AnalysisActionProvider" in causaliq_analysis.__all__
     assert hasattr(causaliq_analysis, "AnalysisActionProvider")
+
+
+# Test migrate_trace in dry-run mode via workflow action.
+def test_migrate_trace_workflow_dry_run():
+    """Test migrate_trace action in dry-run mode."""
+    pytest.importorskip("causaliq_workflow")
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "series": "TABU/STD",
+        "network": "asia",
+    }
+
+    class MockLogger:
+        is_terminal_logging = True
+
+    result = action.run(
+        "migrate_trace", parameters, mode="dry-run", logger=MockLogger()
+    )
+    status, metadata, objects = result
+
+    assert status == "skipped"
+    assert "Dry-run mode" in metadata["message"]
+
+
+# Test migrate_trace workflow action with real trace data.
+def test_migrate_trace_workflow_real_data():
+    """Test migrate_trace action with real trace files."""
+    pytest.importorskip("causaliq_workflow")
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    action = AnalysisActionProvider()
+
+    # Use tracked test data
+    test_data_dir = (
+        Path(__file__).parent.parent / "data" / "functional" / "trace"
+    )
+
+    parameters = {
+        "root_dir": str(test_data_dir),
+        "series": "TABU/STD",
+        "network": "asia",
+        "sample_size": 1000,
+    }
+
+    class MockLogger:
+        is_terminal_logging = True
+
+    result = action.run(
+        "migrate_trace", parameters, mode="run", logger=MockLogger()
+    )
+    status, metadata, objects = result
+
+    assert status == "success"
+    assert metadata["num_graphs"] > 0
+    assert len(objects) > 0
+    assert objects[0]["type"] == "graphml"

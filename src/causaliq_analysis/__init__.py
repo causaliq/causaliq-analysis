@@ -41,10 +41,7 @@ def _parse_version(version_str: str) -> tuple:
 VERSION = _parse_version(__version__)
 
 # Import main functions
-from causaliq_analysis.graph import (  # noqa: E402, F401
-    _validate_average_params,
-    average,
-)
+from causaliq_analysis.merge import merge_graphs  # noqa: E402, F401
 
 # Import workflow action for auto-discovery (if causaliq-workflow is installed)
 try:
@@ -58,8 +55,7 @@ try:
         "__author__",
         "__email__",
         "VERSION",
-        "average",
-        "_validate_average_params",
+        "merge_graphs",
         "ActionProvider",
         "AnalysisActionProvider",
     ]
@@ -70,6 +66,5 @@ except ImportError:
         "__author__",
         "__email__",
         "VERSION",
-        "average",
-        "_validate_average_params",
+        "merge_graphs",
     ]
