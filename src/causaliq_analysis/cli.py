@@ -155,10 +155,18 @@ def _parse_weights(weights_str: Optional[str]) -> Optional[List[float]]:
     help="Comma-separated weights for each input graph. "
     "Must sum to 1.0. Default: uniform weights.",
 )
+@click.option(
+    "--cpdag",
+    is_flag=True,
+    default=False,
+    help="Convert DAGs to CPDAGs before merging. "
+    "Averages over equivalence classes rather than specific orientations.",
+)
 def merge_graphs_cmd(
     inputs: Tuple[str, ...],
     output: str,
     weights: Optional[str],
+    cpdag: bool,
 ) -> None:
     """
     Merge multiple graphs into a single PDG with edge probabilities.
@@ -203,7 +211,9 @@ def merge_graphs_cmd(
     # Merge graphs (graphml.read returns Union[SDG, PDAG, DAG] but
     # merge_graphs handles DAG/PDAG/PDG - SDGs are rare in practice)
     try:
-        merged = merge_graphs(graphs, weights=weights_list)  # type: ignore
+        merged = merge_graphs(
+            graphs, weights=weights_list, cpdag=cpdag  # type: ignore[arg-type]
+        )
     except (TypeError, ValueError) as e:
         raise click.ClickException(f"Merge failed: {e}")
 

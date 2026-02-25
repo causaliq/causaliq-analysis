@@ -13,12 +13,14 @@ from causaliq_core.graph import (
     PDG,
     EdgeProbabilities,
     EdgeType,
+    dag_to_pdag,
 )
 
 
 def merge_graphs(
     graphs: List[Union[DAG, PDAG, PDG]],
     weights: Optional[List[float]] = None,
+    cpdag: bool = False,
 ) -> PDG:
     """Merge multiple graphs into a single PDG with edge probabilities.
 
@@ -30,6 +32,9 @@ def merge_graphs(
         graphs: List of graphs to merge. Must all have identical node sets.
         weights: Optional weights for each graph. Must sum to 1.0 if
             provided. If None, uniform weights (1/n) are used.
+        cpdag: If True, convert DAGs to their CPDAG (equivalence class)
+            before merging. This averages over equivalence classes rather
+            than specific DAG orientations.
 
     Returns:
         PDG with weighted average edge probabilities.
@@ -61,6 +66,10 @@ def merge_graphs(
                 f"graph at index {i} must be DAG, PDAG, or PDG, "
                 f"got {type(graph).__name__}"
             )
+
+    # Convert DAGs to CPDAGs if requested
+    if cpdag:
+        graphs = [dag_to_pdag(g) if isinstance(g, DAG) else g for g in graphs]
 
     # Validate and normalise weights
     if weights is None:

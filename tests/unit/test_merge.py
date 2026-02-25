@@ -276,3 +276,46 @@ def test_bidirected_edge_treated_as_undirected() -> None:
     assert probs.undirected == 1.0
     assert probs.forward == 0.0
     assert probs.backward == 0.0
+
+
+# Test cpdag=True converts DAGs to CPDAGs before merging.
+def test_cpdag_converts_dag_to_equivalence_class() -> None:
+    # A -> B -> C is equivalent to A <- B <- C (same v-structures: none)
+    # Their CPDAG is A - B - C (all undirected)
+    dag1 = DAG(["A", "B", "C"], [("A", "->", "B"), ("B", "->", "C")])
+    dag2 = DAG(["A", "B", "C"], [("C", "->", "B"), ("B", "->", "A")])
+
+    # Without cpdag: distinct directions
+    pdg_no_cpdag = merge_graphs([dag1, dag2], cpdag=False)
+    probs_ab = pdg_no_cpdag.get_probabilities("A", "B")
+    assert probs_ab.forward == 0.5
+    assert probs_ab.backward == 0.5
+
+    # With cpdag: both become A - B - C, so 100% undirected
+    pdg_cpdag = merge_graphs([dag1, dag2], cpdag=True)
+    probs_ab_cpdag = pdg_cpdag.get_probabilities("A", "B")
+    assert probs_ab_cpdag.undirected == 1.0
+    assert probs_ab_cpdag.forward == 0.0
+
+
+# Test cpdag=True with v-structure preserves directed edges.
+def test_cpdag_preserves_v_structure_directions() -> None:
+    # A -> B <- C is a v-structure, CPDAG keeps A -> B <- C
+    dag = DAG(["A", "B", "C"], [("A", "->", "B"), ("C", "->", "B")])
+
+    pdg = merge_graphs([dag], cpdag=True)
+    probs_ab = pdg.get_probabilities("A", "B")
+    probs_cb = pdg.get_probabilities("C", "B")
+    # Both edges should remain directed into B
+    assert probs_ab.forward == 1.0
+    assert probs_cb.forward == 1.0
+
+
+# Test cpdag=False is the default behaviour.
+def test_cpdag_default_false() -> None:
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    pdg = merge_graphs([dag])
+    probs = pdg.get_probabilities("A", "B")
+    # Default: DAG edge kept as directed
+    assert probs.forward == 1.0
+    assert probs.undirected == 0.0

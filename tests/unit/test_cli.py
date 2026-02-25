@@ -145,6 +145,26 @@ def test_merge_graph_with_weights(runner, tmp_path):
     assert output.exists()
 
 
+# Merge-graph with --cpdag flag succeeds.
+def test_merge_graph_with_cpdag(runner, tmp_path):
+    graphml1 = tmp_path / "g1.graphml"
+    graphml1.write_text(
+        '<?xml version="1.0"?><graphml xmlns="http://graphml.graphdrawing.org'
+        '/xmlns"><graph id="G" edgedefault="directed">'
+        '<node id="A"/><node id="B"/>'
+        '<edge source="A" target="B"/></graph></graphml>'
+    )
+
+    output = tmp_path / "merged.graphml"
+    result = runner.invoke(
+        cli,
+        ["merge-graph", str(graphml1), "-o", str(output), "--cpdag"],
+    )
+
+    assert result.exit_code == 0
+    assert output.exists()
+
+
 # Merge-graph fails with mismatched weights count.
 def test_merge_graph_weights_mismatch(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"

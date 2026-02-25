@@ -417,7 +417,7 @@ class Trace:
             N_reqd = 1000000 if test is True else None
             data = NumPy.read(
                 root_dir + "/datasets/" + network + ".data.gz",
-                dstype=dstype,  # type: ignore
+                dstype=dstype,  # type: ignore[arg-type]
                 N=N_reqd,
             )
             N_data = data.N
