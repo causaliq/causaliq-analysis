@@ -69,6 +69,7 @@ from causaliq_analysis.graph import (  # noqa: E402
     _validate_average_params,
     average,
 )
+from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
 from causaliq_analysis.trace import Trace  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
     parse_sample_size,
@@ -82,11 +83,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
     Supports multiple operations on causal graphs including:
     - graph-average: Compute edge probabilities across multiple learned graphs
+    - migrate_trace: Convert legacy Trace files to GraphML format
     """
 
     # Provider metadata
     name = "causaliq-analysis"
-    version = "0.2.0"
+    version = "0.3.0"
     description = "Analysis and visualization of causal graphs"
     author = "CausalIQ"
 
@@ -94,7 +96,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
     inputs = {
         "action": ActionInput(
             name="action",
-            description="Action to perform (e.g., 'graph-average')",
+            description=(
+                "Action to perform: 'graph-average' or 'migrate_trace'"
+            ),
             required=True,
             type_hint="str",
         ),
@@ -159,8 +163,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
     # Output specifications
     outputs = {
         "result_file": "Path to the generated result file",
-        "num_graphs": "Number of graphs averaged",
+        "num_graphs": "Number of graphs processed",
         "status": "Execution status",
+        "skipped": "Number of traces skipped (migrate-trace)",
     }
 
     def run(
@@ -175,7 +180,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         Execute the analysis action.
 
         Args:
-            action: Action to perform (e.g., 'graph-average')
+            action: Action to perform ('graph-average' or 'migrate_trace')
             parameters: Action parameter values
             mode: Execution mode ('dry-run', 'run', 'compare')
             context: Workflow context for optimization
@@ -189,10 +194,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
         """
         if action == "graph-average":
             return self._run_graph_average(parameters, mode, context, logger)
+        elif action == "migrate_trace":
+            return self._run_migrate_trace(parameters, mode, context, logger)
         else:
             raise ActionExecutionError(
                 f"Unknown action: {action}. "
-                f"Supported actions: graph-average"
+                f"Supported actions: graph-average, migrate_trace"
             )
 
     def _run_graph_average(
@@ -322,6 +329,103 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         except Exception as e:
             raise ActionExecutionError(f"Graph averaging failed: {e}") from e
+
+    def _run_migrate_trace(
+        self,
+        parameters: Dict[str, Any],
+        mode: str,
+        context: Optional[WorkflowContext],
+        logger: Optional[WorkflowLogger],
+    ) -> ActionResult:
+        """Execute trace migration to GraphML format."""
+        try:
+            # Extract parameters
+            traces_pattern = parameters.get("traces")
+            root_dir = parameters.get("root_dir", "experiments")
+            series = parameters.get("series")
+            network = parameters.get("network")
+            sample_size_input = parameters.get("sample_size")
+            seeds_input = parameters.get("seeds", "")
+
+            # Build trace path pattern
+            if traces_pattern:
+                partial_id = traces_pattern.replace(".pkl.gz", "")
+            elif series and network:
+                partial_id = f"{series}/{network}"
+            else:
+                raise ActionExecutionError(
+                    "Must provide either 'traces' or both 'series' and "
+                    "'network'"
+                )
+
+            # Parse optional filters
+            sample_size = None
+            if sample_size_input is not None:
+                sample_size = parse_sample_size(sample_size_input)
+
+            seed_tuple = parse_seeds_workflow(seeds_input)
+
+            # Dry-run mode
+            if mode == "dry-run":
+                if logger and logger.is_terminal_logging:
+                    print(f"Would migrate traces from {partial_id}")
+                return (
+                    "skipped",
+                    {
+                        "message": "Dry-run mode",
+                        "num_graphs": 0,
+                    },
+                    [],
+                )
+
+            # Set up logging callback
+            log_fn = None
+            if logger and logger.is_terminal_logging:
+                log_fn = print
+
+            # Run migration - returns content, does not write files
+            result = run_migrate_trace(
+                partial_id=partial_id,
+                root_dir=root_dir,
+                sample_size=sample_size,
+                seeds=seed_tuple if seed_tuple else None,
+                log_fn=log_fn,
+            )
+
+            # Build objects list for cache storage (GraphML only)
+            # Per-graph metadata keyed by object name at top level
+            objects = []
+            metadata: Dict[str, Any] = {
+                "num_graphs": result.num_graphs,
+                "skipped": result.skipped,
+            }
+
+            for graph in result.graphs:
+                # Sanitise trace_id for object name
+                safe_id = graph.trace_id.replace("/", "_").replace("\\", "_")
+
+                # Add GraphML object
+                objects.append(
+                    {
+                        "type": "graphml",
+                        "name": safe_id,
+                        "content": graph.graphml,
+                    }
+                )
+
+                # Per-graph metadata keyed by object name
+                metadata[safe_id] = graph.metadata
+
+            return (
+                "success",
+                metadata,
+                objects,
+            )
+
+        except ValueError as e:
+            raise ActionExecutionError(f"Trace migration failed: {e}") from e
+        except Exception as e:
+            raise ActionExecutionError(f"Trace migration failed: {e}") from e
 
 
 # Export as ActionProvider for auto-discovery by causaliq-workflow

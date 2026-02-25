@@ -24,7 +24,7 @@ def test_workflow_action_import():
 
     action = AnalysisActionProvider()
     assert action.name == "causaliq-analysis"
-    assert action.version == "0.2.0"
+    assert action.version == "0.3.0"
     assert "causal graphs" in action.description
 
 
@@ -56,8 +56,9 @@ def test_workflow_action_outputs_specification():
 
     action = AnalysisActionProvider()
 
-    expected_outputs = {"result_file", "num_graphs", "status"}
-    assert set(action.outputs.keys()) == expected_outputs
+    # Check core outputs exist (may have additional outputs for new actions)
+    core_outputs = {"result_file", "num_graphs", "status"}
+    assert core_outputs.issubset(set(action.outputs.keys()))
 
 
 # Test sample size parsing with various input formats

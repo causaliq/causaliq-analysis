@@ -33,7 +33,7 @@ requires-python = ">=3.9"
 dependencies = [
     "causaliq-workflow>=0.2.0",
     "click>=8.0.0",
-    "causaliq-core>=0.4.0",
+    "causaliq-core>=0.5.0.dev3",
     "causaliq-data",
     "causaliq-knowledge>=0.5.0",
     "compress-pickle",
@@ -78,6 +78,9 @@ Repository = "https://github.com/causaliq/causaliq-analysis"
 [project.scripts]
 causaliq-analysis = "causaliq_analysis.cli:main"
 cqalys = "causaliq_analysis.cli:main"
+
+[project.entry-points."causaliq.actions"]
+causaliq-analysis = "causaliq_analysis:ActionProvider"
 
 [tool.setuptools.dynamic]
 version = {attr = "causaliq_analysis.__version__"}

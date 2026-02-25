@@ -2,7 +2,7 @@
 causaliq-analysis: Tools for analysing and visualising causal graphs
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0.dev1"
 __author__ = "CausalIQ"
 __email__ = "info@causaliq.com"
 
@@ -13,8 +13,32 @@ __description__ = "Tools for analysing and visualising causal graphs"
 __url__ = "https://github.com/causaliq/causaliq-analysis"
 __license__ = "MIT"
 
+
+def _parse_version(version_str: str) -> tuple:
+    """Parse version string to tuple, handling pre-release identifiers.
+
+    Extracts numeric parts from version strings like "0.3.0" or "0.3.0.dev1".
+    Pre-release identifiers (dev, alpha, beta, rc) are ignored for the tuple.
+
+    Args:
+        version_str: Version string (e.g., "0.3.0.dev1").
+
+    Returns:
+        Tuple of integers (e.g., (0, 3, 0)).
+    """
+    parts = []
+    for part in version_str.split("."):
+        # Try to parse as integer, stop at first non-integer part
+        try:
+            parts.append(int(part))
+        except ValueError:
+            # Non-integer part (e.g., "dev1") - stop parsing
+            break
+    return tuple(parts)
+
+
 # Version tuple for programmatic access
-VERSION = tuple(map(int, __version__.split(".")))
+VERSION = _parse_version(__version__)
 
 # Import main functions
 from causaliq_analysis.graph import (  # noqa: E402, F401
