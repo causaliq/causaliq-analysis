@@ -1,6 +1,7 @@
 """Command-line interface for causaliq-analysis."""
 
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 import click
 
@@ -17,7 +18,7 @@ def cli() -> None:
     pass
 
 
-@cli.command(name="migrate_trace")
+@cli.command(name="migrate-trace")
 @click.option("--network", required=True, help="Network name to process")
 @click.option(
     "--series", required=True, help="Series path (e.g., TABU/SAMPLE/BASE)"
@@ -110,6 +111,113 @@ def migrate_trace_cmd(
         raise click.ClickException(str(e))
     except Exception as e:
         raise click.ClickException(f"Migration failed: {e}")
+
+
+def _parse_weights(weights_str: Optional[str]) -> Optional[List[float]]:
+    """Parse comma-separated weights string.
+
+    Args:
+        weights_str: Comma-separated weights (e.g., '0.5,0.3,0.2').
+
+    Returns:
+        List of float weights, or None if input is None/empty.
+
+    Raises:
+        click.ClickException: If weights cannot be parsed.
+    """
+    if not weights_str:
+        return None
+    try:
+        weights = [float(w.strip()) for w in weights_str.split(",")]
+        return weights
+    except ValueError as e:
+        raise click.ClickException(f"Invalid weights format: {e}")
+
+
+@cli.command(name="merge-graph")
+@click.argument(
+    "inputs",
+    nargs=-1,
+    required=True,
+    type=click.Path(exists=True),
+)
+@click.option(
+    "--output",
+    "-o",
+    required=True,
+    type=click.Path(),
+    help="Output file path for merged PDG (GraphML format).",
+)
+@click.option(
+    "--weights",
+    "-w",
+    default=None,
+    help="Comma-separated weights for each input graph. "
+    "Must sum to 1.0. Default: uniform weights.",
+)
+def merge_graphs_cmd(
+    inputs: Tuple[str, ...],
+    output: str,
+    weights: Optional[str],
+) -> None:
+    """
+    Merge multiple graphs into a single PDG with edge probabilities.
+
+    Reads GraphML files and combines them into a Probabilistic Dependency
+    Graph (PDG) using weighted averaging of edge probabilities.
+
+    INPUTS: One or more GraphML files to merge.
+
+    Example:
+        causaliq-analysis merge-graph graph1.graphml graph2.graphml \\
+            -o merged.graphml
+
+        causaliq-analysis merge-graph *.graphml -o out.graphml -w 0.5,0.3,0.2
+    """
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.merge import merge_graphs
+
+    # Parse weights
+    weights_list = _parse_weights(weights)
+
+    # Validate weights count matches inputs
+    if weights_list is not None and len(weights_list) != len(inputs):
+        raise click.ClickException(
+            f"Number of weights ({len(weights_list)}) must match "
+            f"number of input files ({len(inputs)})"
+        )
+
+    # Read input graphs
+    graphs = []
+    for input_path in inputs:
+        try:
+            graph = graphml.read(input_path)
+            graphs.append(graph)
+        except Exception as e:
+            raise click.ClickException(f"Failed to read {input_path}: {e}")
+
+    if not graphs:  # pragma: no cover - Click validates INPUTS is non-empty
+        raise click.ClickException("No input graphs provided")
+
+    # Merge graphs (graphml.read returns Union[SDG, PDAG, DAG] but
+    # merge_graphs handles DAG/PDAG/PDG - SDGs are rare in practice)
+    try:
+        merged = merge_graphs(graphs, weights=weights_list)  # type: ignore
+    except (TypeError, ValueError) as e:
+        raise click.ClickException(f"Merge failed: {e}")
+
+    # Ensure output directory exists
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write merged PDG
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            graphml.write_pdg(merged, f)
+        click.echo(f"Merged {len(graphs)} graphs to {output_path}")
+    except Exception as e:
+        raise click.ClickException(f"Failed to write output: {e}")
 
 
 def main() -> None:

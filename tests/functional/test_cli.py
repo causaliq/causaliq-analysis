@@ -27,7 +27,7 @@ def test_cli_no_args_shows_commands():
     # Click groups return exit code 0 or 2 depending on click version
     assert result.exit_code in (0, 2)
     assert "Commands:" in result.output
-    assert "migrate_trace" in result.output
+    assert "migrate-trace" in result.output
 
 
 # Main function invokes CLI correctly
@@ -88,7 +88,7 @@ def test_migrate_trace_success(cli_runner, tmp_path, monkeypatch):
     result = cli_runner.invoke(
         cli,
         [
-            "migrate_trace",
+            "migrate-trace",
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",
@@ -138,7 +138,7 @@ def test_migrate_trace_with_sample_size(cli_runner, tmp_path, monkeypatch):
     result = cli_runner.invoke(
         cli,
         [
-            "migrate_trace",
+            "migrate-trace",
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",
@@ -185,7 +185,7 @@ def test_migrate_trace_with_skipped(cli_runner, tmp_path, monkeypatch):
     result = cli_runner.invoke(
         cli,
         [
-            "migrate_trace",
+            "migrate-trace",
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",
@@ -215,7 +215,7 @@ def test_migrate_trace_value_error(cli_runner, tmp_path, monkeypatch):
     result = cli_runner.invoke(
         cli,
         [
-            "migrate_trace",
+            "migrate-trace",
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",
@@ -245,7 +245,7 @@ def test_migrate_trace_general_error(cli_runner, tmp_path, monkeypatch):
     result = cli_runner.invoke(
         cli,
         [
-            "migrate_trace",
+            "migrate-trace",
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",

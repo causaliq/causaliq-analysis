@@ -15,7 +15,7 @@ from causaliq_core.utils import environment, is_valid_path, values_same
 from causaliq_core.utils.random import Randomise
 from causaliq_data import NumPy
 from causaliq_data.score import dag_score
-from compress_pickle import dump  # type: ignore
+from compress_pickle import dump  # type: ignore[import-untyped]
 from pandas import DataFrame
 
 from causaliq_analysis.graph import GraphAction, GraphActionDetail
