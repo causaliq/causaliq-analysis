@@ -46,6 +46,8 @@ nav:
   - Roadmap: roadmap.md
   - User Guide:
     - User Guide Introduction: userguide/introduction.md
+    - Trace Migration: userguide/migrate_trace.md
+    - Graph Merging: userguide/merge_graphs.md
   - Architecture: 
     - Architectural Overview: architecture/overview.md
     - Design Notes: 

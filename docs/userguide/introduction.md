@@ -1,8 +1,25 @@
 # CausalIQ Analysis User Guide
 
-The causaliq-analysis package provides commands for analysing and visualising learned causal graphs, including structural metrics, stability assessment, significance tests, and publication-ready tables and charts.
+## Overview
 
-## Graph Averaging
+The causaliq-analysis package provides tools for analysing experimental
+results from causal discovery workflows:
+
+| Capability | Description |
+|------------|-------------|
+| **[Graph Merging](merge_graphs.md)** | Combine multiple DAGs/PDAGs/PDGs into a single PDG with edge probabilities |
+| **Optimal Extraction** | Extract the "best" DAG or CPDAG from a PDG (planned) |
+| **Structural Evaluation** | Compute F1, precision, recall vs true graph (planned) |
+| **Graph Averaging** | Legacy edge probability calculation from Trace files |
+| **Trace Migration** | Convert legacy Trace pickle files to modern format |
+
+These capabilities follow a **summarisation paradigm** that provides
+consistent patterns for aggregating experimental results across different
+dimensions (e.g., network, sample size, algorithm).
+
+---
+
+## Graph Averaging (Legacy)
 
 This provides a simple graph averaging capability which *initially* produces a table of edge probabilities from a set of individual structure learning experiments - for example, where graphs are learned from different sub-samples of a dataset. The feature provides the probability of the four possibilities between nodes A and B:
 

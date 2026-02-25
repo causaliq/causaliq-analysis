@@ -18,12 +18,12 @@ This repo provides tools for analysing and visualising learned causal graphs, in
 
 ## Features
 
-Currently implemented:
+✅ **Implemented Releases**
 
 - **Release v0.1.0 - Foundation Metrics**: CausalIQ and Bayesys structural graph metrics and KL metric.
 - **Release v0.2.0 - Legacy Trace**: Support for reading and writing structure learning traces in legacy pickle format (this will be superseded by a more open format).
 
-Planned releases:
+🛣️ Upcoming Releases
 
 - **Release v0.3.0 - Graph Averaging**: Graph averaging to produce arc probabilities.
 
@@ -114,7 +114,7 @@ This repository is part of the CausalIQ ecosystem. For development setup:
 
 ---
 
-**Supported Python Versions**: 3.9, 3.10, 3.11, 3.12  
+**Supported Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.12  
 **Default Python Version**: 3.11  
 **License**: MIT
 

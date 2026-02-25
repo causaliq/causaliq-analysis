@@ -2,17 +2,26 @@
 
 <!-- add in coverage and CI badges when repo is public -->
 
-![Python Versions](https://img.shields.io/badge/python-3.9%2C%203.10%2C%203.11%2C%203.12-blue)
-
+![Python Versions](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ## Welcome
 
-Welcome to the documentation for CausalIQ Analysis — part of the [CausalIQ ecosystem](https://causaliq.org) for intelligent causal discovery. 
+Welcome to the documentation for CausalIQ Analysis — part of the [CausalIQ ecosystem](https://causaliq.org) for intelligent causal discovery. CausalIQ Analysis provides features for analysing and visualising learned causal graphs, including structural metrics, stability assessment, significance tests, and publication-ready tables and charts.
+
+---
 
 ---
 
 ## Overview
 
-CausalIQ Analysis provides features for analysing and visualising learned causal graphs, including structural metrics, stability assessment, significance tests, and publication-ready tables and charts.
+This site provides detailed documentation, including:
+
+- Development roadmap
+- User guide
+- Architectural vision
+- Design notes
+- API reference for users and contributors
 
 ---
 
@@ -24,11 +33,13 @@ For a quickstart guide and installation instructions, see the [README on GitHub]
 
 ## Documentation Contents
 
-- [Development Roadmap](roadmap.md): roadmap of upcoming features
-- [User Guide](userguide/introduction.md): comprehensive user guide
-- [Architecture](architecture/overview.md): overall architecture and design notes
-- [API Reference](api/overview.md): complete reference for Python code
-- [Development Guidelines](https://github.com/causaliq/causaliq-analysis/blob/main/CONTRIBUTING.md): CausalIQ guidelines for developers
+- [Development Roadmap](roadmap.md): Roadmap of upcoming features
+- **User Guide**:
+    - [Introduction](userguide/introduction.md): Overview and graph averaging
+    - [Graph Merging](userguide/merge_graphs.md): Combining multiple graphs into PDGs
+- [Architecture](architecture/overview.md): Overall architecture and design notes
+- [API Reference](api/overview.md): Complete reference for Python code
+- [Development Guidelines](https://github.com/causaliq/causaliq/blob/main/CONTRIBUTING.md): CausalIQ guidelines for developers
 - [Changelog](https://github.com/causaliq/causaliq-analysis/blob/main/CHANGELOG.md)
 - [License](https://github.com/causaliq/causaliq-analysis/blob/main/LICENSE)
 
@@ -47,5 +58,5 @@ For the latest code and releases, visit the [causaliq-analysis GitHub repository
 
 ---
 
-**Supported Python Versions**: 3.9, 3.10, 3.11, 3.12  
+**Supported Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.13  
 **Default Python Version**: 3.11
