@@ -112,7 +112,7 @@ def parse_seeds_workflow(seeds_input: Any) -> Tuple[int, ...]:
     Workflow format treats comma-separated values as explicit lists.
 
     Args:
-        seeds_input: Seeds as string, list, tuple, or None
+        seeds_input: Seeds as string, list, tuple, int, or None
 
     Returns:
         Tuple of seed integers
@@ -127,12 +127,17 @@ def parse_seeds_workflow(seeds_input: Any) -> Tuple[int, ...]:
         (1, 2, 3)
         >>> parse_seeds_workflow([1, 2, 3])
         (1, 2, 3)
+        >>> parse_seeds_workflow(5)
+        (5,)
     """
     if isinstance(seeds_input, tuple):
         return seeds_input
 
     if isinstance(seeds_input, list):
         return tuple(seeds_input)
+
+    if isinstance(seeds_input, int):
+        return (seeds_input,)
 
     if not seeds_input or str(seeds_input).strip() == "":
         return ()

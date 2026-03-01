@@ -144,13 +144,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "input": ActionInput(
             name="input",
             description=(
-                "List of input files (.graphml or .db). Type is detected "
-                "by extension. For .db files, all graphml objects from all "
-                "cache entries are read. Not required when using "
-                "aggregation mode (workflow with 'aggregate' parameter)."
+                "Input file(s) (.graphml or .db). Can be a single path "
+                "or a list of paths. Type is detected by extension. For "
+                ".db files, all graphml objects from all cache entries "
+                "are read. Not required when using aggregation mode "
+                "(workflow with 'aggregate' parameter)."
             ),
             required=False,
-            type_hint="list[str]",
+            type_hint="str or list[str]",
         ),
         "aggregate": ActionInput(
             name="aggregate",
@@ -359,7 +360,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
             aggregation_entries: Optional[List[Dict[str, Any]]] = (
                 parameters.get("_aggregation_entries")
             )
-            input_files = parameters.get("input", []) or []
+            input_raw = parameters.get("input", []) or []
+            # Normalise input to list (accept string or list)
+            if isinstance(input_raw, str):
+                input_files = [input_raw]
+            else:
+                input_files = list(input_raw)
             weights = parameters.get("weights")
             cpdag = parameters.get("cpdag", False)
             filter_expr = parameters.get("filter")

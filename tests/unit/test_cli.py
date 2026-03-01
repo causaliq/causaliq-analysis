@@ -315,3 +315,235 @@ def test_merge_graph_write_error(runner, tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert "Failed to write" in result.output
+
+
+# merge-graphs handles ImportError when causaliq-workflow not installed.
+def test_merge_graph_import_error(runner, tmp_path, monkeypatch):
+    cache_file = tmp_path / "test.db"
+    cache_file.touch()  # Create empty file to pass click.Path(exists=True)
+    output = tmp_path / "merged.graphml"
+
+    # Mock the import to raise ImportError
+    original_import = __builtins__["__import__"]
+
+    def mock_import(name, *args, **kwargs):
+        if name == "causaliq_workflow.cache":
+            raise ImportError("No module named 'causaliq_workflow'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    result = runner.invoke(
+        cli, ["merge-graphs", "-i", str(cache_file), "-o", str(output)]
+    )
+
+    assert result.exit_code != 0
+    assert "causaliq-workflow is required" in result.output
+
+
+# merge-graphs handles FileNotFoundError for cache file.
+def test_merge_graph_cache_file_not_found(runner, tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+
+    cache_file = tmp_path / "test.db"
+    cache_file.touch()  # Create to pass click validation
+    output = tmp_path / "merged.graphml"
+
+    # Mock WorkflowCache to raise FileNotFoundError during open
+    mock_cache_class = MagicMock()
+    mock_cache_class.return_value.__enter__ = MagicMock(
+        side_effect=FileNotFoundError("Cache file not found")
+    )
+
+    monkeypatch.setattr(
+        "causaliq_analysis.cli.WorkflowCache",
+        mock_cache_class,
+        raising=False,
+    )
+
+    # Need to patch the import inside the function
+    original_import = __builtins__["__import__"]
+
+    def mock_import(name, *args, **kwargs):
+        if name == "causaliq_workflow.cache":
+            module = MagicMock()
+            module.WorkflowCache = mock_cache_class
+            return module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    result = runner.invoke(
+        cli, ["merge-graphs", "-i", str(cache_file), "-o", str(output)]
+    )
+
+    assert result.exit_code != 0
+    assert "Cache file not found" in result.output
+
+
+# merge-graphs handles generic exception when reading cache.
+def test_merge_graph_cache_generic_error(runner, tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+
+    cache_file = tmp_path / "test.db"
+    cache_file.touch()
+    output = tmp_path / "merged.graphml"
+
+    mock_cache_class = MagicMock()
+    mock_cache_class.return_value.__enter__ = MagicMock(
+        side_effect=RuntimeError("Something went wrong")
+    )
+
+    original_import = __builtins__["__import__"]
+
+    def mock_import(name, *args, **kwargs):
+        if name == "causaliq_workflow.cache":
+            module = MagicMock()
+            module.WorkflowCache = mock_cache_class
+            return module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    result = runner.invoke(
+        cli, ["merge-graphs", "-i", str(cache_file), "-o", str(output)]
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to read from cache" in result.output
+
+
+# merge-graphs handles cache.get() returning None.
+def test_merge_graph_cache_get_returns_none(runner, tmp_path, monkeypatch):
+    from io import StringIO
+    from unittest.mock import MagicMock
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    cache_file = tmp_path / "test.db"
+    cache_file.touch()
+    output = tmp_path / "merged.graphml"
+
+    # Create a mock cache that returns None for some entries
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    buf = StringIO()
+    graphml.write(dag, buf)
+    graphml_content = buf.getvalue()
+
+    mock_entry = MagicMock()
+    mock_entry.metadata = {"sample_size": 1000}
+    mock_entry.object_names.return_value = ["graph"]
+    mock_obj = MagicMock()
+    mock_obj.type = "graphml"
+    mock_obj.content = graphml_content
+    mock_entry.get_object.return_value = mock_obj
+
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [
+        {"matrix_values": {"seed": 1}},
+        {"matrix_values": {"seed": 2}},  # This one will return None
+    ]
+
+    # First call returns entry, second returns None
+    mock_cache.get.side_effect = [mock_entry, None]
+
+    mock_cache_class = MagicMock()
+    mock_cache_class.return_value.__enter__ = MagicMock(
+        return_value=mock_cache
+    )
+    mock_cache_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    original_import = __builtins__["__import__"]
+
+    def mock_import(name, *args, **kwargs):
+        if name == "causaliq_workflow.cache":
+            module = MagicMock()
+            module.WorkflowCache = mock_cache_class
+            return module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    result = runner.invoke(
+        cli, ["merge-graphs", "-i", str(cache_file), "-o", str(output)]
+    )
+
+    assert result.exit_code == 0
+    assert "Merged 1 graphs" in result.output
+
+
+# merge-graphs handles generic exception loading weights file.
+def test_merge_graph_weights_generic_error(runner, tmp_path, monkeypatch):
+    from io import StringIO
+    from unittest.mock import MagicMock
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    cache_file = tmp_path / "test.db"
+    cache_file.touch()
+    output = tmp_path / "merged.graphml"
+    weights_file = tmp_path / "weights.json"
+    weights_file.write_text('{"sample_size": {"1000": 1.0}}')
+
+    # Create mock cache with valid data
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    buf = StringIO()
+    graphml.write(dag, buf)
+    graphml_content = buf.getvalue()
+
+    mock_entry = MagicMock()
+    mock_entry.metadata = {"sample_size": 1000}
+    mock_entry.object_names.return_value = ["graph"]
+    mock_obj = MagicMock()
+    mock_obj.type = "graphml"
+    mock_obj.content = graphml_content
+    mock_entry.get_object.return_value = mock_obj
+
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [{"matrix_values": {"seed": 1}}]
+    mock_cache.get.return_value = mock_entry
+
+    mock_cache_class = MagicMock()
+    mock_cache_class.return_value.__enter__ = MagicMock(
+        return_value=mock_cache
+    )
+    mock_cache_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    original_import = __builtins__["__import__"]
+
+    def mock_import(name, *args, **kwargs):
+        if name == "causaliq_workflow.cache":
+            module = MagicMock()
+            module.WorkflowCache = mock_cache_class
+            return module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    # Mock open to raise an unexpected error when reading weights
+    original_open = open
+
+    def mock_open(path, *args, **kwargs):
+        if "weights.json" in str(path) and "r" in args:
+            raise OSError("Unexpected I/O error")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    result = runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            "-i",
+            str(cache_file),
+            "-o",
+            str(output),
+            "-w",
+            str(weights_file),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to load weights file" in result.output

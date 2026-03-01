@@ -211,3 +211,19 @@ def test_workflow_action_successful_imports(monkeypatch):
     assert hasattr(workflow_action, "AnalysisActionProvider")
     assert hasattr(workflow_action, "ActionProvider")
     assert hasattr(workflow_action, "CausalIQActionProvider")
+
+
+# Test _parse_version handles non-integer parts correctly.
+def test_parse_version_with_dev_suffix():
+    """Test _parse_version handles version strings with dev/alpha suffixes."""
+    from causaliq_analysis import _parse_version
+
+    # Pure numeric versions
+    assert _parse_version("0.3.0") == (0, 3, 0)
+    assert _parse_version("1.2.3") == (1, 2, 3)
+
+    # Versions with non-integer suffixes (covers lines 34-36)
+    assert _parse_version("0.3.0.dev1") == (0, 3, 0)
+    assert _parse_version("1.0.0.alpha2") == (1, 0, 0)
+    assert _parse_version("2.1.0.beta3") == (2, 1, 0)
+    assert _parse_version("3.0.rc1") == (3, 0)

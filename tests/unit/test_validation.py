@@ -142,13 +142,18 @@ def test_parse_seeds_workflow_string():
     assert parse_seeds_workflow("10,20,30") == (10, 20, 30)
 
 
+# Test workflow seeds parsing single integer.
+def test_parse_seeds_workflow_single_int():
+    """Test parsing single integer seed (from YAML matrix)."""
+    assert parse_seeds_workflow(0) == (0,)
+    assert parse_seeds_workflow(5) == (5,)
+    assert parse_seeds_workflow(123) == (123,)
+
+
 def test_parse_seeds_workflow_invalid():
     """Test invalid seed formats."""
     with pytest.raises(ValueError, match="Invalid seeds format"):
         parse_seeds_workflow("invalid,format")
-
-    with pytest.raises(ValueError, match="Invalid seeds type"):
-        parse_seeds_workflow(123)  # not a valid type
 
     with pytest.raises(ValueError, match="Invalid seeds type"):
         parse_seeds_workflow({"invalid": "dict"})

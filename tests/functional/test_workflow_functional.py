@@ -502,6 +502,26 @@ def test_merge_graphs_invalid_input_path() -> None:
         action.run("merge_graphs", parameters, mode="run")
 
 
+# Test merge_graphs accepts string input (normalised to list).
+def test_merge_graphs_string_input_normalised() -> None:
+    """Test merge_graphs action accepts string input and normalises to list."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    action = AnalysisActionProvider()
+
+    # String input should be normalised to list, then fail on missing file
+    parameters = {
+        "input": "nonexistent.graphml",  # String, not list
+    }
+
+    # Should get "Failed to read nonexistent.graphml" not character iteration
+    with pytest.raises(ActionExecutionError, match="Failed to read"):
+        action.run("merge_graphs", parameters, mode="run")
+
+
 # Test merge_graphs action with real GraphML files.
 def test_merge_graphs_functional(
     tmp_path: "pytest.TempPathFactory",
