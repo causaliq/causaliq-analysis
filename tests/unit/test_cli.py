@@ -27,7 +27,7 @@ def test_cli_help(runner):
     assert "migrate-trace" in result.output
 
 
-# Migrate-trace command help displays correct usage and options.
+# migrate-trace command help displays correct usage and options.
 def test_migrate_trace_help(runner):
     result = runner.invoke(cli, ["migrate-trace", "--help"])
     assert result.exit_code == 0
@@ -37,38 +37,39 @@ def test_migrate_trace_help(runner):
     assert "--root-dir" in result.output
 
 
-# Migrate-trace command fails when required options are missing.
+# migrate-trace command fails when required options are missing.
 def test_migrate_trace_missing_options(runner):
     result = runner.invoke(cli, ["migrate-trace"])
     assert result.exit_code != 0
     assert "Missing option" in result.output
 
 
-# Help shows merge-graph command.
+# Help shows merge-graphs command.
 def test_cli_help_shows_merge_graph(runner):
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
-    assert "merge-graph" in result.output
+    assert "merge-graphs" in result.output
 
 
-# Merge-graph command help displays correct usage and options.
+# merge-graphs command help displays correct usage and options.
 def test_merge_graph_help(runner):
-    result = runner.invoke(cli, ["merge-graph", "--help"])
+    result = runner.invoke(cli, ["merge-graphs", "--help"])
     assert result.exit_code == 0
     assert "Merge multiple graphs" in result.output
     assert "--output" in result.output
     assert "--weights" in result.output
-    assert "INPUTS" in result.output
+    assert "--input" in result.output
 
 
-# Merge-graph command fails when no inputs provided.
+# merge-graphs command fails when no inputs provided.
 def test_merge_graph_no_inputs(runner):
-    result = runner.invoke(cli, ["merge-graph", "-o", "out.graphml"])
+    result = runner.invoke(cli, ["merge-graphs", "-o", "out.graphml"])
     assert result.exit_code != 0
-    assert "Missing argument" in result.output
+    # Click shows "Missing option" when required options are missing
+    assert "--input" in result.output or "Missing" in result.output
 
 
-# Merge-graph command fails when output not provided.
+# merge-graphs command fails when output not provided.
 def test_merge_graph_no_output(runner, tmp_path):
     graphml_file = tmp_path / "test.graphml"
     graphml_file.write_text(
@@ -77,12 +78,12 @@ def test_merge_graph_no_output(runner, tmp_path):
         '<node id="A"/><node id="B"/>'
         '<edge source="A" target="B"/></graph></graphml>'
     )
-    result = runner.invoke(cli, ["merge-graph", str(graphml_file)])
+    result = runner.invoke(cli, ["merge-graphs", "-i", str(graphml_file)])
     assert result.exit_code != 0
     assert "Missing option" in result.output
 
 
-# Merge-graph succeeds with valid GraphML files.
+# merge-graphs succeeds with valid GraphML files.
 def test_merge_graph_success(runner, tmp_path):
     # Create two simple GraphML files
     graphml1 = tmp_path / "g1.graphml"
@@ -102,7 +103,16 @@ def test_merge_graph_success(runner, tmp_path):
 
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
-        cli, ["merge-graph", str(graphml1), str(graphml2), "-o", str(output)]
+        cli,
+        [
+            "merge-graphs",
+            "-i",
+            str(graphml1),
+            "-i",
+            str(graphml2),
+            "-o",
+            str(output),
+        ],
     )
 
     assert result.exit_code == 0
@@ -110,7 +120,7 @@ def test_merge_graph_success(runner, tmp_path):
     assert output.exists()
 
 
-# Merge-graph with custom weights succeeds.
+# merge-graphs with custom weights succeeds.
 def test_merge_graph_with_weights(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
@@ -131,8 +141,10 @@ def test_merge_graph_with_weights(runner, tmp_path):
     result = runner.invoke(
         cli,
         [
-            "merge-graph",
+            "merge-graphs",
+            "-i",
             str(graphml1),
+            "-i",
             str(graphml2),
             "-o",
             str(output),
@@ -145,7 +157,7 @@ def test_merge_graph_with_weights(runner, tmp_path):
     assert output.exists()
 
 
-# Merge-graph with --cpdag flag succeeds.
+# merge-graphs with --cpdag flag succeeds.
 def test_merge_graph_with_cpdag(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
@@ -158,14 +170,14 @@ def test_merge_graph_with_cpdag(runner, tmp_path):
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
         cli,
-        ["merge-graph", str(graphml1), "-o", str(output), "--cpdag"],
+        ["merge-graphs", "-i", str(graphml1), "-o", str(output), "--cpdag"],
     )
 
     assert result.exit_code == 0
     assert output.exists()
 
 
-# Merge-graph fails with mismatched weights count.
+# merge-graphs fails with mismatched weights count.
 def test_merge_graph_weights_mismatch(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
@@ -178,14 +190,22 @@ def test_merge_graph_weights_mismatch(runner, tmp_path):
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
         cli,
-        ["merge-graph", str(graphml1), "-o", str(output), "-w", "0.5,0.5"],
+        [
+            "merge-graphs",
+            "-i",
+            str(graphml1),
+            "-o",
+            str(output),
+            "-w",
+            "0.5,0.5",
+        ],
     )
 
     assert result.exit_code != 0
     assert "must match" in result.output
 
 
-# Merge-graph fails with invalid weights format.
+# merge-graphs fails with invalid weights format.
 def test_merge_graph_invalid_weights(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
@@ -197,14 +217,15 @@ def test_merge_graph_invalid_weights(runner, tmp_path):
 
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
-        cli, ["merge-graph", str(graphml1), "-o", str(output), "-w", "abc"]
+        cli,
+        ["merge-graphs", "-i", str(graphml1), "-o", str(output), "-w", "abc"],
     )
 
     assert result.exit_code != 0
     assert "Invalid weights" in result.output
 
 
-# Merge-graph fails with invalid GraphML file.
+# merge-graphs fails with invalid GraphML file.
 def test_merge_graph_invalid_graphml(runner, tmp_path):
     # Create a file that exists but contains invalid GraphML
     invalid_file = tmp_path / "invalid.graphml"
@@ -212,14 +233,14 @@ def test_merge_graph_invalid_graphml(runner, tmp_path):
 
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
-        cli, ["merge-graph", str(invalid_file), "-o", str(output)]
+        cli, ["merge-graphs", "-i", str(invalid_file), "-o", str(output)]
     )
 
     assert result.exit_code != 0
     assert "Failed to read" in result.output
 
 
-# Merge-graph fails when graphs have different nodes.
+# merge-graphs fails when graphs have different nodes.
 def test_merge_graph_different_nodes(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
@@ -238,14 +259,23 @@ def test_merge_graph_different_nodes(runner, tmp_path):
 
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
-        cli, ["merge-graph", str(graphml1), str(graphml2), "-o", str(output)]
+        cli,
+        [
+            "merge-graphs",
+            "-i",
+            str(graphml1),
+            "-i",
+            str(graphml2),
+            "-o",
+            str(output),
+        ],
     )
 
     assert result.exit_code != 0
     assert "Merge failed" in result.output
 
 
-# Merge-graph fails when output directory is not writable.
+# merge-graphs fails when output directory is not writable.
 def test_merge_graph_write_error(runner, tmp_path, monkeypatch):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
@@ -268,7 +298,7 @@ def test_merge_graph_write_error(runner, tmp_path, monkeypatch):
     monkeypatch.setattr("builtins.open", mock_open)
 
     result = runner.invoke(
-        cli, ["merge-graph", str(graphml1), "-o", str(output)]
+        cli, ["merge-graphs", "-i", str(graphml1), "-o", str(output)]
     )
 
     assert result.exit_code != 0

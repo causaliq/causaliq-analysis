@@ -300,6 +300,351 @@ def test_migrate_trace_general_exception(
         action.run("migrate_trace", parameters, mode="run")
 
 
+# Test merge_graphs with terminal logging in dry-run mode.
+def test_merge_graphs_dry_run_with_logging(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test merge_graphs dry-run mode with terminal logging."""
+
+    class MockLogger:
+        is_terminal_logging = True
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": ["graph1.graphml", "graph2.graphml"],
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="dry-run", logger=MockLogger()
+    )
+
+    assert status == "skipped"
+    captured = capsys.readouterr()
+    assert "Would merge from 2 input files" in captured.out
+
+
+# Test merge_graphs with terminal logging during merge.
+def test_merge_graphs_with_terminal_logging(
+    tmp_path: "pytest.TempPathFactory",
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test merge_graphs with terminal logging enabled."""
+
+    class MockLogger:
+        is_terminal_logging = True
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create two DAGs
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    graph1_path = tmp_path / "graph1.graphml"
+    graph2_path = tmp_path / "graph2.graphml"
+
+    with open(graph1_path, "w") as f:
+        graphml.write(dag1, f)
+    with open(graph2_path, "w") as f:
+        graphml.write(dag2, f)
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": [str(graph1_path), str(graph2_path)],
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run", logger=MockLogger()
+    )
+
+    assert status == "success"
+    captured = capsys.readouterr()
+    assert "Loaded" in captured.out
+    assert "Merged 2 graphs into PDG" in captured.out
+
+
+# Test merge_graphs wraps ValueError in ActionExecutionError.
+def test_merge_graphs_value_error_exception(
+    tmp_path: "pytest.TempPathFactory",
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test merge_graphs wraps ValueError in ActionExecutionError."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    # Create valid GraphML file
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    action = AnalysisActionProvider()
+
+    # Mock merge_graphs to raise ValueError
+    def mock_merge_graphs(*args, **kwargs):
+        raise ValueError("Invalid weights")
+
+    monkeypatch.setattr(
+        "causaliq_analysis.merge.merge_graphs",
+        mock_merge_graphs,
+    )
+
+    parameters = {
+        "input": [str(graph_path)],
+    }
+
+    with pytest.raises(ActionExecutionError, match="Graph merge failed"):
+        action.run("merge_graphs", parameters, mode="run")
+
+
+# Test merge_graphs wraps general exceptions in ActionExecutionError.
+def test_merge_graphs_general_exception(
+    tmp_path: "pytest.TempPathFactory",
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test merge_graphs wraps general exceptions in ActionExecutionError."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    # Create valid GraphML file
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    action = AnalysisActionProvider()
+
+    # Mock merge_graphs to raise RuntimeError
+    def mock_merge_graphs(*args, **kwargs):
+        raise RuntimeError("Unexpected error")
+
+    monkeypatch.setattr(
+        "causaliq_analysis.merge.merge_graphs",
+        mock_merge_graphs,
+    )
+
+    parameters = {
+        "input": [str(graph_path)],
+    }
+
+    with pytest.raises(ActionExecutionError, match="Graph merge failed"):
+        action.run("merge_graphs", parameters, mode="run")
+
+
+# Test merge_graphs action requires inputs.
+def test_merge_graphs_missing_inputs() -> None:
+    """Test merge_graphs action requires inputs or aggregate parameter."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    action = AnalysisActionProvider()
+
+    with pytest.raises(
+        ActionExecutionError, match="requires either 'aggregate'.*or 'input'"
+    ):
+        action.run("merge_graphs", {}, mode="run")
+
+
+# Test merge_graphs dry-run mode.
+def test_merge_graphs_dry_run() -> None:
+    """Test merge_graphs action dry-run mode."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": ["graph1.graphml", "graph2.graphml"],
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="dry-run"
+    )
+
+    assert status == "skipped"
+    assert "Dry-run mode" in metadata["message"]
+    assert metadata["num_inputs"] == 2
+    assert objects == []
+
+
+# Test merge_graphs with invalid input path raises error.
+def test_merge_graphs_invalid_input_path() -> None:
+    """Test merge_graphs action with invalid input path."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": ["nonexistent.graphml"],
+    }
+
+    with pytest.raises(ActionExecutionError, match="Failed to read"):
+        action.run("merge_graphs", parameters, mode="run")
+
+
+# Test merge_graphs action with real GraphML files.
+def test_merge_graphs_functional(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs action with real GraphML files."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create two DAGs and save as GraphML
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    graph1_path = tmp_path / "graph1.graphml"
+    graph2_path = tmp_path / "graph2.graphml"
+
+    with open(graph1_path, "w") as f:
+        graphml.write(dag1, f)
+    with open(graph2_path, "w") as f:
+        graphml.write(dag2, f)
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": [str(graph1_path), str(graph2_path)],
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    assert metadata["num_graphs"] == 2
+    assert metadata["cpdag"] is False
+
+    # Check PDG object returned
+    assert len(objects) == 1
+    assert objects[0]["type"] == "graphml"
+    assert objects[0]["name"] == "merged_pdg"
+    assert "<?xml" in objects[0]["content"]
+
+    # Verify PDG can be parsed back
+    pdg = graphml.read_pdg(StringIO(objects[0]["content"]))
+    assert pdg.nodes == ["A", "B"]
+    # 0.5 forward probability (from equal weighting of opposite edges)
+    probs = pdg.get_probabilities("A", "B")
+    assert probs.forward == pytest.approx(0.5)
+    assert probs.backward == pytest.approx(0.5)
+
+
+# Test merge_graphs with weights parameter.
+def test_merge_graphs_with_weights(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs action with weights parameter."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create two DAGs
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    graph1_path = tmp_path / "graph1.graphml"
+    graph2_path = tmp_path / "graph2.graphml"
+
+    with open(graph1_path, "w") as f:
+        graphml.write(dag1, f)
+    with open(graph2_path, "w") as f:
+        graphml.write(dag2, f)
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": [str(graph1_path), str(graph2_path)],
+        "weights": [0.75, 0.25],
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    assert metadata["weights"] == [0.75, 0.25]
+
+    # Verify weighted probabilities
+    pdg = graphml.read_pdg(StringIO(objects[0]["content"]))
+    probs = pdg.get_probabilities("A", "B")
+    assert probs.forward == pytest.approx(0.75)
+    assert probs.backward == pytest.approx(0.25)
+
+
+# Test merge_graphs with cpdag parameter.
+def test_merge_graphs_with_cpdag(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs action with cpdag conversion."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create two DAGs - one with A->B, one with B->A
+    # As CPDAGs they are the same (A-B undirected equivalence class)
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    graph1_path = tmp_path / "graph1.graphml"
+    graph2_path = tmp_path / "graph2.graphml"
+
+    with open(graph1_path, "w") as f:
+        graphml.write(dag1, f)
+    with open(graph2_path, "w") as f:
+        graphml.write(dag2, f)
+
+    action = AnalysisActionProvider()
+
+    parameters = {
+        "input": [str(graph1_path), str(graph2_path)],
+        "cpdag": True,
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    assert metadata["cpdag"] is True
+
+    # Both DAGs convert to equivalent CPDAGs, so should get 1.0 undirected
+    pdg = graphml.read_pdg(StringIO(objects[0]["content"]))
+    probs = pdg.get_probabilities("A", "B")
+    assert probs.undirected == pytest.approx(1.0)
+
+
 # Test migrate_trace raises ActionExecutionError on ValueError.
 def test_migrate_trace_value_error_exception(
     monkeypatch: pytest.MonkeyPatch,

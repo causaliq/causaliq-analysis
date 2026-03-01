@@ -134,12 +134,15 @@ def _parse_weights(weights_str: Optional[str]) -> Optional[List[float]]:
         raise click.ClickException(f"Invalid weights format: {e}")
 
 
-@cli.command(name="merge-graph")
-@click.argument(
+@cli.command(name="merge-graphs")
+@click.option(
+    "--input",
+    "-i",
     "inputs",
-    nargs=-1,
+    multiple=True,
     required=True,
     type=click.Path(exists=True),
+    help="Input file (.graphml or .db). Can be specified multiple times.",
 )
 @click.option(
     "--output",
@@ -171,42 +174,112 @@ def merge_graphs_cmd(
     """
     Merge multiple graphs into a single PDG with edge probabilities.
 
-    Reads GraphML files and combines them into a Probabilistic Dependency
-    Graph (PDG) using weighted averaging of edge probabilities.
+    Reads GraphML files (.graphml) and/or WorkflowCache databases (.db)
+    and combines them into a Probabilistic Dependency Graph (PDG) using
+    weighted averaging of edge probabilities.
 
-    INPUTS: One or more GraphML files to merge.
+    Input type is auto-detected by file extension:
+    - .graphml: Read as GraphML file
+    - .db: Read all graphml objects from all cache entries
 
     Example:
-        causaliq-analysis merge-graph graph1.graphml graph2.graphml \\
+        causaliq-analysis merge-graph -i graph1.graphml -i graph2.graphml \\
             -o merged.graphml
 
-        causaliq-analysis merge-graph *.graphml -o out.graphml -w 0.5,0.3,0.2
+        causaliq-analysis merge-graph -i a.graphml -i b.graphml \\
+            -o out.graphml -w 0.5,0.5
+
+        causaliq-analysis merge-graph -i results.db -o merged.graphml
+
+        causaliq-analysis merge-graph -i file.graphml -i cache.db \\
+            -o merged.graphml
     """
+    from io import StringIO
+
     from causaliq_core.graph.io import graphml
 
     from causaliq_analysis.merge import merge_graphs
 
+    graphs = []
+
+    for input_path in inputs:
+        path_lower = input_path.lower()
+
+        if path_lower.endswith(".db"):
+            # Read from WorkflowCache
+            try:
+                from causaliq_workflow.cache import WorkflowCache
+
+                with WorkflowCache(input_path) as cache:
+                    entries = cache.list_entries()
+                    click.echo(
+                        f"Reading {len(entries)} entries from {input_path}"
+                    )
+
+                    for entry_info in entries:
+                        matrix_values = entry_info.get("matrix_values", {})
+                        entry = cache.get(matrix_values)
+
+                        if entry is None:
+                            continue
+
+                        # Find all graphml objects in this entry
+                        found_graphs = 0
+                        for obj_name in entry.object_names():
+                            obj = entry.get_object(obj_name)
+                            if obj is None or obj.type != "graphml":
+                                continue
+
+                            try:
+                                graph = graphml.read(StringIO(obj.content))
+                                graphs.append(graph)
+                                found_graphs += 1
+                            except Exception as e:
+                                raise click.ClickException(
+                                    f"Failed to parse graph '{obj_name}' "
+                                    f"from {matrix_values}: {e}"
+                                )
+
+                        if found_graphs == 0:
+                            click.echo(
+                                f"  Skipping {matrix_values}: "
+                                f"no graphml objects"
+                            )
+            except ImportError:
+                raise click.ClickException(
+                    "causaliq-workflow is required for .db cache files. "
+                    "Install with: pip install causaliq-workflow"
+                )
+            except FileNotFoundError:
+                raise click.ClickException(
+                    f"Cache file not found: {input_path}"
+                )
+            except Exception as e:
+                if "ClickException" in type(e).__name__:
+                    raise
+                raise click.ClickException(
+                    f"Failed to read from cache '{input_path}': {e}"
+                )
+        else:
+            # Read as GraphML file
+            try:
+                graph = graphml.read(input_path)
+                graphs.append(graph)
+            except Exception as e:
+                raise click.ClickException(f"Failed to read {input_path}: {e}")
+
+    if not graphs:
+        raise click.ClickException("No graphs found to merge")
+
     # Parse weights
     weights_list = _parse_weights(weights)
 
-    # Validate weights count matches inputs
-    if weights_list is not None and len(weights_list) != len(inputs):
+    # Validate weights count matches total graphs
+    if weights_list is not None and len(weights_list) != len(graphs):
         raise click.ClickException(
             f"Number of weights ({len(weights_list)}) must match "
-            f"number of input files ({len(inputs)})"
+            f"number of input graphs ({len(graphs)})"
         )
-
-    # Read input graphs
-    graphs = []
-    for input_path in inputs:
-        try:
-            graph = graphml.read(input_path)
-            graphs.append(graph)
-        except Exception as e:
-            raise click.ClickException(f"Failed to read {input_path}: {e}")
-
-    if not graphs:  # pragma: no cover - Click validates INPUTS is non-empty
-        raise click.ClickException("No input graphs provided")
 
     # Merge graphs (graphml.read returns Union[SDG, PDAG, DAG] but
     # merge_graphs handles DAG/PDAG/PDG - SDGs are rare in practice)
