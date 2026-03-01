@@ -113,27 +113,6 @@ def migrate_trace_cmd(
         raise click.ClickException(f"Migration failed: {e}")
 
 
-def _parse_weights(weights_str: Optional[str]) -> Optional[List[float]]:
-    """Parse comma-separated weights string.
-
-    Args:
-        weights_str: Comma-separated weights (e.g., '0.5,0.3,0.2').
-
-    Returns:
-        List of float weights, or None if input is None/empty.
-
-    Raises:
-        click.ClickException: If weights cannot be parsed.
-    """
-    if not weights_str:
-        return None
-    try:
-        weights = [float(w.strip()) for w in weights_str.split(",")]
-        return weights
-    except ValueError as e:
-        raise click.ClickException(f"Invalid weights format: {e}")
-
-
 @cli.command(name="merge-graphs")
 @click.option(
     "--input",
@@ -152,11 +131,20 @@ def _parse_weights(weights_str: Optional[str]) -> Optional[List[float]]:
     help="Output file path for merged PDG (GraphML format).",
 )
 @click.option(
+    "--filter",
+    "-f",
+    "filter_expr",
+    default=None,
+    help="Filter expression for cache entries (Python syntax). "
+    "Example: \"network == 'asia' and sample_size > 500\"",
+)
+@click.option(
     "--weights",
     "-w",
     default=None,
-    help="Comma-separated weights for each input graph. "
-    "Must sum to 1.0. Default: uniform weights.",
+    type=click.Path(exists=True),
+    help="JSON file specifying metadata-driven weights. "
+    "Only applies to .db cache inputs.",
 )
 @click.option(
     "--cpdag",
@@ -168,6 +156,7 @@ def _parse_weights(weights_str: Optional[str]) -> Optional[List[float]]:
 def merge_graphs_cmd(
     inputs: Tuple[str, ...],
     output: str,
+    filter_expr: Optional[str],
     weights: Optional[str],
     cpdag: bool,
 ) -> None:
@@ -179,33 +168,44 @@ def merge_graphs_cmd(
     weighted averaging of edge probabilities.
 
     Input type is auto-detected by file extension:
-    - .graphml: Read as GraphML file
-    - .db: Read all graphml objects from all cache entries
+    - .graphml: Read as GraphML file (filter/weights not applicable)
+    - .db: Read graphml objects from cache entries (filter/weights apply)
 
     Example:
-        causaliq-analysis merge-graph -i graph1.graphml -i graph2.graphml \\
+        causaliq-analysis merge-graphs -i graph1.graphml -i graph2.graphml \\
             -o merged.graphml
 
-        causaliq-analysis merge-graph -i a.graphml -i b.graphml \\
-            -o out.graphml -w 0.5,0.5
-
-        causaliq-analysis merge-graph -i results.db -o merged.graphml
-
-        causaliq-analysis merge-graph -i file.graphml -i cache.db \\
+        causaliq-analysis merge-graphs -i results.db \\
+            -f "network == 'asia' and sample_size > 500" \\
             -o merged.graphml
+
+        causaliq-analysis merge-graphs -i results.db -w weights.json \\
+            -o merged.graphml --cpdag
     """
+    import json
     from io import StringIO
+    from typing import Any, Dict
 
     from causaliq_core.graph.io import graphml
+    from causaliq_core.utils import (
+        FilterExpressionError,
+        WeightSpecError,
+        compute_weight,
+        evaluate_filter,
+        validate_weight_spec,
+    )
 
     from causaliq_analysis.merge import merge_graphs
 
-    graphs = []
+    graphs: list = []
+    graph_metadata: List[Dict[str, Any]] = []
+    has_cache_input = False
 
     for input_path in inputs:
         path_lower = input_path.lower()
 
         if path_lower.endswith(".db"):
+            has_cache_input = True
             # Read from WorkflowCache
             try:
                 from causaliq_workflow.cache import WorkflowCache
@@ -216,12 +216,27 @@ def merge_graphs_cmd(
                         f"Reading {len(entries)} entries from {input_path}"
                     )
 
+                    filtered_count = 0
                     for entry_info in entries:
                         matrix_values = entry_info.get("matrix_values", {})
                         entry = cache.get(matrix_values)
 
                         if entry is None:
                             continue
+
+                        # Get metadata for filtering and weighting
+                        meta = dict(entry.metadata)
+
+                        # Apply filter if specified
+                        if filter_expr:
+                            try:
+                                if not evaluate_filter(filter_expr, meta):
+                                    filtered_count += 1
+                                    continue
+                            except FilterExpressionError as e:
+                                raise click.ClickException(
+                                    f"Invalid filter expression: {e}"
+                                )
 
                         # Find all graphml objects in this entry
                         found_graphs = 0
@@ -233,6 +248,7 @@ def merge_graphs_cmd(
                             try:
                                 graph = graphml.read(StringIO(obj.content))
                                 graphs.append(graph)
+                                graph_metadata.append(meta)
                                 found_graphs += 1
                             except Exception as e:
                                 raise click.ClickException(
@@ -245,6 +261,10 @@ def merge_graphs_cmd(
                                 f"  Skipping {matrix_values}: "
                                 f"no graphml objects"
                             )
+
+                    if filter_expr and filtered_count > 0:
+                        click.echo(f"  Filtered out {filtered_count} entries")
+
             except ImportError:
                 raise click.ClickException(
                     "causaliq-workflow is required for .db cache files. "
@@ -261,32 +281,55 @@ def merge_graphs_cmd(
                     f"Failed to read from cache '{input_path}': {e}"
                 )
         else:
-            # Read as GraphML file
+            # Read as GraphML file (no metadata available)
             try:
                 graph = graphml.read(input_path)
                 graphs.append(graph)
+                graph_metadata.append({})  # Empty metadata for file inputs
             except Exception as e:
                 raise click.ClickException(f"Failed to read {input_path}: {e}")
 
     if not graphs:
         raise click.ClickException("No graphs found to merge")
 
-    # Parse weights
-    weights_list = _parse_weights(weights)
+    # Compute weights from metadata if JSON file specified
+    weights_list: Optional[List[float]] = None
+    if weights:
+        if not has_cache_input:
+            raise click.ClickException(
+                "Metadata-driven weights (--weights) require .db cache input"
+            )
 
-    # Validate weights count matches total graphs
-    if weights_list is not None and len(weights_list) != len(graphs):
-        raise click.ClickException(
-            f"Number of weights ({len(weights_list)}) must match "
-            f"number of input graphs ({len(graphs)})"
-        )
+        try:
+            with open(weights, "r", encoding="utf-8") as f:
+                weight_spec = json.load(f)
 
-    # Merge graphs (graphml.read returns Union[SDG, PDAG, DAG] but
-    # merge_graphs handles DAG/PDAG/PDG - SDGs are rare in practice)
+            validate_weight_spec(weight_spec)
+
+            # Compute raw weights
+            raw_weights = [
+                compute_weight(meta, weight_spec) for meta in graph_metadata
+            ]
+
+            # Normalise to sum to 1.0
+            total = sum(raw_weights)
+            if total > 0:
+                weights_list = [w / total for w in raw_weights]
+            else:
+                weights_list = [1.0 / len(graphs)] * len(graphs)
+
+            click.echo(f"Applied metadata-driven weights from {weights}")
+
+        except json.JSONDecodeError as e:
+            raise click.ClickException(f"Invalid weights JSON file: {e}")
+        except WeightSpecError as e:
+            raise click.ClickException(f"Invalid weight specification: {e}")
+        except Exception as e:
+            raise click.ClickException(f"Failed to load weights file: {e}")
+
+    # Merge graphs
     try:
-        merged = merge_graphs(
-            graphs, weights=weights_list, cpdag=cpdag  # type: ignore[arg-type]
-        )
+        merged = merge_graphs(graphs, weights=weights_list, cpdag=cpdag)
     except (TypeError, ValueError) as e:
         raise click.ClickException(f"Merge failed: {e}")
 

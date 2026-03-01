@@ -59,6 +59,7 @@ def test_merge_graph_help(runner):
     assert "--output" in result.output
     assert "--weights" in result.output
     assert "--input" in result.output
+    assert "--filter" in result.output
 
 
 # merge-graphs command fails when no inputs provided.
@@ -120,8 +121,10 @@ def test_merge_graph_success(runner, tmp_path):
     assert output.exists()
 
 
-# merge-graphs with custom weights succeeds.
-def test_merge_graph_with_weights(runner, tmp_path):
+# merge-graphs with weights requires cache input.
+def test_merge_graph_weights_requires_cache(runner, tmp_path):
+    import json
+
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
         '<?xml version="1.0"?><graphml xmlns="http://graphml.graphdrawing.org'
@@ -129,13 +132,10 @@ def test_merge_graph_with_weights(runner, tmp_path):
         '<node id="A"/><node id="B"/>'
         '<edge source="A" target="B"/></graph></graphml>'
     )
-    graphml2 = tmp_path / "g2.graphml"
-    graphml2.write_text(
-        '<?xml version="1.0"?><graphml xmlns="http://graphml.graphdrawing.org'
-        '/xmlns"><graph id="G" edgedefault="directed">'
-        '<node id="A"/><node id="B"/>'
-        '<edge source="B" target="A"/></graph></graphml>'
-    )
+
+    # Create a valid weights JSON file
+    weights_file = tmp_path / "weights.json"
+    weights_file.write_text(json.dumps({"algorithm": {"pc": 1.0}}))
 
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
@@ -144,17 +144,15 @@ def test_merge_graph_with_weights(runner, tmp_path):
             "merge-graphs",
             "-i",
             str(graphml1),
-            "-i",
-            str(graphml2),
             "-o",
             str(output),
             "-w",
-            "0.7,0.3",
+            str(weights_file),
         ],
     )
 
-    assert result.exit_code == 0
-    assert output.exists()
+    assert result.exit_code != 0
+    assert "require .db cache" in result.output
 
 
 # merge-graphs with --cpdag flag succeeds.
@@ -177,8 +175,41 @@ def test_merge_graph_with_cpdag(runner, tmp_path):
     assert output.exists()
 
 
-# merge-graphs fails with mismatched weights count.
-def test_merge_graph_weights_mismatch(runner, tmp_path):
+# merge-graphs with invalid JSON weights file still fails on cache requirement.
+def test_merge_graph_invalid_weights_json_requires_cache(runner, tmp_path):
+    graphml1 = tmp_path / "g1.graphml"
+    graphml1.write_text(
+        '<?xml version="1.0"?><graphml xmlns="http://graphml.graphdrawing.org'
+        '/xmlns"><graph id="G" edgedefault="directed">'
+        '<node id="A"/><node id="B"/>'
+        '<edge source="A" target="B"/></graph></graphml>'
+    )
+
+    # Create invalid JSON (cache check happens before JSON is loaded)
+    weights_file = tmp_path / "weights.json"
+    weights_file.write_text("not valid json")
+
+    output = tmp_path / "merged.graphml"
+    result = runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            "-i",
+            str(graphml1),
+            "-o",
+            str(output),
+            "-w",
+            str(weights_file),
+        ],
+    )
+
+    # Cache requirement is checked before JSON is loaded
+    assert result.exit_code != 0
+    assert "require .db cache" in result.output
+
+
+# merge-graphs fails with non-existent weights file.
+def test_merge_graph_weights_file_not_found(runner, tmp_path):
     graphml1 = tmp_path / "g1.graphml"
     graphml1.write_text(
         '<?xml version="1.0"?><graphml xmlns="http://graphml.graphdrawing.org'
@@ -197,32 +228,13 @@ def test_merge_graph_weights_mismatch(runner, tmp_path):
             "-o",
             str(output),
             "-w",
-            "0.5,0.5",
+            "nonexistent.json",
         ],
     )
 
     assert result.exit_code != 0
-    assert "must match" in result.output
-
-
-# merge-graphs fails with invalid weights format.
-def test_merge_graph_invalid_weights(runner, tmp_path):
-    graphml1 = tmp_path / "g1.graphml"
-    graphml1.write_text(
-        '<?xml version="1.0"?><graphml xmlns="http://graphml.graphdrawing.org'
-        '/xmlns"><graph id="G" edgedefault="directed">'
-        '<node id="A"/><node id="B"/>'
-        '<edge source="A" target="B"/></graph></graphml>'
-    )
-
-    output = tmp_path / "merged.graphml"
-    result = runner.invoke(
-        cli,
-        ["merge-graphs", "-i", str(graphml1), "-o", str(output), "-w", "abc"],
-    )
-
-    assert result.exit_code != 0
-    assert "Invalid weights" in result.output
+    # Click checks file existence due to type=click.Path(exists=True)
+    assert "does not exist" in result.output or "Path" in result.output
 
 
 # merge-graphs fails with invalid GraphML file.
