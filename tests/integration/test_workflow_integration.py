@@ -241,3 +241,276 @@ def test_migrate_trace_workflow_real_data():
     assert metadata["num_graphs"] > 0
     assert len(objects) > 0
     assert objects[0]["type"] == "graphml"
+
+
+# Test merge_graphs with aggregation mode end-to-end.
+def test_merge_graphs_aggregation_end_to_end(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs aggregation with workflow cache input."""
+    pytest.importorskip("causaliq_workflow")
+
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create cache with multiple graph entries
+    cache_path = tmp_path / "graphs.db"
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    with WorkflowCache(cache_path) as cache:
+        # Entry 1: A -> B
+        buffer = StringIO()
+        graphml.write(dag1, buffer)
+        entry1 = CacheEntry(
+            metadata={"algorithm": "pc", "sample_size": 1000},
+        )
+        entry1.add_object("graph", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "seed": 1}, entry1)
+
+        # Entry 2: B -> A
+        buffer = StringIO()
+        graphml.write(dag2, buffer)
+        entry2 = CacheEntry(
+            metadata={"algorithm": "pc", "sample_size": 1000},
+        )
+        entry2.add_object("graph", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "seed": 2}, entry2)
+
+    # Build aggregation entries as workflow would
+    aggregation_entries = []
+    with WorkflowCache(cache_path) as cache:
+        for entry_info in cache.list_entries():
+            matrix_values = entry_info.get("matrix_values", {})
+            entry = cache.get(matrix_values)
+            aggregation_entries.append(
+                {
+                    "matrix_values": matrix_values,
+                    "metadata": dict(entry.metadata),
+                    "cache_path": str(cache_path),
+                    "entry": entry,
+                }
+            )
+
+    action = AnalysisActionProvider()
+    parameters = {
+        "input": [str(cache_path)],
+        "_aggregation_entries": aggregation_entries,
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    assert metadata["num_graphs"] == 2
+    assert metadata["aggregation_mode"] is True
+    assert metadata["source_count"] == 2
+    assert metadata["action"] == "merge_graphs"
+    assert "timestamp" in metadata
+
+    # Verify merged PDG
+    pdg = graphml.read_pdg(StringIO(objects[0]["content"]))
+    probs = pdg.get_probabilities("A", "B")
+    assert probs.forward == pytest.approx(0.5)
+    assert probs.backward == pytest.approx(0.5)
+
+
+# Test merge_graphs aggregation with filter.
+def test_merge_graphs_aggregation_with_filter(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs aggregation respects pre-filtered entries."""
+    pytest.importorskip("causaliq_workflow")
+
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "graphs.db"
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    with WorkflowCache(cache_path) as cache:
+        for status in ["completed", "completed", "failed"]:
+            buffer = StringIO()
+            graphml.write(dag, buffer)
+            entry = CacheEntry(metadata={"status": status})
+            entry.add_object("graph", "graphml", buffer.getvalue())
+            cache.put(
+                {"network": "asia", "run": len(cache.list_entries())},
+                entry,
+            )
+
+    # Simulate workflow filtering - only completed entries
+    aggregation_entries = []
+    with WorkflowCache(cache_path) as cache:
+        for entry_info in cache.list_entries():
+            matrix_values = entry_info.get("matrix_values", {})
+            entry = cache.get(matrix_values)
+            if entry.metadata.get("status") == "completed":
+                aggregation_entries.append(
+                    {
+                        "matrix_values": matrix_values,
+                        "metadata": dict(entry.metadata),
+                        "cache_path": str(cache_path),
+                        "entry": entry,
+                    }
+                )
+
+    action = AnalysisActionProvider()
+    parameters = {
+        "input": [str(cache_path)],
+        "filter": "status == 'completed'",
+        "_aggregation_entries": aggregation_entries,
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    # Only 2 completed entries, not 3
+    assert metadata["num_graphs"] == 2
+    assert metadata["filter"] == "status == 'completed'"
+
+
+# Test merge_graphs aggregation with metadata-driven weights.
+def test_merge_graphs_aggregation_with_weights(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs with metadata-driven weighting."""
+    pytest.importorskip("causaliq_workflow")
+
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "graphs.db"
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    with WorkflowCache(cache_path) as cache:
+        # PC algorithm - weight 1.0
+        buffer = StringIO()
+        graphml.write(dag1, buffer)
+        entry1 = CacheEntry(metadata={"algorithm": "pc"})
+        entry1.add_object("graph", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "seed": 1}, entry1)
+
+        # FCI algorithm - weight 0.5
+        buffer = StringIO()
+        graphml.write(dag2, buffer)
+        entry2 = CacheEntry(metadata={"algorithm": "fci"})
+        entry2.add_object("graph", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "seed": 2}, entry2)
+
+    aggregation_entries = []
+    with WorkflowCache(cache_path) as cache:
+        for entry_info in cache.list_entries():
+            matrix_values = entry_info.get("matrix_values", {})
+            entry = cache.get(matrix_values)
+            aggregation_entries.append(
+                {
+                    "matrix_values": matrix_values,
+                    "metadata": dict(entry.metadata),
+                    "cache_path": str(cache_path),
+                    "entry": entry,
+                }
+            )
+
+    action = AnalysisActionProvider()
+    # Weight spec: pc=1.0, fci=0.5 -> normalised: 0.667, 0.333
+    weight_spec = {"algorithm": {"pc": 1.0, "fci": 0.5}}
+    parameters = {
+        "input": [str(cache_path)],
+        "weights": weight_spec,
+        "_aggregation_entries": aggregation_entries,
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    assert metadata["weights_spec"] == weight_spec
+    assert "weights_computed" in metadata
+
+    # pc (A->B) has weight 2/3, fci (B->A) has weight 1/3
+    pdg = graphml.read_pdg(StringIO(objects[0]["content"]))
+    probs = pdg.get_probabilities("A", "B")
+    assert probs.forward == pytest.approx(2.0 / 3.0, abs=1e-3)
+    assert probs.backward == pytest.approx(1.0 / 3.0, abs=1e-3)
+
+
+# Test merge_graphs provenance tracks source caches.
+def test_merge_graphs_provenance_source_caches(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test provenance metadata includes source cache information."""
+    pytest.importorskip("causaliq_workflow")
+
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create two separate caches
+    cache1_path = tmp_path / "pc_results.db"
+    cache2_path = tmp_path / "ges_results.db"
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    for cache_path in [cache1_path, cache2_path]:
+        with WorkflowCache(cache_path) as cache:
+            buffer = StringIO()
+            graphml.write(dag, buffer)
+            entry = CacheEntry(metadata={"source": str(cache_path.name)})
+            entry.add_object("graph", "graphml", buffer.getvalue())
+            cache.put({"network": "asia"}, entry)
+
+    # Combine entries from both caches
+    aggregation_entries = []
+    for cache_path in [cache1_path, cache2_path]:
+        with WorkflowCache(cache_path) as cache:
+            for entry_info in cache.list_entries():
+                matrix_values = entry_info.get("matrix_values", {})
+                entry = cache.get(matrix_values)
+                aggregation_entries.append(
+                    {
+                        "matrix_values": matrix_values,
+                        "metadata": dict(entry.metadata),
+                        "cache_path": str(cache_path),
+                        "entry": entry,
+                    }
+                )
+
+    action = AnalysisActionProvider()
+    parameters = {
+        "input": [str(cache1_path), str(cache2_path)],
+        "_aggregation_entries": aggregation_entries,
+    }
+
+    status, metadata, objects = action.run(
+        "merge_graphs", parameters, mode="run"
+    )
+
+    assert status == "success"
+    assert metadata["source_count"] == 2
+    assert "source_caches" in metadata
+    assert len(metadata["source_caches"]) == 2
