@@ -766,3 +766,67 @@ def test_merge_graphs_invalid_weight_spec() -> None:
         action._compute_weights_from_metadata(
             [{"action": "pc"}], weight_spec, None
         )
+
+
+# Test merge_graphs includes provenance metadata in output.
+def test_merge_graphs_provenance_metadata(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs includes action, timestamp, filter in metadata."""
+    from datetime import datetime
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    action = AnalysisActionProvider()
+
+    # Run without filter
+    status, metadata, _ = action.run(
+        "merge_graphs",
+        {"input": [str(graph_path)]},
+        mode="run",
+    )
+
+    assert status == "success"
+    assert metadata["action"] == "merge_graphs"
+    assert "timestamp" in metadata
+    # Verify timestamp is valid ISO format
+    datetime.fromisoformat(metadata["timestamp"])
+    assert "filter" not in metadata
+
+
+# Test merge_graphs includes filter in provenance when specified.
+def test_merge_graphs_provenance_with_filter(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test merge_graphs includes filter in provenance metadata."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    action = AnalysisActionProvider()
+
+    # Note: filter parameter is captured in metadata even if not evaluated
+    # (evaluation happens in workflow engine before calling action)
+    status, metadata, _ = action.run(
+        "merge_graphs",
+        {"input": [str(graph_path)], "filter": "algorithm == 'pc'"},
+        mode="run",
+    )
+
+    assert status == "success"
+    assert metadata["action"] == "merge_graphs"
+    assert metadata["filter"] == "algorithm == 'pc'"

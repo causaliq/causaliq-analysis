@@ -347,6 +347,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
            aggregation, reads graphs from 'inputs' file paths (.graphml or
            .db files).
         """
+        from datetime import datetime, timezone
         from io import StringIO
 
         from causaliq_core.graph.io import graphml
@@ -361,6 +362,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             input_files = parameters.get("input", []) or []
             weights = parameters.get("weights")
             cpdag = parameters.get("cpdag", False)
+            filter_expr = parameters.get("filter")
 
             # Detect aggregation mode
             is_aggregation_mode = aggregation_entries is not None
@@ -487,12 +489,16 @@ class AnalysisActionProvider(CausalIQActionProvider):
             if log_fn:
                 log_fn(f"Merged {len(graphs)} graphs into PDG")
 
-            # Build result metadata
+            # Build result metadata with provenance
             metadata: Dict[str, Any] = {
+                "action": "merge_graphs",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "num_graphs": len(graphs),
                 "cpdag": cpdag,
                 "aggregation_mode": is_aggregation_mode,
             }
+            if filter_expr is not None:
+                metadata["filter"] = filter_expr
             if weights_applied:
                 metadata["weights_spec"] = weights
                 metadata["weights_computed"] = final_weights
