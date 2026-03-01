@@ -674,3 +674,95 @@ def test_migrate_trace_value_error_exception(
 
     with pytest.raises(ActionExecutionError, match="Trace migration failed"):
         action.run("migrate_trace", parameters, mode="run")
+
+
+# Test _compute_weights_from_metadata computes normalised weights.
+def test_compute_weights_from_metadata() -> None:
+    """Test metadata-driven weight computation and normalisation."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    action = AnalysisActionProvider()
+
+    # Sample metadata for 3 graphs
+    graph_metadata = [
+        {"action": "generate_graph", "algorithm": "pc"},
+        {"action": "migrate_trace", "algorithm": "pc"},
+        {"action": "migrate_trace", "algorithm": "fci"},
+    ]
+
+    # Weight spec: generate_graph=1.0, migrate_trace=0.5; pc=1.0, fci=0.8
+    weight_spec = {
+        "action": {
+            "generate_graph": 1.0,
+            "migrate_trace": 0.5,
+        },
+        "algorithm": {
+            "pc": 1.0,
+            "fci": 0.8,
+        },
+    }
+
+    weights = action._compute_weights_from_metadata(
+        graph_metadata, weight_spec, None
+    )
+
+    # Raw weights: 1.0*1.0=1.0, 0.5*1.0=0.5, 0.5*0.8=0.4
+    # Total: 1.9
+    # Normalised: 1.0/1.9, 0.5/1.9, 0.4/1.9
+    assert len(weights) == 3
+    assert weights[0] == pytest.approx(1.0 / 1.9)
+    assert weights[1] == pytest.approx(0.5 / 1.9)
+    assert weights[2] == pytest.approx(0.4 / 1.9)
+    assert sum(weights) == pytest.approx(1.0)
+
+
+# Test metadata-driven weights requires aggregation mode.
+def test_merge_graphs_metadata_weights_requires_aggregation(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test metadata-driven weights error without aggregation mode."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    # Create a valid GraphML file
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    action = AnalysisActionProvider()
+
+    # Provide dict weights without aggregation mode
+    parameters = {
+        "input": [str(graph_path)],
+        "weights": {"action": {"generate_graph": 1.0}},
+    }
+
+    with pytest.raises(
+        ActionExecutionError, match="Metadata-driven weights require"
+    ):
+        action.run("merge_graphs", parameters, mode="run")
+
+
+# Test invalid weight specification raises error.
+def test_merge_graphs_invalid_weight_spec() -> None:
+    """Test invalid weight specification raises ActionExecutionError."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    action = AnalysisActionProvider()
+
+    # Invalid weight: negative value
+    weight_spec = {"action": {"pc": -1.0}}
+
+    with pytest.raises(ActionExecutionError, match="Invalid weight"):
+        action._compute_weights_from_metadata(
+            [{"action": "pc"}], weight_spec, None
+        )

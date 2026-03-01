@@ -166,11 +166,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "weights": ActionInput(
             name="weights",
             description=(
-                "Weights for each input graph (must sum to 1.0). "
+                "Weights for merging. Can be: (1) a list of floats (one per "
+                "graph, must sum to 1.0), or (2) a metadata-driven weight "
+                "specification dict mapping metadata field names to "
+                "value-weight pairs. In aggregation mode, weights are "
+                "computed from entry metadata and normalised. "
                 "If omitted, uniform weights are used."
             ),
             required=False,
-            type_hint="list[float]",
+            type_hint="list[float] or dict[str, dict[str, float]]",
         ),
         "cpdag": ActionInput(
             name="cpdag",
@@ -402,12 +406,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
             # Read graphs based on mode
             graphs: List[Any] = []
+            graph_metadata: List[Dict[str, Any]] = []
             source_info: Dict[str, Any] = {}
 
             if is_aggregation_mode and aggregation_entries:
                 # Aggregation mode: extract graphs from pre-scanned entries
-                graphs, source_info = self._extract_graphs_from_entries(
-                    aggregation_entries, log_fn
+                graphs, graph_metadata, source_info = (
+                    self._extract_graphs_from_entries(
+                        aggregation_entries, log_fn
+                    )
                 )
             else:
                 # Direct mode: read from file paths
@@ -443,8 +450,34 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     "No graphs found to merge. Check inputs."
                 )
 
+            # Process weights: detect if metadata-driven (dict) or explicit
+            final_weights: Optional[List[float]] = None
+            weights_applied = False
+
+            if weights is not None:
+                if isinstance(weights, dict):
+                    # Metadata-driven weight specification
+                    if not graph_metadata:
+                        raise ActionExecutionError(
+                            "Metadata-driven weights require aggregation "
+                            "mode. Use 'aggregate' parameter or provide "
+                            "explicit weight list."
+                        )
+                    final_weights = self._compute_weights_from_metadata(
+                        graph_metadata, weights, log_fn
+                    )
+                    weights_applied = True
+                elif isinstance(weights, list):
+                    # Explicit weight list
+                    final_weights = weights
+                else:
+                    raise ActionExecutionError(
+                        f"weights must be a list or dict, "
+                        f"got {type(weights).__name__}"
+                    )
+
             # Merge graphs
-            pdg = merge_graphs(graphs, weights=weights, cpdag=cpdag)
+            pdg = merge_graphs(graphs, weights=final_weights, cpdag=cpdag)
 
             # Serialise PDG to GraphML
             buffer = StringIO()
@@ -460,8 +493,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "cpdag": cpdag,
                 "aggregation_mode": is_aggregation_mode,
             }
-            if weights:
-                metadata["weights"] = weights
+            if weights_applied:
+                metadata["weights_spec"] = weights
+                metadata["weights_computed"] = final_weights
+            elif final_weights:
+                metadata["weights"] = final_weights
             metadata.update(source_info)
 
             objects = [
@@ -489,7 +525,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         self,
         entries: List[Dict[str, Any]],
         log_fn: Optional[Any],
-    ) -> Tuple[List[Any], Dict[str, Any]]:
+    ) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
         """Extract graphs from aggregation entries.
 
         Reads graphml objects from pre-scanned cache entries provided
@@ -502,7 +538,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             log_fn: Optional logging function.
 
         Returns:
-            Tuple of (list of graphs, source_info dict with provenance).
+            Tuple of:
+            - list of graphs
+            - list of flattened metadata dicts (one per graph)
+            - source_info dict with provenance
 
         Raises:
             ActionExecutionError: If graph extraction fails.
@@ -512,6 +551,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         from causaliq_core.graph.io import graphml
 
         graphs = []
+        graph_metadata: List[Dict[str, Any]] = []
         source_caches: set = set()
         entries_with_graphs = 0
 
@@ -519,12 +559,16 @@ class AnalysisActionProvider(CausalIQActionProvider):
             entry = entry_dict.get("entry")
             cache_path = entry_dict.get("cache_path", "unknown")
             matrix_values = entry_dict.get("matrix_values", {})
+            metadata = entry_dict.get("metadata", {})
 
             if entry is None:
                 continue
 
             source_caches.add(cache_path)
             found_in_entry = 0
+
+            # Flatten metadata for filter/weight evaluation
+            flat_meta = self._flatten_entry_metadata(matrix_values, metadata)
 
             # Find all graphml objects in this entry
             for obj_name in entry.object_names():
@@ -535,6 +579,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 try:
                     graph = graphml.read(StringIO(obj.content))
                     graphs.append(graph)
+                    graph_metadata.append(flat_meta)
                     found_in_entry += 1
                     if log_fn:
                         log_fn(f"Loaded '{obj_name}' from {matrix_values}")
@@ -554,7 +599,103 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "source_caches": sorted(source_caches),
         }
 
-        return graphs, source_info
+        return graphs, graph_metadata, source_info
+
+    def _flatten_entry_metadata(
+        self,
+        matrix_values: Dict[str, Any],
+        metadata: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Flatten entry metadata for filter/weight evaluation.
+
+        Combines matrix values with nested metadata structure into a flat
+        dictionary suitable for filter expression or weight computation.
+
+        Args:
+            matrix_values: Entry's matrix variable values.
+            metadata: Entry's nested metadata dictionary.
+
+        Returns:
+            Flat dictionary with all metadata fields.
+        """
+        flat: Dict[str, Any] = dict(matrix_values)
+
+        # Flatten nested metadata (provider -> action -> fields)
+        for provider_name, provider_data in metadata.items():
+            if isinstance(provider_data, dict):
+                for action_name, action_data in provider_data.items():
+                    if isinstance(action_data, dict):
+                        for key, value in action_data.items():
+                            # Use simple key if no conflict
+                            if key not in flat:
+                                flat[key] = value
+                            # Use fully qualified key as fallback
+                            qual_key = f"{provider_name}.{action_name}.{key}"
+                            flat[qual_key] = value
+                    else:
+                        flat[f"{provider_name}.{action_name}"] = action_data
+            else:
+                flat[provider_name] = provider_data
+
+        return flat
+
+    def _compute_weights_from_metadata(
+        self,
+        graph_metadata: List[Dict[str, Any]],
+        weight_spec: Dict[str, Dict[str, float]],
+        log_fn: Optional[Any],
+    ) -> List[float]:
+        """Compute normalised weights from graph metadata.
+
+        Uses the weight specification to compute a weight for each graph
+        based on its metadata. Weights are normalised to sum to 1.0.
+
+        Args:
+            graph_metadata: List of flattened metadata dicts (one per graph).
+            weight_spec: Mapping from metadata field to value-weight pairs.
+            log_fn: Optional logging function.
+
+        Returns:
+            List of normalised weights (one per graph, sum to 1.0).
+
+        Raises:
+            ActionExecutionError: If weight computation fails.
+        """
+        from causaliq_core.utils import (
+            WeightSpecError,
+            compute_weight,
+            validate_weight_spec,
+        )
+
+        # Validate weight specification
+        try:
+            validate_weight_spec(weight_spec)
+        except WeightSpecError as e:
+            raise ActionExecutionError(f"Invalid weight specification: {e}")
+
+        # Compute raw weights for each graph
+        raw_weights = []
+        for meta in graph_metadata:
+            w = compute_weight(meta, weight_spec)
+            raw_weights.append(w)
+
+        # Normalise to sum to 1.0
+        total = sum(raw_weights)
+        if total <= 0:
+            raise ActionExecutionError(
+                "Computed weights sum to zero or negative. "
+                "Check weight specification."
+            )
+
+        normalised = [w / total for w in raw_weights]
+
+        if log_fn:
+            log_fn(
+                f"Computed weights from metadata: "
+                f"raw={raw_weights}, normalised={normalised}"
+            )
+
+        return normalised
 
     def _read_graphs_from_cache(
         self,
