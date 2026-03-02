@@ -2,7 +2,7 @@
 causaliq-analysis: Tools for analysing and visualising causal graphs
 """
 
-__version__ = "0.3.0.dev1"
+__version__ = "0.3.0"
 __author__ = "CausalIQ"
 __email__ = "info@causaliq.com"
 

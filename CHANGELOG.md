@@ -26,6 +26,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 
+## [0.3.0] - 2026-03-02
+
+### Added
+- **Graph Merging**: `merge_graphs` function to combine multiple DAGs/PDAGs/PDGs
+  into a single Probabilistic Dependency Graph (PDG) with weighted edge
+  probabilities
+  - Support for uniform weights (default) and custom weighting
+  - Optional CPDAG conversion before merging (`cpdag=True`)
+  - CLI command `merge-graph` for command-line access
+  - Workflow action integration for batch processing
+- **Trace Migration**: `migrate-trace` CLI command to convert legacy Trace
+  pickle files to portable GraphML format
+  - Filtering by sample size and seeds
+  - Metadata extraction and JSON output
+  - Workflow action for batch migration across networks
+- **Summarisation Paradigm**: Architecture documentation for aggregation
+  operations including filter expressions and metadata-driven weighting
+- **API Documentation**: Complete documentation for merge module
+
+### Changed
+- Documentation restructured: detailed design moved from roadmap to
+  architecture docs
+- API overview reorganised with merge module as primary entry
+
+
 ## [0.2.0] - 2025-12-30
 
 ### Added

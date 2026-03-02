@@ -13,7 +13,7 @@ This project roadmap fits into the
 
 ### v0.3.0 — Graph Merging
 
-Workflow actions to migrate legacy traces and mere graphs.
+Workflow actions to migrate legacy traces and merge graphs.
 
 - **Trace Migration** (`migrate_trace`) — Convert legacy Trace pickle files
   to DAG/CPDAG in workflow caches

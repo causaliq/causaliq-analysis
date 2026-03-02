@@ -4,28 +4,38 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
-This repo provides tools for analysing and visualising learned causal graphs, including structural metrics, stability assessment, significance tests, and publication-ready tables and charts. It is part of the [CausalIQ ecosystem](https:/causaliq.org/) for intelligent causal discovery.
+This repo provides tools for analysing and visualising learned causal graphs,
+including structural metrics, stability assessment, significance tests, and
+publication-ready tables and charts. It is part of the
+[CausalIQ ecosystem](https://causaliq.org/) for intelligent causal discovery.
 
 ## Status
 
-🚧 **Active Development** - This repository is currently in active development, which involves:
+**Current Version**: v0.3.0
 
-- migrating functionality from the legacy monolithic [discovery repo](https://github.com/causaliq/discovery) 
-- restructuring classes to reduce module size and improve maintainability and improve usability
-- ensure CausalIQ development standards are met
-- adding new analysis features e.g. graph averaging
+This repository is part of the [CausalIQ ecosystem](https://causaliq.org/) and
+is in active development. Recent work has focused on graph merging
+functionality and migration from the legacy
+[discovery repo](https://github.com/causaliq/discovery).
 
 
 ## Features
 
 ✅ **Implemented Releases**
 
-- **Release v0.1.0 - Foundation Metrics**: CausalIQ and Bayesys structural graph metrics and KL metric.
-- **Release v0.2.0 - Legacy Trace**: Support for reading and writing structure learning traces in legacy pickle format (this will be superseded by a more open format).
+- **Release v0.3.0 - Graph Merging**: Merge multiple DAGs/PDAGs/PDGs into
+  probabilistic dependency graphs (PDGs) with weighted edge probabilities.
+  Trace migration to convert legacy traces to modern GraphML format.
+- **Release v0.2.0 - Legacy Trace**: Support for reading and writing
+  structure learning traces in legacy pickle format.
+- **Release v0.1.0 - Foundation Metrics**: CausalIQ and Bayesys structural
+  graph metrics and KL metric.
 
-🛣️ Upcoming Releases
+🛣️ **Upcoming Releases**
 
-- **Release v0.3.0 - Graph Averaging**: Graph averaging to produce arc probabilities.
+- **Release v0.4.0 - Optimal Extraction & Evaluation**: Extract best DAG/CPDAG
+  from PDGs, structural evaluation metrics (F1, precision, recall) vs ground
+  truth.
 
 
 ## Upcoming Key Innovations
@@ -65,7 +75,7 @@ so that the legacy repo can use the migrated code instead.
 ### Prerequisites
 
 - Git 
-- Latest stable versions of Python 3.9, 3.10. 3.11 and 3.12
+- Latest stable versions of Python 3.9, 3.10. 3.11, 3.12 or 3.13
 
 
 ### Clone the new repo locally and check that it works
@@ -114,7 +124,7 @@ This repository is part of the CausalIQ ecosystem. For development setup:
 
 ---
 
-**Supported Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.12  
+**Supported Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.13  
 **Default Python Version**: 3.11  
 **License**: MIT
 
