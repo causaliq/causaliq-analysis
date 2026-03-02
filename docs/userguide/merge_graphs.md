@@ -9,19 +9,22 @@ sample sizes, or algorithms.
 
 | Parameter | CLI | Action | Required | Description |
 |-----------|-----|--------|----------|-------------|
-| `inputs` | `--input` | `inputs` | Yes | Input workflow cache or file path(s) |
-| `group_by` | `--group-by` | `group_by` | Yes | Grouping dimensions (repeatable in CLI) |
-| `where` | `--where` | `where` | No | Filter conditions (repeatable in CLI) |
-| `weights` | `--weights` | `weights` | No | Custom weights (comma-separated in CLI) |
-| `output` | `--output` | — | CLI only | Output file or directory path |
+| `inputs` | `-i`/`--input` | `inputs` | Yes | Input files (`.graphml` or `.db` cache). Repeatable in CLI. |
+| `output` | `-o`/`--output` | — | CLI only | Output file path for merged PDG |
+| `cpdag` | `--cpdag` | `cpdag` | No | Convert DAGs to CPDAGs before merging |
+
 
 **Notes:**
 
-- In CLI, `--group-by` and `--where` use `Key=Value` format and can be
-  repeated for multiple dimensions
-- In workflow actions, use matrix variables in `group_by` for batch
-  processing: `network: "{{network}}"`
+- Input type is auto-detected by file extension:
+  - `.graphml`: Read as GraphML file
+  - `.db`: Read all entries from WorkflowCache database
+- In CLI, use `-i` multiple times for multiple inputs
+- In workflow actions, `inputs` is a list of file paths
 - Weights must sum to 1.0; if omitted, uniform weights (1/n) are used
+- When `cpdag=True`, DAGs are converted to their CPDAG (equivalence class)
+  before merging, so the result averages over equivalence classes rather
+  than specific edge orientations
 
 ---
 
@@ -139,26 +142,43 @@ pdg = merge_graphs([dag1, dag2, dag3], weights=[0.5, 0.25, 0.25])
 
 ## CLI Usage
 
-The `merge-graphs` command provides CLI access to graph merging with
-`group_by` and `where` parameters for filtering and grouping inputs.
+The `merge-graph` command provides CLI access to graph merging. Input type
+is auto-detected by file extension (`.graphml` or `.db`).
 
 ### Example Commands
 
 ```powershell
-# Merge all graphs for a specific network and sample size
-causaliq-analysis merge-graphs `
-  --group-by network=asia `
-  --group-by sample_size=500 `
-  --where execution_status=completed `
-  --input discovery_cache `
-  --output merged_asia_500.graphml
+# Merge multiple GraphML files
+causaliq-analysis merge-graph `
+  -i graph1.graphml `
+  -i graph2.graphml `
+  -i graph3.graphml `
+  -o merged.graphml
 
-# Merge with custom weights
-causaliq-analysis merge-graphs `
-  --group-by network=alarm `
-  --weights 0.5,0.3,0.2 `
-  --input discovery_cache `
-  --output merged_alarm.graphml
+# Merge all graphs from a workflow cache
+causaliq-analysis merge-graph `
+  -i discovery_results.db `
+  -o merged.graphml
+
+# Mix GraphML files and cache databases
+causaliq-analysis merge-graph `
+  -i baseline.graphml `
+  -i experiment_results.db `
+  -o merged.graphml
+
+# With custom weights and CPDAG conversion
+causaliq-analysis merge-graph `
+  -i graph1.graphml `
+  -i graph2.graphml `
+  -o merged.graphml `
+  -w 0.7,0.3 `
+  --cpdag
+
+# Specify object name for cache entries
+causaliq-analysis merge-graph `
+  -i results.db `
+  -o merged.graphml `
+  -n learned_graph
 ```
 
 ---
@@ -166,40 +186,45 @@ causaliq-analysis merge-graphs `
 ## Workflow Action
 
 The `merge_graphs` action can be used in causaliq-workflow definitions
-for batch processing across multiple dimension combinations.
+for batch processing.
 
 ### Example Workflow
 
 ```yaml
 # merge_discovery_results.yaml
-description: "Merge structure learning results by network and sample size"
-
-matrix:
-  network: [asia, alarm, insurance]
-  sample_size: [500, 1000, 5000]
+description: "Merge structure learning results"
 
 actions:
   merge_graphs:
     inputs:
-      - cache: discovery_results
-    group_by:
-      network: "{{network}}"
-      sample_size: "{{sample_size}}"
-    where:
-      execution_status: completed
+      - "results/asia_seed1.graphml"
+      - "results/asia_seed2.graphml"
+      - "results/asia_seed3.graphml"
+
+# Or merge from a workflow cache database
+actions:
+  merge_graphs:
+    inputs:
+      - "discovery_results.db"
+    object_name: graph  # Default object name in cache entries
+
+# With custom weights and CPDAG conversion
+actions:
+  merge_graphs:
+    inputs:
+      - "graph1.graphml"
+      - "graph2.graphml"
+    weights: [0.6, 0.4]
+    cpdag: true
 ```
 
-This workflow produces 9 merged PDGs (3 networks × 3 sample sizes), each
-combining all graphs matching the specified network and sample size.
+### Input Types
 
-### Execution Model
+The `inputs` parameter accepts a list of file paths. Type is auto-detected:
 
-The workflow action executes in two phases:
-
-1. **Scan phase**: Read all input entries, apply `where` filters, group
-   by the specified dimensions
-2. **Execute phase**: Run `merge_graphs` for each unique dimension
-   combination, writing results to the output cache
+- **`.graphml` files**: Read directly as GraphML
+- **`.db` files**: Read all entries from WorkflowCache database, extracting
+  the object specified by `object_name` (default: `graph`)
 
 ---
 
@@ -231,6 +256,6 @@ print(f"Most likely: {probs.most_likely_state()}")
 
 ## See Also
 
-- [Development Roadmap](../roadmap.md) - Planned features including
-  optimal graph extraction and structural evaluation
-- [PDG API Reference](../api/overview.md) - Full PDG class documentation
+- [Summarisation Paradigm](../architecture/summarisation_paradigm.md) —
+  Architecture for aggregation operations including filtering and weighting
+- [PDG API Reference](../api/overview.md) — Full PDG class documentation

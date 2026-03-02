@@ -1,23 +1,33 @@
 # CausalIQ Analysis API Reference
 
-This is the entry point for the API documentation. It is suggested to split the 
-documentation by module, and briefly describe each module here, to ease navigation
-of the API and avoid overlong pages.
+This is the entry point for the API documentation. Each module is documented
+separately below.
 
 ## Modules
 
-### [CLI](cli.md)
+### [Merge](merge.md)
 
-This provides a skeleton CLI implementation.
+Functions for merging multiple graphs (DAG, PDAG, PDG) into a single
+Probabilistic Dependency Graph (PDG) with weighted edge probabilities.
 
 ### [Metrics](metrics.md)
 
-This module provides functions for analysing and comparing causal graphs, including structural metrics, Kullback-Leibler divergence calculations, and Bayesys compatibility metrics.
+Functions for analysing and comparing causal graphs, including structural
+metrics, Kullback-Leibler divergence calculations, and Bayesys compatibility
+metrics.
 
 ### [Graph](graph.md)
 
-This module defines enumerations for describing changes made to causal graphs during structure learning, including action types and detailed information that can be recorded with each trace entry.
+Enumerations for describing changes made to causal graphs during structure
+learning, including action types and detailed information recorded with each
+trace entry.
 
 ### [Trace](trace.md)
 
-This module implements detailed tracing of structure learning processes, enabling researchers to record, analyze, and compare the step-by-step evolution of causal graphs during algorithm execution.
+Detailed tracing of structure learning processes, enabling researchers to
+record, analyse, and compare the step-by-step evolution of causal graphs
+during algorithm execution.
+
+### [CLI](cli.md)
+
+Command-line interface for causaliq-analysis operations.

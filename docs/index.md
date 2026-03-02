@@ -33,11 +33,14 @@ For a quickstart guide and installation instructions, see the [README on GitHub]
 
 ## Documentation Contents
 
-- [Development Roadmap](roadmap.md): Roadmap of upcoming features
+- [Development Roadmap](roadmap.md): Release history and upcoming features
 - **User Guide**:
     - [Introduction](userguide/introduction.md): Overview and graph averaging
     - [Graph Merging](userguide/merge_graphs.md): Combining multiple graphs into PDGs
-- [Architecture](architecture/overview.md): Overall architecture and design notes
+    - [Trace Migration](userguide/migrate_trace.md): Converting legacy traces
+- **Architecture**:
+    - [Overview](architecture/overview.md): Package structure and design
+    - [Summarisation Paradigm](architecture/summarisation_paradigm.md): Aggregation architecture
 - [API Reference](api/overview.md): Complete reference for Python code
 - [Development Guidelines](https://github.com/causaliq/causaliq/blob/main/CONTRIBUTING.md): CausalIQ guidelines for developers
 - [Changelog](https://github.com/causaliq/causaliq-analysis/blob/main/CHANGELOG.md)

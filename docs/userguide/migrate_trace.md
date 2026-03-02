@@ -1,6 +1,6 @@
 # Trace Migration
 
-The `migrate_trace` command converts legacy Trace pickle files into portable
+The `migrate-trace` command converts legacy Trace pickle files into portable
 **GraphML format** with accompanying metadata. This enables integration with
 modern causaliq workflows and third-party graph tools.
 
@@ -65,13 +65,13 @@ The DAG is serialised to GraphML format, which:
 
 ```powershell
 # Migrate all traces for asia network from TABU/STD series
-causaliq-analysis migrate_trace `
+causaliq-analysis migrate-trace `
   --network=asia `
   --series=TABU/STD `
   --root-dir=experiments
 
 # Migrate specific sample size and seeds
-causaliq-analysis migrate_trace `
+causaliq-analysis migrate-trace `
   --network=asia `
   --series=TABU/STD `
   --N=10k `
@@ -79,7 +79,7 @@ causaliq-analysis migrate_trace `
   --output=migrated/asia_10k
 
 # Migrate from non-default root directory
-causaliq-analysis migrate_trace `
+causaliq-analysis migrate-trace `
   --network=alarm `
   --series=HC/SAMPLE/BASE `
   --root-dir=/data/experiments `
@@ -179,6 +179,5 @@ Accompanying metadata for each graph:
 
 ## See Also
 
-- [Graph Merging](merge_graphs.md) - Combine migrated graphs into PDGs
-- [Development Roadmap](../roadmap.md) - Future migration enhancements
-- [Trace API Reference](../api/trace.md) - Trace class documentation
+- [Graph Merging](merge_graphs.md) — Combine migrated graphs into PDGs
+- [Trace API Reference](../api/trace.md) — Trace class documentation

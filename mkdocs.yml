@@ -49,11 +49,11 @@ nav:
     - Trace Migration: userguide/migrate_trace.md
     - Graph Merging: userguide/merge_graphs.md
   - Architecture: 
-    - Architectural Overview: architecture/overview.md
-    - Design Notes: 
-      - Example: architecture/example_design_note.md
+    - Overview: architecture/overview.md
+    - Summarisation Paradigm: architecture/summarisation_paradigm.md
   - API Reference: 
     - API Overview: api/overview.md
+    - Merge: api/merge.md
     - Metrics: api/metrics.md
     - Graph: api/graph.md
     - Trace: api/trace.md
