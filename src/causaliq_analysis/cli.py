@@ -1,7 +1,7 @@
 """Command-line interface for causaliq-analysis."""
 
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 
@@ -482,6 +482,290 @@ def evaluate_graph_cmd(
             click.echo(f"Metrics written to {output_path}")
         else:
             click.echo(json_output)
+
+
+@cli.command(name="summarise")
+@click.option(
+    "--metric",
+    "-m",
+    "metrics",
+    multiple=True,
+    required=True,
+    help="Metric specification: <field>.<stat> (e.g., f1.mean, shd.sd). "
+    "Supported stats: mean, sd, count. Can specify multiple.",
+)
+@click.option(
+    "--input",
+    "-i",
+    "input_files",
+    multiple=True,
+    required=True,
+    type=click.Path(exists=True),
+    help="Input file(s): JSON metrics or workflow cache (.db). "
+    "Can specify multiple.",
+)
+@click.option(
+    "--output",
+    "-o",
+    required=True,
+    type=click.Path(),
+    help="Output CSV file path.",
+)
+@click.option(
+    "--filter",
+    "-f",
+    "filter_expr",
+    default=None,
+    help="Filter expression to select entries (e.g., 'status == completed').",
+)
+def summarise_cmd(
+    metrics: Tuple[str, ...],
+    input_files: Tuple[str, ...],
+    output: str,
+    filter_expr: Optional[str],
+) -> None:
+    """
+    Summarise numerical metrics across experiments.
+
+    Computes summary statistics (mean, SD, count) for numerical metrics
+    extracted from JSON files or workflow cache (.db) entries. Produces
+    publication-ready tabular output in CSV format.
+
+    Metric specifications use the format <field>.<statistic>:
+    - f1.mean - compute mean of 'f1' values
+    - shd.sd - compute standard deviation of 'shd' values
+    - precision.count - count non-null 'precision' values
+
+    The field name follows a dotted path convention for nested metadata.
+    For workflow caches, metrics are extracted from entry metadata
+    (e.g., 'causaliq-analysis.evaluate_graph.f1' becomes 'f1').
+
+    Example:
+        causaliq-analysis summarise -m f1.mean -m f1.sd -m shd.mean \\
+            -i results.json -o summary.csv
+
+        causaliq-analysis summarise -m precision.mean -m recall.mean \\
+            -i cache.db -o metrics_summary.csv
+
+        causaliq-analysis summarise -m f1.mean -i cache.db \\
+            -f "network == 'asia'" -o asia_summary.csv
+    """
+    import csv
+    import json
+    import statistics
+    from typing import Any, Dict, List
+
+    # Supported statistics
+    SUPPORTED_STATS = {"mean", "sd", "count"}
+
+    # Parse metric specifications
+    parsed_metrics: List[Tuple[str, str]] = []
+    for spec in metrics:
+        if "." not in spec:
+            raise click.ClickException(
+                f"Invalid metric spec '{spec}': must be <field>.<stat>"
+            )
+        parts = spec.rsplit(".", 1)
+        field, stat = parts[0], parts[1]
+        if stat not in SUPPORTED_STATS:
+            raise click.ClickException(
+                f"Unknown statistic '{stat}' in '{spec}'. "
+                f"Supported: {', '.join(sorted(SUPPORTED_STATS))}"
+            )
+        parsed_metrics.append((field, stat))
+
+    # Extract unique fields for value collection
+    unique_fields = list(dict.fromkeys(f for f, _ in parsed_metrics))
+
+    # Collect values from all inputs
+    all_values: Dict[str, List[float]] = {field: [] for field in unique_fields}
+
+    for input_path in input_files:
+        path_lower = input_path.lower()
+
+        if path_lower.endswith(".db"):
+            # Read from workflow cache
+            try:
+                from causaliq_workflow.cache import WorkflowCache
+            except ImportError:  # pragma: no cover
+                raise click.ClickException(
+                    "causaliq-workflow required to read .db caches. "
+                    "Install with: pip install causaliq-workflow"
+                )
+
+            try:
+                with WorkflowCache(input_path) as cache:
+                    entries = cache.list_entries()
+
+                    for entry_info in entries:
+                        entry = cache.get(entry_info["matrix_values"])
+                        if entry is None:  # pragma: no cover
+                            continue
+
+                        # Flatten metadata for access
+                        flat_meta = _flatten_metadata(entry.metadata)
+
+                        # Apply filter if specified
+                        if filter_expr:
+                            try:
+                                from causaliq_core.utils import evaluate_filter
+
+                                if not evaluate_filter(filter_expr, flat_meta):
+                                    continue
+                            except Exception:
+                                continue
+
+                        # Extract metric values
+                        for field in unique_fields:
+                            value = _get_nested_value(flat_meta, field)
+                            if value is not None and isinstance(
+                                value, (int, float)
+                            ):
+                                all_values[field].append(float(value))
+
+            except Exception as e:
+                raise click.ClickException(
+                    f"Failed to read cache '{input_path}': {e}"
+                )
+
+        elif path_lower.endswith(".json"):
+            # Read from JSON file
+            try:
+                with open(input_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                # Handle single dict or list of dicts
+                records: List[Any]
+                if isinstance(data, dict):
+                    records = [data]
+                elif isinstance(data, list):
+                    records = data
+                else:
+                    raise click.ClickException(
+                        f"JSON file must contain object or array: {input_path}"
+                    )
+
+                for record in records:
+                    if not isinstance(record, dict):
+                        continue
+
+                    # Apply filter if specified
+                    if filter_expr:
+                        try:
+                            from causaliq_core.utils import evaluate_filter
+
+                            if not evaluate_filter(filter_expr, record):
+                                continue
+                        except Exception:
+                            continue
+
+                    # Extract metric values
+                    for field in unique_fields:
+                        value = _get_nested_value(record, field)
+                        if value is not None and isinstance(
+                            value, (int, float)
+                        ):
+                            all_values[field].append(float(value))
+
+            except json.JSONDecodeError as e:
+                raise click.ClickException(
+                    f"Invalid JSON file '{input_path}': {e}"
+                )
+            except Exception as e:
+                raise click.ClickException(
+                    f"Failed to read '{input_path}': {e}"
+                )
+        else:
+            raise click.ClickException(
+                f"Unsupported file type: {input_path}. "
+                "Use .json or .db files."
+            )
+
+    # Compute summary statistics
+    results: Dict[str, Any] = {}
+    for field, stat in parsed_metrics:
+        col_name = f"{field}.{stat}"
+        values = all_values[field]
+
+        if stat == "count":
+            results[col_name] = len(values)
+        elif stat == "mean":
+            if values:
+                results[col_name] = statistics.mean(values)
+            else:
+                results[col_name] = None
+        elif stat == "sd":
+            if len(values) >= 2:
+                results[col_name] = statistics.stdev(values)
+            else:
+                results[col_name] = None
+
+    # Write CSV output
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            # Header row
+            writer.writerow(results.keys())
+            # Data row
+            writer.writerow(results.values())
+        click.echo(f"Summary written to {output_path}")
+    except Exception as e:
+        raise click.ClickException(f"Failed to write output: {e}")
+
+
+def _flatten_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten nested metadata for field access.
+
+    Flattens provider/action structure to simple field names.
+    E.g., {'causaliq-analysis': {'eval': {'f1': 0.9}}} becomes {'f1': 0.9}.
+    """
+    flat: Dict[str, Any] = {}
+
+    for provider_name, provider_data in metadata.items():
+        if isinstance(provider_data, dict):
+            for action_name, action_data in provider_data.items():
+                if isinstance(action_data, dict):
+                    for key, value in action_data.items():
+                        # Use simple key if no conflict
+                        if key not in flat:
+                            flat[key] = value
+                        # Also store qualified key
+                        qual_key = f"{provider_name}.{action_name}.{key}"
+                        flat[qual_key] = value
+                else:
+                    flat[f"{provider_name}.{action_name}"] = action_data
+        else:
+            flat[provider_name] = provider_data
+
+    return flat
+
+
+def _get_nested_value(data: Dict[str, Any], field: str) -> Any:
+    """Get value from dict using dotted path notation.
+
+    Args:
+        data: Dictionary to search.
+        field: Field name, optionally with dots for nested access.
+
+    Returns:
+        Value if found, None otherwise.
+    """
+    # First try direct key lookup
+    if field in data:
+        return data[field]
+
+    # Try dotted path traversal
+    parts = field.split(".")
+    current = data
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    return current
 
 
 def main() -> None:
