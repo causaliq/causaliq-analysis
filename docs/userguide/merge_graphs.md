@@ -9,18 +9,21 @@ sample sizes, or algorithms.
 
 | Parameter | CLI | Action | Required | Description |
 |-----------|-----|--------|----------|-------------|
-| `inputs` | `-i`/`--input` | `inputs` | Yes | Input files (`.graphml` or `.db` cache). Repeatable in CLI. |
-| `output` | `-o`/`--output` | — | CLI only | Output file path for merged PDG |
+| `input` | `-i`/`--input` | `input` | Yes | Input files (`.graphml` or `.db` cache). Repeatable in CLI. |
+| `output` | `-o`/`--output` | `output` | Yes | Output file path for merged PDG |
+| `filter` | `-f`/`--filter` | `filter` | No | Filter expression for cache entries (Python syntax) |
+| `weights` | `-w`/`--weights` | — | No | JSON file specifying metadata-driven weights (CLI only) |
 | `cpdag` | `--cpdag` | `cpdag` | No | Convert DAGs to CPDAGs before merging |
 
 
 **Notes:**
 
 - Input type is auto-detected by file extension:
-  - `.graphml`: Read as GraphML file
-  - `.db`: Read all entries from WorkflowCache database
+  - `.graphml`: Read as GraphML file (filter/weights not applicable)
+  - `.db`: Read all graphml objects from WorkflowCache entries
 - In CLI, use `-i` multiple times for multiple inputs
-- In workflow actions, `inputs` is a list of file paths
+- In workflows, `merge_graphs` is an aggregation action requiring `input`,
+  `output`, and a `matrix` definition
 - Weights must sum to 1.0; if omitted, uniform weights (1/n) are used
 - When `cpdag=True`, DAGs are converted to their CPDAG (equivalence class)
   before merging, so the result averages over equivalence classes rather
@@ -91,6 +94,7 @@ from causaliq_core.graph import DAG, PDAG, PDG
 def merge_graphs(
     graphs: List[Union[DAG, PDAG, PDG]],
     weights: Optional[List[float]] = None,
+    cpdag: bool = False,
 ) -> PDG:
     """Merge multiple graphs into a single PDG with edge probabilities.
 
@@ -98,6 +102,8 @@ def merge_graphs(
         graphs: List of graphs to merge. Must all have identical node sets.
         weights: Optional weights for each graph. Must sum to 1.0 if
             provided. If None, uniform weights (1/n) are used.
+        cpdag: If True, convert DAGs to their CPDAG (equivalence class)
+            before merging.
 
     Returns:
         PDG with weighted average edge probabilities.
@@ -138,93 +144,115 @@ print(f"P(no edge): {probs.none:.3f}")
 pdg = merge_graphs([dag1, dag2, dag3], weights=[0.5, 0.25, 0.25])
 ```
 
+### CPDAG Conversion
+
+```python
+# Convert DAGs to CPDAGs before merging (averages over equivalence classes)
+pdg = merge_graphs([dag1, dag2, dag3], cpdag=True)
+```
+
 ---
 
 ## CLI Usage
 
-The `merge-graph` command provides CLI access to graph merging. Input type
+The `merge-graphs` command provides CLI access to graph merging. Input type
 is auto-detected by file extension (`.graphml` or `.db`).
 
 ### Example Commands
 
 ```powershell
 # Merge multiple GraphML files
-causaliq-analysis merge-graph `
+causaliq-analysis merge-graphs `
   -i graph1.graphml `
   -i graph2.graphml `
   -i graph3.graphml `
   -o merged.graphml
 
 # Merge all graphs from a workflow cache
-causaliq-analysis merge-graph `
+causaliq-analysis merge-graphs `
   -i discovery_results.db `
   -o merged.graphml
 
 # Mix GraphML files and cache databases
-causaliq-analysis merge-graph `
+causaliq-analysis merge-graphs `
   -i baseline.graphml `
   -i experiment_results.db `
   -o merged.graphml
 
-# With custom weights and CPDAG conversion
-causaliq-analysis merge-graph `
-  -i graph1.graphml `
-  -i graph2.graphml `
-  -o merged.graphml `
-  -w 0.7,0.3 `
-  --cpdag
-
-# Specify object name for cache entries
-causaliq-analysis merge-graph `
+# Filter cache entries before merging
+causaliq-analysis merge-graphs `
   -i results.db `
+  -f "network == 'asia' and sample_size > 500" `
+  -o merged.graphml
+
+# With metadata-driven weights (JSON file) and CPDAG conversion
+causaliq-analysis merge-graphs `
+  -i results.db `
+  -w weights.json `
   -o merged.graphml `
-  -n learned_graph
+  --cpdag
 ```
 
 ---
 
 ## Workflow Action
 
-The `merge_graphs` action can be used in causaliq-workflow definitions
-for batch processing.
+The `merge_graphs` action is an **aggregation action** — it requires `input`,
+`output`, and `matrix` parameters. The matrix controls output dimensionality:
+entries from the input cache are grouped by matrix variable values and merged
+into new entries in the output cache.
+
+See [Workflow Action Patterns](introduction.md#workflow-action-patterns) for
+details on action patterns.
 
 ### Example Workflow
 
 ```yaml
-# merge_discovery_results.yaml
-description: "Merge structure learning results"
+# merge_discovery_results.yaml - Merge graphs per network
+id: "merge_by_network"
+description: "Merge structure learning results by network"
 
-actions:
-  merge_graphs:
-    inputs:
-      - "results/asia_seed1.graphml"
-      - "results/asia_seed2.graphml"
-      - "results/asia_seed3.graphml"
+matrix:
+  network: ["asia", "cancer"]
 
-# Or merge from a workflow cache database
-actions:
-  merge_graphs:
-    inputs:
-      - "discovery_results.db"
-    object_name: graph  # Default object name in cache entries
+steps:
+  - name: "Merge Graphs"
+    uses: "causaliq-analysis"
+    with:
+      action: "merge_graphs"
+      input: "results/discovery_results.db"
+      output: "results/merged.db"
+```
 
-# With custom weights and CPDAG conversion
-actions:
-  merge_graphs:
-    inputs:
-      - "graph1.graphml"
-      - "graph2.graphml"
-    weights: [0.6, 0.4]
-    cpdag: true
+If `discovery_results.db` contains entries for multiple sample sizes per
+network, this produces one merged PDG per network in `merged.db`.
+
+```yaml
+# With filtering and CPDAG conversion
+id: "merge_filtered"
+description: "Merge filtered graphs"
+
+matrix:
+  network: ["asia"]
+
+steps:
+  - name: "Merge Filtered"
+    uses: "causaliq-analysis"
+    with:
+      action: "merge_graphs"
+      input: "results/discovery_results.db"
+      filter: "sample_size > 500"
+      cpdag: true
+      output: "results/merged.db"
 ```
 
 ### Input Types
 
-The `inputs` parameter accepts a list of file paths. Type is auto-detected:
+Input type is auto-detected by file extension:
 
-- **`.graphml` files**: Read directly as GraphML
-- **`.db` files**: Read all entries from WorkflowCache database, extracting
-  the object specified by `object_name` (default: `graph`)
+- **`.graphml` files**: Read directly as GraphML (filter/weights not applicable)
+- **`.db` files**: Read all graphml objects from WorkflowCache database entries
+  (filter/weights can be applied)
 
 ---
 

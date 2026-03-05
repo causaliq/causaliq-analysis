@@ -46,8 +46,10 @@ nav:
   - Roadmap: roadmap.md
   - User Guide:
     - User Guide Introduction: userguide/introduction.md
-    - Trace Migration: userguide/migrate_trace.md
+    - Evaluating Graphs: userguide/evaluate_graph.md
     - Graph Merging: userguide/merge_graphs.md
+    - Summarise: userguide/summarise.md
+    - Trace Migration: userguide/migrate_trace.md
   - Architecture: 
     - Overview: architecture/overview.md
     - Summarisation Paradigm: architecture/summarisation_paradigm.md
