@@ -787,3 +787,318 @@ def test_merge_graphs_zero_total_weights(cli_runner, tmp_path):
     # Should succeed with equal weights when total is 0
     assert result.exit_code == 0
     assert "Merged 2 graphs" in result.output
+
+
+# Test evaluate-graph command with matching graphs.
+def test_evaluate_graph_perfect_match(cli_runner, tmp_path):
+    """Test evaluate-graph command with identical graphs."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    # Create identical DAGs
+    dag = DAG(["A", "B", "C"], [("A", "->", "B"), ("B", "->", "C")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+        ],
+    )
+
+    assert result.exit_code == 0
+    # Perfect match should have precision=1, recall=1, f1=1, shd=0
+    import json
+
+    metrics = json.loads(result.output)
+    assert metrics["precision"] == 1.0
+    assert metrics["recall"] == 1.0
+    assert metrics["f1"] == 1.0
+    assert metrics["shd"] == 0
+
+
+# Test evaluate-graph command with different graphs.
+def test_evaluate_graph_different_graphs(cli_runner, tmp_path):
+    """Test evaluate-graph command with different graphs."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    # Create different DAGs
+    learned = DAG(["A", "B", "C"], [("A", "->", "B")])
+    reference = DAG(["A", "B", "C"], [("A", "->", "B"), ("B", "->", "C")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(learned, f)
+    with open(ref_path, "w") as f:
+        graphml.write(reference, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+        ],
+    )
+
+    assert result.exit_code == 0
+    import json
+
+    metrics = json.loads(result.output)
+    # One edge matched, one missing
+    assert metrics["precision"] == 1.0  # 1/1 predicted edges correct
+    assert metrics["recall"] == 0.5  # 1/2 reference edges found
+    assert metrics["shd"] > 0
+
+
+# Test evaluate-graph command with Bayesys metrics.
+def test_evaluate_graph_with_bayesys(cli_runner, tmp_path):
+    """Test evaluate-graph command with Bayesys metrics."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+            "--bayesys=v1.5+",
+        ],
+    )
+
+    assert result.exit_code == 0
+    import json
+
+    metrics = json.loads(result.output)
+    # Should have standard metrics
+    assert "precision" in metrics
+    assert "recall" in metrics
+    # Should also have Bayesys metrics
+    assert "precision_b" in metrics
+    assert "recall_b" in metrics
+    assert "f1_b" in metrics
+    assert "shd_b" in metrics
+    assert "ddm" in metrics
+    assert "bsf" in metrics
+
+
+# Test evaluate-graph command with table format.
+def test_evaluate_graph_table_format(cli_runner, tmp_path):
+    """Test evaluate-graph command with table output format."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+            "--format=table",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Structural Evaluation Metrics" in result.output
+    assert "precision" in result.output
+    assert "recall" in result.output
+    assert "f1" in result.output
+    assert "shd" in result.output
+
+
+# Test evaluate-graph command with output file.
+def test_evaluate_graph_output_file(cli_runner, tmp_path):
+    """Test evaluate-graph command writing to output file."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+    output_path = tmp_path / "metrics.json"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+            f"--output={output_path}",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Metrics written to" in result.output
+    assert output_path.exists()
+
+    import json
+
+    with open(output_path) as f:
+        metrics = json.load(f)
+    assert "precision" in metrics
+    assert "f1" in metrics
+
+
+# Test evaluate-graph command with invalid graph file.
+def test_evaluate_graph_invalid_graph(cli_runner, tmp_path):
+    """Test evaluate-graph command with invalid graph file."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "invalid.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        f.write("not valid graphml")
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to read learned graph" in result.output
+
+
+# Test evaluate-graph command with invalid reference file.
+def test_evaluate_graph_invalid_reference(cli_runner, tmp_path):
+    """Test evaluate-graph command with invalid reference file."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "invalid.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        f.write("not valid graphml")
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to read reference graph" in result.output
+
+
+# Test evaluate-graph command with mismatched nodes.
+def test_evaluate_graph_mismatched_nodes(cli_runner, tmp_path):
+    """Test evaluate-graph command with graphs having different nodes."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    learned = DAG(["A", "B"], [("A", "->", "B")])
+    reference = DAG(["X", "Y"], [("X", "->", "Y")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(learned, f)
+    with open(ref_path, "w") as f:
+        graphml.write(reference, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+        ],
+    )
+
+    # Should fail since nodes don't match
+    assert result.exit_code != 0
+    assert "Comparison failed" in result.output
+
+
+# Test evaluate-graph command with TypeError from pdag_compare.
+def test_evaluate_graph_type_error(cli_runner, tmp_path, monkeypatch):
+    """Test evaluate-graph command handles TypeError from comparison."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    # Mock pdag_compare to raise TypeError
+    def mock_pdag_compare(*args, **kwargs):
+        raise TypeError("bad arg type for compared_to")
+
+    monkeypatch.setattr(
+        "causaliq_analysis.metrics.pdag_compare", mock_pdag_compare
+    )
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--graph={graph_path}",
+            f"--reference={ref_path}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid graph type" in result.output

@@ -20,6 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from causaliq_core import (
         ActionExecutionError,
         ActionInput,
+        ActionPattern,
         ActionResult,
         CausalIQActionProvider,
     )
@@ -31,6 +32,7 @@ else:
         from causaliq_core import (
             ActionExecutionError,
             ActionInput,
+            ActionPattern,
             ActionResult,
             CausalIQActionProvider,
         )
@@ -56,6 +58,12 @@ else:
             required: bool = False
             default: Any = None
             type_hint: str = "Any"
+
+        # Stub for ActionPattern enum
+        class ActionPattern:  # type: ignore[no-redef]
+            CREATE = "create"
+            UPDATE = "update"
+            AGGREGATE = "aggregate"
 
         class WorkflowContext:
             pass
@@ -85,6 +93,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
     version = "0.3.0"
     description = "Migration and analysis of causal graph trace files"
     author = "CausalIQ"
+
+    # Supported actions
+    supported_actions = {"migrate_trace", "merge_graphs"}
+
+    # Action patterns for workflow validation
+    action_patterns = {
+        "migrate_trace": ActionPattern.CREATE,
+        "merge_graphs": ActionPattern.AGGREGATE,
+    }
 
     # Input specifications
     inputs = {

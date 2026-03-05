@@ -346,6 +346,144 @@ def merge_graphs_cmd(
         raise click.ClickException(f"Failed to write output: {e}")
 
 
+@cli.command(name="evaluate-graph")
+@click.option(
+    "--graph",
+    "-g",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to learned graph (GraphML format).",
+)
+@click.option(
+    "--reference",
+    "-r",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to ground truth/reference graph (GraphML format).",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    type=click.Path(),
+    help="Output file path for metrics (JSON format). "
+    "If omitted, prints to stdout.",
+)
+@click.option(
+    "--bayesys",
+    "-b",
+    default=None,
+    type=click.Choice(["v1.3", "v1.5", "v1.5+"]),
+    help="Include Bayesys metrics with specified version. "
+    "Most common is 'v1.5+' for latest.",
+)
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    default="json",
+    type=click.Choice(["json", "table"]),
+    help="Output format: 'json' (default) or 'table' for human-readable.",
+)
+def evaluate_graph_cmd(
+    graph: str,
+    reference: str,
+    output: Optional[str],
+    bayesys: Optional[str],
+    output_format: str,
+) -> None:
+    """
+    Evaluate a learned graph against a ground truth reference.
+
+    Computes structural accuracy metrics including precision, recall, F1,
+    and SHD (Structural Hamming Distance). Optionally includes Bayesys
+    metrics (DDM, BSF) for compatibility with published benchmarks.
+
+    Metric naming convention:
+    - Standard metrics: precision, recall, f1, shd
+    - Bayesys metrics: precision_b, recall_b, f1_b, shd_b, ddm, bsf
+
+    Example:
+        causaliq-analysis evaluate-graph -g learned.graphml \\
+            -r ground_truth.graphml
+
+        causaliq-analysis evaluate-graph -g learned.graphml \\
+            -r ground_truth.graphml --bayesys=v1.5+ -o metrics.json
+
+        causaliq-analysis evaluate-graph -g learned.graphml \\
+            -r ground_truth.graphml --format=table
+    """
+    import json
+    from typing import Dict, Union
+
+    from causaliq_core.graph.io import graphml
+
+    from causaliq_analysis.metrics import pdag_compare
+
+    # Read learned graph
+    try:
+        learned_graph = graphml.read(graph)
+    except Exception as e:
+        raise click.ClickException(f"Failed to read learned graph: {e}")
+
+    # Read reference graph
+    try:
+        reference_graph = graphml.read(reference)
+    except Exception as e:
+        raise click.ClickException(f"Failed to read reference graph: {e}")
+
+    # Compute metrics
+    try:
+        raw_metrics = pdag_compare(learned_graph, reference_graph, bayesys)
+    except ValueError as e:
+        raise click.ClickException(f"Comparison failed: {e}")
+    except TypeError as e:
+        raise click.ClickException(f"Invalid graph type: {e}")
+
+    # Convert to standardised naming convention
+    metrics: Dict[str, Union[int, float, None]] = {
+        "precision": raw_metrics.get("p"),
+        "recall": raw_metrics.get("r"),
+        "f1": raw_metrics.get("f1"),
+        "shd": raw_metrics.get("shd"),
+    }
+
+    # Add Bayesys metrics if requested
+    if bayesys:
+        metrics.update(
+            {
+                "precision_b": raw_metrics.get("p-b"),
+                "recall_b": raw_metrics.get("r-b"),
+                "f1_b": raw_metrics.get("f1-b"),
+                "shd_b": raw_metrics.get("shd-b"),
+                "ddm": raw_metrics.get("ddm"),
+                "bsf": raw_metrics.get("bsf"),
+            }
+        )
+
+    # Output results
+    if output_format == "table":
+        click.echo("Structural Evaluation Metrics")
+        click.echo("=" * 40)
+        for key, value in metrics.items():
+            if value is not None:
+                if isinstance(value, float):
+                    click.echo(f"{key:15s}: {value:.4f}")
+                else:
+                    click.echo(f"{key:15s}: {value}")
+    else:
+        # JSON format
+        json_output = json.dumps(metrics, indent=2)
+        if output:
+            output_path = Path(output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(json_output)
+            click.echo(f"Metrics written to {output_path}")
+        else:
+            click.echo(json_output)
+
+
 def main() -> None:
     """Entry point for the CLI."""
     cli(prog_name="causaliq-analysis (cqalys)")
