@@ -86,21 +86,23 @@ class AnalysisActionProvider(CausalIQActionProvider):
     Supports operations on causal graphs including:
     - migrate_trace: Convert legacy Trace files to GraphML format
     - merge_graphs: Merge multiple graphs into a PDG with probabilities
+    - evaluate_graph: Compute structural metrics vs ground truth
     """
 
     # Provider metadata
     name = "causaliq-analysis"
-    version = "0.3.0"
+    version = "0.4.0"
     description = "Migration and analysis of causal graph trace files"
     author = "CausalIQ"
 
     # Supported actions
-    supported_actions = {"migrate_trace", "merge_graphs"}
+    supported_actions = {"migrate_trace", "merge_graphs", "evaluate_graph"}
 
     # Action patterns for workflow validation
     action_patterns = {
         "migrate_trace": ActionPattern.CREATE,
         "merge_graphs": ActionPattern.AGGREGATE,
+        "evaluate_graph": ActionPattern.UPDATE,
     }
 
     # Input specifications
@@ -108,7 +110,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "action": ActionInput(
             name="action",
             description=(
-                "Action to perform: 'migrate_trace' or 'merge_graphs'"
+                "Action to perform: 'migrate_trace', 'merge_graphs', "
+                "or 'evaluate_graph'"
             ),
             required=True,
             type_hint="str",
@@ -204,6 +207,19 @@ class AnalysisActionProvider(CausalIQActionProvider):
             default=False,
             type_hint="bool",
         ),
+        # evaluate_graph inputs
+        "reference": ActionInput(
+            name="reference",
+            description="Path to ground truth graph file (.graphml)",
+            required=False,
+            type_hint="str",
+        ),
+        "bayesys": ActionInput(
+            name="bayesys",
+            description="Bayesys compatibility version (e.g., '3.0')",
+            required=False,
+            type_hint="str",
+        ),
     }
 
     # Output specifications
@@ -212,6 +228,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "status": "Execution status",
         "skipped": "Number of traces skipped",
         "merged_pdg": "Merged PDG in GraphML format (merge_graphs)",
+        # evaluate_graph outputs
+        "precision": "Structural precision score",
+        "recall": "Structural recall score",
+        "f1": "Structural F1 score",
+        "shd": "Structural Hamming Distance",
     }
 
     def run(
@@ -226,7 +247,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
         Execute the analysis action.
 
         Args:
-            action: Action to perform ('migrate_trace' or 'merge_graphs')
+            action: Action to perform ('migrate_trace', 'merge_graphs',
+                or 'evaluate_graph')
             parameters: Action parameter values
             mode: Execution mode ('dry-run', 'run', 'compare')
             context: Workflow context for optimization
@@ -242,10 +264,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
             return self._run_migrate_trace(parameters, mode, context, logger)
         elif action == "merge_graphs":
             return self._run_merge_graphs(parameters, mode, context, logger)
+        elif action == "evaluate_graph":
+            return self._run_evaluate_graph(parameters, mode, context, logger)
         else:
             raise ActionExecutionError(
-                f"Unknown action: {action}. "
-                "Supported actions: migrate_trace, merge_graphs"
+                f"Unknown action: {action}. Supported actions: "
+                "migrate_trace, merge_graphs, evaluate_graph"
             )
 
     def _run_migrate_trace(
@@ -549,6 +573,141 @@ class AnalysisActionProvider(CausalIQActionProvider):
             raise ActionExecutionError(f"Graph merge failed: {e}") from e
         except Exception as e:
             raise ActionExecutionError(f"Graph merge failed: {e}") from e
+
+    def _run_evaluate_graph(
+        self,
+        parameters: Dict[str, Any],
+        mode: str,
+        context: Optional[WorkflowContext],
+        logger: Optional[WorkflowLogger],
+    ) -> ActionResult:
+        """Evaluate graph against ground truth reference.
+
+        UPDATE pattern action: receives entry data via _update_entry,
+        computes structural metrics, returns them as metadata.
+
+        Args:
+            parameters: Action parameters including _update_entry
+            mode: Execution mode ('dry-run', 'run', 'compare')
+            context: Workflow context
+            logger: Optional logger
+
+        Returns:
+            ActionResult with structural metrics as metadata
+        """
+        from io import StringIO
+
+        from causaliq_core.graph.io import graphml
+
+        from causaliq_analysis.metrics import pdag_compare
+
+        # Extract UPDATE action entry data
+        update_entry = parameters.get("_update_entry")
+        if not update_entry:
+            raise ActionExecutionError(
+                "evaluate_graph requires _update_entry parameter "
+                "(UPDATE pattern action)"
+            )
+
+        reference_path = parameters.get("reference")
+        if not reference_path:
+            raise ActionExecutionError(
+                "evaluate_graph requires 'reference' parameter"
+            )
+
+        bayesys_version = parameters.get("bayesys")
+
+        # Handle dry-run mode
+        if mode == "dry-run":
+            matrix_values = update_entry.get("matrix_values", {})
+            if logger and logger.is_terminal_logging:
+                print(
+                    f"Would evaluate graph {matrix_values} "
+                    f"vs reference: {reference_path}"
+                )
+            return (
+                "skipped",
+                {
+                    "reference": reference_path,
+                    "bayesys": bayesys_version,
+                },
+                [],
+            )
+
+        # Extract graph from entry
+        entry = update_entry.get("entry")
+        if entry is None:
+            raise ActionExecutionError("No entry object in _update_entry")
+
+        # Find graphml object in entry
+        graph = None
+        graph_name = None
+        for obj_name in entry.object_names():
+            obj = entry.get_object(obj_name)
+            if obj is None or obj.type != "graphml":
+                continue
+            try:
+                graph = graphml.read(StringIO(obj.content))
+                graph_name = obj_name
+                break
+            except Exception as e:
+                raise ActionExecutionError(
+                    f"Failed to parse graph '{obj_name}': {e}"
+                ) from e
+
+        if graph is None:
+            raise ActionExecutionError(
+                "No graphml object found in cache entry"
+            )
+
+        # Load reference graph
+        try:
+            reference = graphml.read(reference_path)
+        except FileNotFoundError:
+            raise ActionExecutionError(
+                f"Reference graph not found: {reference_path}"
+            )
+        except Exception as e:
+            raise ActionExecutionError(
+                f"Failed to read reference graph: {e}"
+            ) from e
+
+        # Compute metrics
+        try:
+            metrics = pdag_compare(graph, reference, bayesys=bayesys_version)
+        except Exception as e:
+            raise ActionExecutionError(
+                f"Metric computation failed: {e}"
+            ) from e
+
+        # Build metadata with standard metric names
+        include_bayesys = bayesys_version is not None
+        metadata: Dict[str, Any] = {
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "f1": metrics["f1"],
+            "shd": metrics["shd"],
+            "reference": reference_path,
+            "evaluated_graph": graph_name,
+        }
+
+        # Add Bayesys metrics if requested
+        if include_bayesys:
+            metadata["precision_b"] = metrics["precision_b"]
+            metadata["recall_b"] = metrics["recall_b"]
+            metadata["f1_b"] = metrics["f1_b"]
+            metadata["shd_b"] = metrics["shd_b"]
+            metadata["ddm"] = metrics["ddm"]
+            metadata["bsf"] = metrics["bsf"]
+            metadata["bayesys"] = bayesys_version
+
+        if logger and logger.is_terminal_logging:
+            print(
+                f"Evaluated {graph_name}: F1={metrics['f1']:.3f}, "
+                f"SHD={metrics['shd']}"
+            )
+
+        return ("success", metadata, [])
 
     def _extract_graphs_from_entries(
         self,

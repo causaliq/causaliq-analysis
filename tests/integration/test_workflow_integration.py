@@ -24,7 +24,7 @@ def test_workflow_action_import():
 
     action = AnalysisActionProvider()
     assert action.name == "causaliq-analysis"
-    assert action.version == "0.3.0"
+    assert action.version == "0.4.0"
     assert "causal graph" in action.description
 
 

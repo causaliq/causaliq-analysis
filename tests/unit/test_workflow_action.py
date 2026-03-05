@@ -688,3 +688,583 @@ def test_merge_graphs_dict_weights_without_aggregation() -> None:
                 logger=mock_logger,
             )
     assert "Metadata-driven weights require aggregation" in str(exc_info.value)
+
+
+# --------------------------------------------------------------------------
+# Tests for evaluate_graph action (UPDATE pattern)
+# --------------------------------------------------------------------------
+
+
+# Test evaluate_graph returns metrics for matching graphs.
+def test_evaluate_graph_returns_metrics() -> None:
+    """Test that evaluate_graph computes and returns structural metrics."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # Create mock entry with graph
+    mock_entry = _create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Mock pdag_compare to return known metrics
+    mock_metrics = {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "shd": 0,
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+        ) as mock_read:
+            # Return a mock graph object for both reads
+            mock_read.return_value = MagicMock()
+
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["precision"] == 1.0
+    assert result[1]["recall"] == 1.0
+    assert result[1]["f1"] == 1.0
+    assert result[1]["shd"] == 0
+    assert result[1]["reference"] == "ref.graphml"
+
+
+# Test evaluate_graph dry-run mode skips execution.
+def test_evaluate_graph_dry_run_skips(capsys: Any) -> None:
+    """Test that dry-run mode returns skipped without computing."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": MagicMock(),
+    }
+
+    result = provider.run(
+        action="evaluate_graph",
+        parameters={
+            "_update_entry": update_entry,
+            "reference": "ref.graphml",
+        },
+        mode="dry-run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "skipped"
+    captured = capsys.readouterr()
+    assert "Would evaluate graph" in captured.out
+
+
+# Test evaluate_graph requires _update_entry parameter.
+def test_evaluate_graph_requires_update_entry() -> None:
+    """Test error when _update_entry is not provided."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="evaluate_graph",
+            parameters={"reference": "ref.graphml"},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "_update_entry" in str(exc_info.value)
+
+
+# Test evaluate_graph requires reference parameter.
+def test_evaluate_graph_requires_reference() -> None:
+    """Test error when reference is not provided."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": MagicMock(),
+    }
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="evaluate_graph",
+            parameters={"_update_entry": update_entry},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "reference" in str(exc_info.value)
+
+
+# Test evaluate_graph handles None entry object.
+def test_evaluate_graph_no_entry_object() -> None:
+    """Test error when entry object is None."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": None,
+    }
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="evaluate_graph",
+            parameters={
+                "_update_entry": update_entry,
+                "reference": "ref.graphml",
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "No entry object" in str(exc_info.value)
+
+
+# Test evaluate_graph handles entry with no graphml.
+def test_evaluate_graph_no_graphml_in_entry() -> None:
+    """Test error when cache entry has no graphml object."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = MagicMock()
+    mock_entry.object_names.return_value = []
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="evaluate_graph",
+            parameters={
+                "_update_entry": update_entry,
+                "reference": "ref.graphml",
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "No graphml object found" in str(exc_info.value)
+
+
+# Test evaluate_graph handles invalid graphml in entry.
+def test_evaluate_graph_invalid_graphml() -> None:
+    """Test error when entry graphml content is invalid."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_obj = MagicMock()
+    mock_obj.type = "graphml"
+    mock_obj.content = "invalid xml"
+
+    mock_entry = MagicMock()
+    mock_entry.object_names.return_value = ["graph.graphml"]
+    mock_entry.get_object.return_value = mock_obj
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="evaluate_graph",
+            parameters={
+                "_update_entry": update_entry,
+                "reference": "ref.graphml",
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "Failed to parse graph" in str(exc_info.value)
+
+
+# Test evaluate_graph handles nonexistent reference file.
+def test_evaluate_graph_reference_not_found() -> None:
+    """Test error when reference file does not exist."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = _create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Patch graphml.read in workflow_action to use real parsing for entry
+    # but raise FileNotFoundError for reference
+    def mock_read(source: Any) -> Any:
+        from io import StringIO
+
+        if isinstance(source, StringIO):
+            # This is the entry graph - return a mock
+            return MagicMock()
+        # This is the reference file - simulate not found
+        raise FileNotFoundError(f"No such file: {source}")
+
+    with patch(
+        "causaliq_core.graph.io.graphml.read",
+        side_effect=mock_read,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "nonexistent.graphml",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "Reference graph not found" in str(exc_info.value)
+
+
+# Test evaluate_graph handles reference read error.
+def test_evaluate_graph_reference_read_error() -> None:
+    """Test error when reference file cannot be read."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = _create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    def mock_read(source: Any) -> Any:
+        from io import StringIO
+
+        if isinstance(source, StringIO):
+            return MagicMock()
+        raise ValueError("Corrupt file")
+
+    with patch(
+        "causaliq_core.graph.io.graphml.read",
+        side_effect=mock_read,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "corrupt.graphml",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "Failed to read reference graph" in str(exc_info.value)
+
+
+# Test evaluate_graph includes Bayesys metrics when requested.
+def test_evaluate_graph_with_bayesys() -> None:
+    """Test that Bayesys metrics are included when bayesys parameter set."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = _create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {
+        "precision": 0.8,
+        "recall": 0.9,
+        "f1": 0.85,
+        "shd": 2,
+        "precision_b": 0.7,
+        "recall_b": 0.8,
+        "f1_b": 0.75,
+        "shd_b": 3,
+        "ddm": 1.5,
+        "bsf": 0.9,
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "bayesys": "3.0",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["precision_b"] == 0.7
+    assert result[1]["ddm"] == 1.5
+    assert result[1]["bsf"] == 0.9
+    assert result[1]["bayesys"] == "3.0"
+
+
+# Test evaluate_graph handles metric computation failure.
+def test_evaluate_graph_metric_failure() -> None:
+    """Test error when pdag_compare raises an exception."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = _create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        side_effect=ValueError("Node mismatch"),
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            with pytest.raises(Exception) as exc_info:
+                provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+    assert "Metric computation failed" in str(exc_info.value)
+
+
+# Test evaluate_graph logs result with terminal logging.
+def test_evaluate_graph_logs_result(capsys: Any) -> None:
+    """Test that result is logged when terminal logging enabled."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    mock_entry = _create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {
+        "precision": 0.9,
+        "recall": 0.85,
+        "f1": 0.875,
+        "shd": 3,
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    captured = capsys.readouterr()
+    assert "Evaluated" in captured.out
+    assert "F1=" in captured.out
+    assert "SHD=" in captured.out
+
+
+# Test evaluate_graph skips non-graphml objects.
+def test_evaluate_graph_skips_non_graphml() -> None:
+    """Test that non-graphml objects are skipped when finding graph."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # First object is not graphml, second is
+    mock_obj_json = MagicMock()
+    mock_obj_json.type = "json"
+
+    mock_obj_graphml = MagicMock()
+    mock_obj_graphml.type = "graphml"
+    mock_obj_graphml.content = VALID_GRAPHML
+
+    mock_entry = MagicMock()
+    mock_entry.object_names.return_value = ["data.json", "graph.graphml"]
+    mock_entry.get_object.side_effect = [mock_obj_json, mock_obj_graphml]
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "shd": 0,
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+        ) as mock_read:
+            mock_read.return_value = MagicMock()
+
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["evaluated_graph"] == "graph.graphml"
+
+
+# Test evaluate_graph handles None object in entry.
+def test_evaluate_graph_skips_none_object() -> None:
+    """Test that None objects in entry are skipped."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # First object returns None, second is valid
+    mock_obj_graphml = MagicMock()
+    mock_obj_graphml.type = "graphml"
+    mock_obj_graphml.content = VALID_GRAPHML
+
+    mock_entry = MagicMock()
+    mock_entry.object_names.return_value = ["orphan.graphml", "graph.graphml"]
+    mock_entry.get_object.side_effect = [None, mock_obj_graphml]
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "shd": 0,
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+        ) as mock_read:
+            mock_read.return_value = MagicMock()
+
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
