@@ -1900,3 +1900,140 @@ def test_summarise_workflow_cache_filter_exception(cli_runner, tmp_path):
         row = next(reader)
         # Entry skipped due to filter exception
         assert row["f1.count"] == "0"
+
+
+# Test summarise command with terminal output using "-o -".
+def test_summarise_terminal_output(cli_runner, tmp_path):
+    """Test summarise command outputs to terminal with -o -."""
+    import json
+
+    input_data = [
+        {"f1": 0.8, "shd": 2},
+        {"f1": 0.9, "shd": 1},
+    ]
+    input_path = tmp_path / "data.json"
+    with open(input_path, "w") as f:
+        json.dump(input_data, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.mean",
+            "-m",
+            "shd.count",
+            "-i",
+            str(input_path),
+            "-o",
+            "-",
+        ],
+    )
+
+    assert result.exit_code == 0
+    # Check formatted table output
+    assert "f1.mean" in result.output
+    assert "shd.count" in result.output
+    assert "0.85" in result.output
+    assert "2" in result.output
+
+
+# Test summarise command terminal output with None values.
+def test_summarise_terminal_output_with_none(cli_runner, tmp_path):
+    """Test summarise terminal output formats None values correctly."""
+    import json
+
+    # Single value means SD will be None
+    input_data = [{"f1": 0.8}]
+    input_path = tmp_path / "data.json"
+    with open(input_path, "w") as f:
+        json.dump(input_data, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.sd",
+            "-i",
+            str(input_path),
+            "-o",
+            "-",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "f1.sd" in result.output
+    assert "None" in result.output  # None displayed in output
+
+
+# Test summarise command terminal output with empty results.
+def test_summarise_terminal_output_empty(cli_runner, tmp_path):
+    """Test summarise terminal output with no matching data."""
+    import json
+
+    # No matching field
+    input_data = [{"other": 0.8}]
+    input_path = tmp_path / "data.json"
+    with open(input_path, "w") as f:
+        json.dump(input_data, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.count",
+            "-i",
+            str(input_path),
+            "-o",
+            "-",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "f1.count" in result.output
+    assert "0" in result.output  # count is 0
+
+
+# Test _print_summary_table helper function directly.
+def test_print_summary_table_formatting(capsys):
+    """Test _print_summary_table formats output correctly."""
+    from causaliq_analysis.cli import _print_summary_table
+
+    results = {
+        "f1.mean": 0.85,
+        "f1.sd": 0.03535533905932738,
+        "shd.count": 5,
+        "missing.value": None,
+    }
+
+    _print_summary_table(results)
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Check metric names are in header row
+    assert "f1.mean" in output
+    assert "f1.sd" in output
+    assert "shd.count" in output
+    assert "missing.value" in output
+
+    # Check values are formatted
+    assert "0.8500" in output  # 4 decimal places for float
+    assert "0.0354" in output  # 4 decimal places for float
+    assert "5" in output  # integers as-is
+
+    # Check separator line exists
+    assert "---" in output
+
+
+# Test _print_summary_table with empty results.
+def test_print_summary_table_empty_results(capsys):
+    """Test _print_summary_table handles empty results dict."""
+    from causaliq_analysis.cli import _print_summary_table
+
+    _print_summary_table({})
+
+    captured = capsys.readouterr()
+    assert "No results to display" in captured.out

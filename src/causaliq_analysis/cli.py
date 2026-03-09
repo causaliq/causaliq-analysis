@@ -508,8 +508,7 @@ def evaluate_graph_cmd(
     "--output",
     "-o",
     required=True,
-    type=click.Path(),
-    help="Output CSV file path.",
+    help="Output path: CSV file or '-' for terminal output.",
 )
 @click.option(
     "--filter",
@@ -549,6 +548,8 @@ def summarise_cmd(
 
         causaliq-analysis summarise -m f1.mean -i cache.db \\
             -f "network == 'asia'" -o asia_summary.csv
+
+        causaliq-analysis summarise -m f1.mean -m f1.sd -i cache.db -o -
     """
     import csv
     import json
@@ -700,20 +701,59 @@ def summarise_cmd(
             else:
                 results[col_name] = None
 
-    # Write CSV output
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Write output
+    if output == "-":
+        # Terminal output - format as table
+        _print_summary_table(results)
+    else:
+        # CSV file output
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        with open(output_path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f)
-            # Header row
-            writer.writerow(results.keys())
-            # Data row
-            writer.writerow(results.values())
-        click.echo(f"Summary written to {output_path}")
-    except Exception as e:
-        raise click.ClickException(f"Failed to write output: {e}")
+        try:
+            with open(output_path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                # Header row
+                writer.writerow(results.keys())
+                # Data row
+                writer.writerow(results.values())
+            click.echo(f"Summary written to {output_path}")
+        except Exception as e:
+            raise click.ClickException(f"Failed to write output: {e}")
+
+
+def _print_summary_table(results: Dict[str, Any]) -> None:
+    """Print summary results as a formatted table to terminal.
+
+    Args:
+        results: Dictionary of metric names to computed values.
+    """
+    if not results:
+        click.echo("No results to display.")
+        return
+
+    # Format values for display
+    def fmt_value(v: Any) -> str:
+        if v is None:
+            return "None"
+        if isinstance(v, float):
+            return f"{v:.4f}"
+        return str(v)
+
+    headers = list(results.keys())
+    values = [fmt_value(v) for v in results.values()]
+
+    # Calculate column widths
+    widths = [max(len(h), len(v)) for h, v in zip(headers, values)]
+
+    # Build format string
+    header_line = "  ".join(h.ljust(w) for h, w in zip(headers, widths))
+    value_line = "  ".join(v.ljust(w) for v, w in zip(values, widths))
+    separator = "  ".join("-" * w for w in widths)
+
+    click.echo(header_line)
+    click.echo(separator)
+    click.echo(value_line)
 
 
 def _flatten_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:

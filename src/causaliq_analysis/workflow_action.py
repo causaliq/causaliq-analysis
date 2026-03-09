@@ -87,6 +87,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
     - migrate_trace: Convert legacy Trace files to GraphML format
     - merge_graphs: Merge multiple graphs into a PDG with probabilities
     - evaluate_graph: Compute structural metrics vs ground truth
+    - summarise: Summarise numerical metrics into statistics
     """
 
     # Provider metadata
@@ -96,13 +97,19 @@ class AnalysisActionProvider(CausalIQActionProvider):
     author = "CausalIQ"
 
     # Supported actions
-    supported_actions = {"migrate_trace", "merge_graphs", "evaluate_graph"}
+    supported_actions = {
+        "migrate_trace",
+        "merge_graphs",
+        "evaluate_graph",
+        "summarise",
+    }
 
     # Action patterns for workflow validation
     action_patterns = {
         "migrate_trace": ActionPattern.CREATE,
         "merge_graphs": ActionPattern.AGGREGATE,
         "evaluate_graph": ActionPattern.UPDATE,
+        "summarise": ActionPattern.AGGREGATE,
     }
 
     # Input specifications
@@ -220,6 +227,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="str",
         ),
+        # summarise inputs
+        "metric": ActionInput(
+            name="metric",
+            description=(
+                "List of metric specifications in format <field>.<stat>. "
+                "Supported stats: mean, sd, count. "
+                "Example: ['f1.mean', 'f1.sd', 'shd.count']"
+            ),
+            required=False,
+            type_hint="list[str]",
+        ),
     }
 
     # Output specifications
@@ -233,6 +251,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "recall": "Structural recall score",
         "f1": "Structural F1 score",
         "shd": "Structural Hamming Distance",
+        # summarise outputs
+        "source_count": "Number of input entries summarised",
+        "csv_output": "CSV file with summary statistics",
     }
 
     def run(
@@ -266,10 +287,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
             return self._run_merge_graphs(parameters, mode, context, logger)
         elif action == "evaluate_graph":
             return self._run_evaluate_graph(parameters, mode, context, logger)
+        elif action == "summarise":
+            return self._run_summarise(parameters, mode, context, logger)
         else:
             raise ActionExecutionError(
                 f"Unknown action: {action}. Supported actions: "
-                "migrate_trace, merge_graphs, evaluate_graph"
+                "migrate_trace, merge_graphs, evaluate_graph, summarise"
             )
 
     def _run_migrate_trace(
@@ -708,6 +731,343 @@ class AnalysisActionProvider(CausalIQActionProvider):
             )
 
         return ("success", metadata, [])
+
+    def _run_summarise(
+        self,
+        parameters: Dict[str, Any],
+        mode: str,
+        context: Optional[WorkflowContext],
+        logger: Optional[WorkflowLogger],
+    ) -> ActionResult:
+        """Execute metric summarisation.
+
+        Aggregates numerical metrics from cache entries into summary
+        statistics (mean, SD, count) and outputs CSV.
+
+        Supports two modes of operation:
+
+        1. **Aggregation mode**: When called from a workflow with a matrix
+           definition and 'aggregate' parameter, receives pre-scanned cache
+           entries via '_aggregation_entries'. For each matrix combination,
+           computes summary statistics from matching entries.
+
+        2. **Direct mode**: When called from CLI or workflow without
+           aggregation, reads entries from 'input' cache file(s) and
+           produces a single summary row.
+        """
+        import csv
+        import statistics
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        SUPPORTED_STATS = {"mean", "sd", "count"}
+
+        try:
+            # Extract parameters
+            aggregation_entries: Optional[List[Dict[str, Any]]] = (
+                parameters.get("_aggregation_entries")
+            )
+            metric_specs = parameters.get("metric", [])
+            filter_expr = parameters.get("filter")
+            output_path = parameters.get("output")
+
+            # Validate metric specs
+            if not metric_specs:
+                raise ActionExecutionError(
+                    "summarise requires 'metric' parameter with at least one "
+                    "metric specification (e.g., ['f1.mean', 'shd.sd'])"
+                )
+
+            # Parse metric specifications
+            parsed_metrics: List[Tuple[str, str]] = []
+            for spec in metric_specs:
+                if "." not in spec:
+                    raise ActionExecutionError(
+                        f"Invalid metric spec '{spec}': "
+                        "must be <field>.<stat>"
+                    )
+                parts = spec.rsplit(".", 1)
+                field, stat = parts[0], parts[1]
+                if stat not in SUPPORTED_STATS:
+                    raise ActionExecutionError(
+                        f"Unknown statistic '{stat}' in '{spec}'. "
+                        f"Supported: {', '.join(sorted(SUPPORTED_STATS))}"
+                    )
+                parsed_metrics.append((field, stat))
+
+            # Validate output path for aggregation mode
+            is_aggregation_mode = aggregation_entries is not None
+            if is_aggregation_mode and not output_path:
+                raise ActionExecutionError(
+                    "summarise in aggregation mode requires 'output' "
+                    "parameter for CSV output file path"
+                )
+
+            # Extract unique fields for value collection
+            unique_fields = list(dict.fromkeys(f for f, _ in parsed_metrics))
+
+            # Dry-run mode
+            if mode == "dry-run":
+                if logger and logger.is_terminal_logging:
+                    if is_aggregation_mode and aggregation_entries:
+                        print(
+                            f"Would summarise metrics from "
+                            f"{len(aggregation_entries)} entries"
+                        )
+                    else:
+                        print("Would summarise metrics from input files")
+                return (
+                    "skipped",
+                    {
+                        "message": "Dry-run mode",
+                        "aggregation_mode": is_aggregation_mode,
+                        "metrics": metric_specs,
+                    },
+                    [],
+                )
+
+            # Set up logging callback
+            log_fn = None
+            if logger and logger.is_terminal_logging:
+                log_fn = print
+
+            # Collect values from entries
+            all_values: Dict[str, List[float]] = {
+                field: [] for field in unique_fields
+            }
+            source_count = 0
+            source_caches: set = set()
+
+            if is_aggregation_mode and aggregation_entries:
+                # Aggregation mode: extract from pre-scanned entries
+                for entry_dict in aggregation_entries:
+                    matrix_values = entry_dict.get("matrix_values", {})
+                    entry_metadata = entry_dict.get("metadata", {})
+                    cache_path = entry_dict.get("cache_path", "unknown")
+
+                    source_caches.add(cache_path)
+
+                    # Flatten metadata for access
+                    flat_meta = self._flatten_entry_metadata(
+                        matrix_values, entry_metadata
+                    )
+
+                    # Apply filter if specified
+                    if filter_expr:
+                        try:
+                            from causaliq_core.utils import evaluate_filter
+
+                            if not evaluate_filter(filter_expr, flat_meta):
+                                continue
+                        except Exception:
+                            continue
+
+                    source_count += 1
+
+                    # Extract metric values
+                    for field in unique_fields:
+                        value = self._get_nested_value(flat_meta, field)
+                        if value is not None and isinstance(
+                            value, (int, float)
+                        ):
+                            all_values[field].append(float(value))
+
+                    if log_fn:
+                        log_fn(f"Processed entry: {matrix_values}")
+
+            else:
+                # Direct mode: read from input files
+                input_raw = parameters.get("input", []) or []
+                if isinstance(input_raw, str):
+                    input_files = [input_raw]
+                else:
+                    input_files = list(input_raw)
+
+                if not input_files:
+                    raise ActionExecutionError(
+                        "summarise requires either aggregation entries or "
+                        "'input' parameter with cache file path(s)"
+                    )
+
+                for cache_path in input_files:
+                    if not cache_path.lower().endswith(".db"):
+                        raise ActionExecutionError(
+                            f"summarise workflow action only supports .db "
+                            f"cache files, got: {cache_path}"
+                        )
+
+                    source_caches.add(cache_path)
+                    count = self._collect_values_from_cache(
+                        cache_path,
+                        unique_fields,
+                        all_values,
+                        filter_expr,
+                        log_fn,
+                    )
+                    source_count += count
+
+            if log_fn:
+                log_fn(f"Collected values from {source_count} entries")
+
+            # Compute summary statistics
+            results: Dict[str, Any] = {}
+            for field, stat in parsed_metrics:
+                col_name = f"{field}.{stat}"
+                values = all_values[field]
+
+                if stat == "count":
+                    results[col_name] = len(values)
+                elif stat == "mean":
+                    if values:
+                        results[col_name] = statistics.mean(values)
+                    else:
+                        results[col_name] = None
+                elif stat == "sd":
+                    if len(values) >= 2:
+                        results[col_name] = statistics.stdev(values)
+                    else:
+                        results[col_name] = None
+
+            # Build metadata
+            timestamp = datetime.now(timezone.utc).isoformat()
+            metadata: Dict[str, Any] = {
+                "source_count": source_count,
+                "source_caches": sorted(source_caches),
+                "metrics": metric_specs,
+                "timestamp": timestamp,
+            }
+            if filter_expr:
+                metadata["filter"] = filter_expr
+
+            # Add computed values to metadata
+            metadata.update(results)
+
+            # Write CSV output if path provided
+            if output_path:
+                out_file = Path(output_path)
+                out_file.parent.mkdir(parents=True, exist_ok=True)
+
+                try:
+                    with open(
+                        out_file, "w", encoding="utf-8", newline=""
+                    ) as f:
+                        writer = csv.writer(f)
+                        writer.writerow(results.keys())
+                        writer.writerow(results.values())
+                    metadata["csv_output"] = str(out_file)
+                    if log_fn:
+                        log_fn(f"Summary written to {out_file}")
+                except Exception as e:
+                    raise ActionExecutionError(
+                        f"Failed to write CSV output: {e}"
+                    ) from e
+
+            return ("success", metadata, [])
+
+        except ActionExecutionError:
+            raise
+        except Exception as e:
+            raise ActionExecutionError(f"Summarise failed: {e}") from e
+
+    def _collect_values_from_cache(
+        self,
+        cache_path: str,
+        fields: List[str],
+        all_values: Dict[str, List[float]],
+        filter_expr: Optional[str],
+        log_fn: Optional[Any],
+    ) -> int:
+        """Collect metric values from a workflow cache.
+
+        Args:
+            cache_path: Path to .db cache file.
+            fields: List of field names to extract.
+            all_values: Dictionary to append values to.
+            filter_expr: Optional filter expression.
+            log_fn: Optional logging function.
+
+        Returns:
+            Number of entries processed.
+        """
+        try:
+            from causaliq_workflow.cache import WorkflowCache
+        except ImportError:  # pragma: no cover
+            raise ActionExecutionError(
+                "causaliq-workflow required to read .db caches"
+            )
+
+        count = 0
+        try:
+            with WorkflowCache(cache_path) as cache:
+                entries = cache.list_entries()
+
+                for entry_info in entries:
+                    entry = cache.get(entry_info["matrix_values"])
+                    if entry is None:  # pragma: no cover
+                        continue
+
+                    matrix_values = entry_info["matrix_values"]
+                    flat_meta = self._flatten_entry_metadata(
+                        matrix_values, entry.metadata
+                    )
+
+                    # Apply filter if specified
+                    if filter_expr:
+                        try:
+                            from causaliq_core.utils import evaluate_filter
+
+                            if not evaluate_filter(filter_expr, flat_meta):
+                                continue
+                        except Exception:
+                            continue
+
+                    count += 1
+
+                    # Extract metric values
+                    for field in fields:
+                        value = self._get_nested_value(flat_meta, field)
+                        if value is not None and isinstance(
+                            value, (int, float)
+                        ):
+                            all_values[field].append(float(value))
+
+                    if log_fn:
+                        log_fn(f"Processed: {matrix_values}")
+
+        except FileNotFoundError:  # pragma: no cover
+            raise ActionExecutionError(f"Cache file not found: {cache_path}")
+        except Exception as e:
+            if isinstance(e, ActionExecutionError):  # pragma: no cover
+                raise
+            raise ActionExecutionError(
+                f"Failed to read cache '{cache_path}': {e}"
+            ) from e
+
+        return count
+
+    def _get_nested_value(self, data: Dict[str, Any], field: str) -> Any:
+        """Get value from dict using dotted path notation.
+
+        Args:
+            data: Dictionary to search.
+            field: Field name, optionally with dots for nested access.
+
+        Returns:
+            Value if found, None otherwise.
+        """
+        # First try direct key lookup
+        if field in data:
+            return data[field]
+
+        # Dotted path traversal (defensive - flattened dicts don't need this)
+        parts = field.split(".")
+        current = data
+        for part in parts:
+            if isinstance(current, dict) and part in current:
+                current = current[part]  # pragma: no cover
+            else:
+                return None
+        return current  # pragma: no cover
 
     def _extract_graphs_from_entries(
         self,

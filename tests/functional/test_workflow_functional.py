@@ -850,3 +850,214 @@ def test_merge_graphs_provenance_with_filter(
     assert status == "success"
     assert metadata["action"] == "merge_graphs"
     assert metadata["filter"] == "algorithm == 'pc'"
+
+
+# --------------------------------------------------------------------------
+# summarise action functional tests
+# --------------------------------------------------------------------------
+
+
+# Test summarise direct mode with real workflow cache.
+def test_summarise_direct_mode_with_cache(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test summarise reads from real workflow cache in direct mode."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create a workflow cache with entries
+    cache_path = tmp_path / "results.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        entry1 = CacheEntry(
+            metadata={
+                "causaliq-analysis": {"evaluate_graph": {"f1": 0.8, "shd": 2}}
+            }
+        )
+        entry2 = CacheEntry(
+            metadata={
+                "causaliq-analysis": {"evaluate_graph": {"f1": 0.9, "shd": 1}}
+            }
+        )
+        cache.put({"seed": 1}, entry1)
+        cache.put({"seed": 2}, entry2)
+
+    output_path = tmp_path / "summary.csv"
+
+    action = AnalysisActionProvider()
+    status, metadata, _ = action.run(
+        "summarise",
+        {
+            "metric": ["f1.mean", "f1.count", "shd.mean"],
+            "input": str(cache_path),  # Single string input
+            "output": str(output_path),
+        },
+        mode="run",
+    )
+
+    assert status == "success"
+    assert metadata["source_count"] == 2
+    assert abs(metadata["f1.mean"] - 0.85) < 0.01
+    assert metadata["f1.count"] == 2
+    assert abs(metadata["shd.mean"] - 1.5) < 0.01
+    assert output_path.exists()
+
+
+# Test summarise direct mode with filter on cache.
+def test_summarise_direct_mode_with_filter(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test summarise applies filter when reading cache."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "results.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        entry1 = CacheEntry(
+            metadata={
+                "causaliq-analysis": {
+                    "evaluate_graph": {"f1": 0.8, "status": "completed"}
+                }
+            }
+        )
+        entry2 = CacheEntry(
+            metadata={
+                "causaliq-analysis": {
+                    "evaluate_graph": {"f1": 0.5, "status": "failed"}
+                }
+            }
+        )
+        entry3 = CacheEntry(
+            metadata={
+                "causaliq-analysis": {
+                    "evaluate_graph": {"f1": 0.9, "status": "completed"}
+                }
+            }
+        )
+        cache.put({"seed": 1}, entry1)
+        cache.put({"seed": 2}, entry2)
+        cache.put({"seed": 3}, entry3)
+
+    output_path = tmp_path / "summary.csv"
+
+    action = AnalysisActionProvider()
+    status, metadata, _ = action.run(
+        "summarise",
+        {
+            "metric": ["f1.mean", "f1.count"],
+            "input": [str(cache_path)],  # List input
+            "output": str(output_path),
+            "filter": "status == 'completed'",
+        },
+        mode="run",
+    )
+
+    assert status == "success"
+    # Only 2 completed entries
+    assert metadata["f1.count"] == 2
+    assert abs(metadata["f1.mean"] - 0.85) < 0.01
+
+
+# Test summarise direct mode filter exception skips entries.
+def test_summarise_direct_mode_filter_exception(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test summarise skips entries when filter raises exception."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "results.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        entry = CacheEntry(
+            metadata={"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}}
+        )
+        cache.put({"seed": 1}, entry)
+
+    output_path = tmp_path / "summary.csv"
+
+    action = AnalysisActionProvider()
+    status, metadata, _ = action.run(
+        "summarise",
+        {
+            "metric": ["f1.count"],
+            "input": str(cache_path),
+            "output": str(output_path),
+            "filter": "undefined_var > 5",  # Will cause exception
+        },
+        mode="run",
+    )
+
+    assert status == "success"
+    # Entry skipped due to filter exception
+    assert metadata["f1.count"] == 0
+
+
+# Test summarise direct mode cache read error.
+def test_summarise_direct_mode_cache_read_error(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test summarise raises error when cache file is corrupt."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    # Create a corrupt db file
+    cache_path = tmp_path / "corrupt.db"
+    cache_path.write_text("not a valid sqlite database")
+
+    action = AnalysisActionProvider()
+
+    with pytest.raises(ActionExecutionError, match="Failed to read cache"):
+        action.run(
+            "summarise",
+            {
+                "metric": ["f1.mean"],
+                "input": str(cache_path),
+            },
+            mode="run",
+        )
+
+
+# Test summarise direct mode logs progress.
+def test_summarise_direct_mode_logs_progress(
+    tmp_path: "pytest.TempPathFactory",
+    capsys: "pytest.CaptureFixture[str]",
+) -> None:
+    """Test summarise logs progress when terminal logging enabled."""
+    from unittest.mock import MagicMock
+
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "results.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        entry = CacheEntry(
+            metadata={"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}}
+        )
+        cache.put({"seed": 1}, entry)
+
+    output_path = tmp_path / "summary.csv"
+
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    action = AnalysisActionProvider()
+    action.run(
+        "summarise",
+        {
+            "metric": ["f1.mean"],
+            "input": str(cache_path),
+            "output": str(output_path),
+        },
+        mode="run",
+        logger=mock_logger,
+    )
+
+    captured = capsys.readouterr()
+    assert "Processed:" in captured.out
+    assert "Collected values from" in captured.out
+    assert "Summary written to" in captured.out
