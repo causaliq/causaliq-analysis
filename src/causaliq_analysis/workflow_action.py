@@ -101,6 +101,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "migrate_trace",
         "merge_graphs",
         "evaluate_graph",
+        "best_graph",
         "summarise",
     }
 
@@ -109,6 +110,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "migrate_trace": ActionPattern.CREATE,
         "merge_graphs": ActionPattern.AGGREGATE,
         "evaluate_graph": ActionPattern.UPDATE,
+        "best_graph": ActionPattern.CREATE,
         "summarise": ActionPattern.AGGREGATE,
     }
 
@@ -238,6 +240,25 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="list[str]",
         ),
+        # best_graph inputs
+        "pdg_input": ActionInput(
+            name="pdg_input",
+            description=(
+                "Path to PDG file (GraphML format) to extract DAG from"
+            ),
+            required=False,
+            type_hint="str",
+        ),
+        "threshold": ActionInput(
+            name="threshold",
+            description=(
+                "Minimum edge probability threshold for inclusion "
+                "(default: 0.0)"
+            ),
+            required=False,
+            default=0.0,
+            type_hint="float",
+        ),
     }
 
     # Output specifications
@@ -254,6 +275,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # summarise outputs
         "source_count": "Number of input entries summarised",
         "csv_output": "CSV file with summary statistics",
+        # best_graph outputs
+        "edges_included": "Number of edges in optimal DAG",
+        "edges_skipped_cycle": "Edges skipped to avoid cycles",
+        "edges_skipped_threshold": "Edges below probability threshold",
+        "tie_breaks_applied": "Direction ties resolved alphabetically",
+        "optimal_dag": "Optimal DAG in GraphML format",
     }
 
     def run(
@@ -287,12 +314,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
             return self._run_merge_graphs(parameters, mode, context, logger)
         elif action == "evaluate_graph":
             return self._run_evaluate_graph(parameters, mode, context, logger)
+        elif action == "best_graph":
+            return self._run_best_graph(parameters, mode, context, logger)
         elif action == "summarise":
             return self._run_summarise(parameters, mode, context, logger)
         else:
             raise ActionExecutionError(
                 f"Unknown action: {action}. Supported actions: "
-                "migrate_trace, merge_graphs, evaluate_graph, summarise"
+                "migrate_trace, merge_graphs, evaluate_graph, best_graph, "
+                "summarise"
             )
 
     def _run_migrate_trace(
@@ -731,6 +761,104 @@ class AnalysisActionProvider(CausalIQActionProvider):
             )
 
         return ("success", metadata, [])
+
+    def _run_best_graph(
+        self,
+        parameters: Dict[str, Any],
+        mode: str,
+        context: Optional[WorkflowContext],
+        logger: Optional[WorkflowLogger],
+    ) -> ActionResult:
+        """Extract optimal DAG from PDG using greedy algorithm.
+
+        CREATE pattern action: reads PDG file, extracts optimal DAG,
+        returns it as a new cache entry.
+
+        Args:
+            parameters: Action parameters including pdg_input, threshold
+            mode: Execution mode ('dry-run', 'run', 'compare')
+            context: Workflow context
+            logger: Optional logger
+
+        Returns:
+            ActionResult with optimal DAG and extraction statistics
+        """
+        from datetime import datetime, timezone
+        from io import StringIO
+
+        from causaliq_core.graph.io import graphml
+
+        # Extract parameters
+        pdg_input = parameters.get("pdg_input")
+        if not pdg_input:
+            raise ActionExecutionError(
+                "best_graph requires 'pdg_input' parameter"
+            )
+        threshold = parameters.get("threshold", 0.0)
+
+        # Handle dry-run mode
+        if mode == "dry-run":
+            if logger and logger.is_terminal_logging:
+                print(
+                    f"Would extract optimal DAG from {pdg_input} "
+                    f"(threshold={threshold})"
+                )
+            return (
+                "skipped",
+                {
+                    "pdg_input": pdg_input,
+                    "threshold": threshold,
+                },
+                [],
+            )
+
+        # Read PDG
+        try:
+            pdg = graphml.read_pdg(pdg_input)
+        except FileNotFoundError:
+            raise ActionExecutionError(f"PDG file not found: {pdg_input}")
+        except Exception as e:
+            raise ActionExecutionError(f"Failed to read PDG: {e}") from e
+
+        # Extract optimal DAG
+        try:
+            result = pdg.to_dag_greedy(threshold=threshold)
+        except Exception as e:
+            raise ActionExecutionError(f"DAG extraction failed: {e}") from e
+
+        # Serialise DAG to GraphML
+        buffer = StringIO()
+        graphml.write(result.dag, buffer)
+        dag_graphml = buffer.getvalue()
+
+        if logger and logger.is_terminal_logging:
+            print(
+                f"Extracted DAG: {result.edges_included} edges, "
+                f"{result.edges_skipped_cycle} skipped (cycle), "
+                f"{result.tie_breaks_applied} tie-breaks"
+            )
+
+        # Build metadata
+        metadata: Dict[str, Any] = {
+            "action": "best_graph",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "pdg_input": pdg_input,
+            "threshold": threshold,
+            "edges_included": result.edges_included,
+            "edges_skipped_cycle": result.edges_skipped_cycle,
+            "edges_skipped_threshold": result.edges_skipped_threshold,
+            "tie_breaks_applied": result.tie_breaks_applied,
+        }
+
+        objects = [
+            {
+                "type": "graphml",
+                "name": "optimal_dag",
+                "content": dag_graphml,
+            }
+        ]
+
+        return ("success", metadata, objects)
 
     def _run_summarise(
         self,

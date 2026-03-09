@@ -484,6 +484,101 @@ def evaluate_graph_cmd(
             click.echo(json_output)
 
 
+@cli.command(name="best-graph")
+@click.option(
+    "--input",
+    "-i",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to PDG file (GraphML format).",
+)
+@click.option(
+    "--output",
+    "-o",
+    required=True,
+    type=click.Path(),
+    help="Output file path for optimal DAG (GraphML format).",
+)
+@click.option(
+    "--threshold",
+    "-t",
+    default=0.0,
+    type=float,
+    help="Minimum edge probability threshold (default: 0.0).",
+)
+@click.option(
+    "--stats",
+    "-s",
+    is_flag=True,
+    default=False,
+    help="Print extraction statistics to stderr.",
+)
+def best_graph_cmd(
+    input: str,
+    output: str,
+    threshold: float,
+    stats: bool,
+) -> None:
+    """
+    Extract optimal DAG from a PDG using greedy algorithm.
+
+    Reads a Probabilistic Dependency Graph (PDG) and extracts the best
+    DAG by greedily selecting high-probability edges while avoiding
+    cycles. Undirected probability is split equally between forward
+    and backward directions.
+
+    For direction ties, alphabetical ordering is used (source -> target
+    where source < target).
+
+    Example:
+        causaliq-analysis best-graph -i merged.graphml -o optimal.graphml
+
+        causaliq-analysis best-graph -i merged.graphml -o optimal.graphml \\
+            --threshold=0.5 --stats
+    """
+    from causaliq_core.graph.io import graphml
+
+    # Read PDG
+    try:
+        pdg = graphml.read_pdg(input)
+    except Exception as e:
+        raise click.ClickException(f"Failed to read PDG: {e}")
+
+    # Extract optimal DAG
+    try:
+        result = pdg.to_dag_greedy(threshold=threshold)
+    except Exception as e:
+        raise click.ClickException(f"DAG extraction failed: {e}")
+
+    # Write output DAG
+    output_path = Path(output)
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        graphml.write(result.dag, str(output_path))
+    except Exception as e:
+        raise click.ClickException(f"Failed to write output: {e}")
+
+    click.echo(f"Optimal DAG written to {output_path}")
+
+    # Print statistics if requested
+    if stats:
+        import sys
+
+        print(f"Edges included: {result.edges_included}", file=sys.stderr)
+        print(
+            f"Edges skipped (cycle): {result.edges_skipped_cycle}",
+            file=sys.stderr,
+        )
+        print(
+            f"Edges skipped (threshold): {result.edges_skipped_threshold}",
+            file=sys.stderr,
+        )
+        print(
+            f"Tie-breaks (alphabetical): {result.tie_breaks_applied}",
+            file=sys.stderr,
+        )
+
+
 @cli.command(name="summarise")
 @click.option(
     "--metric",
