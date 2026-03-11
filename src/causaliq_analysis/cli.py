@@ -352,14 +352,14 @@ def merge_graphs_cmd(
     "-g",
     required=True,
     type=click.Path(exists=True),
-    help="Path to learned graph (GraphML format).",
+    help="Path to learned graph (.csv, .graphml, .tetrad, .xdsl, .dsc).",
 )
 @click.option(
     "--reference",
     "-r",
     required=True,
     type=click.Path(exists=True),
-    help="Path to ground truth/reference graph (GraphML format).",
+    help="Path to reference graph (.csv, .graphml, .tetrad, .xdsl, .dsc).",
 )
 @click.option(
     "--output",
@@ -416,19 +416,28 @@ def evaluate_graph_cmd(
     import json
     from typing import Dict, Union
 
-    from causaliq_core.graph.io import graphml
+    from causaliq_core.bn.io import read_bn
+    from causaliq_core.graph.io import read_graph
 
     from causaliq_analysis.metrics import pdag_compare
 
+    def _read_graph_file(path: str) -> object:
+        """Read graph from file, auto-detecting format from suffix."""
+        suffix = path.lower().split(".")[-1]
+        if suffix in ("xdsl", "dsc"):
+            return read_bn(path).dag
+        else:
+            return read_graph(path)
+
     # Read learned graph
     try:
-        learned_graph = graphml.read(graph)
+        learned_graph = _read_graph_file(graph)
     except Exception as e:
         raise click.ClickException(f"Failed to read learned graph: {e}")
 
     # Read reference graph
     try:
-        reference_graph = graphml.read(reference)
+        reference_graph = _read_graph_file(reference)
     except Exception as e:
         raise click.ClickException(f"Failed to read reference graph: {e}")
 
