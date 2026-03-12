@@ -48,16 +48,15 @@ def test_workflow_action_input_validation():
 # Test migrate_trace action requires traces or series/network.
 def test_migrate_trace_missing_parameters():
     """Test migrate_trace action requires traces or series/network."""
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     action = AnalysisActionProvider()
 
     # Test missing both traces and series/network
     with pytest.raises(
-        ActionExecutionError, match="Must provide either 'traces'"
+        ActionValidationError, match="requires either 'traces'"
     ):
         action.run("migrate_trace", {}, mode="run")
 
@@ -449,15 +448,15 @@ def test_merge_graphs_general_exception(
 # Test merge_graphs action requires inputs.
 def test_merge_graphs_missing_inputs() -> None:
     """Test merge_graphs action requires inputs or aggregate parameter."""
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     action = AnalysisActionProvider()
 
     with pytest.raises(
-        ActionExecutionError, match="requires either 'aggregate'.*or 'input'"
+        ActionValidationError,
+        match="requires either '_aggregation_entries'.*or 'input'",
     ):
         action.run("merge_graphs", {}, mode="run")
 

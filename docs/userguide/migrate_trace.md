@@ -13,7 +13,7 @@ modern causaliq workflows and third-party graph tools.
 | `traces` | — | `traces` | Yes* | Direct path pattern (action only) |
 | `root_dir` | `--root-dir` | `root_dir` | No | Root directory (default: `experiments`) |
 | `sample_size` | `--N` | `sample_size` | No | Filter by sample size (e.g., `10k`) |
-| `seeds` | `--seeds` | `seeds` | No | Filter by seeds (comma-separated) |
+| `seed` | `--seed` | `seed` | No | Filter by seed (comma-separated) |
 | `output` | `--output` | — | CLI only | Output directory for files |
 
 **Notes:**
@@ -21,7 +21,7 @@ modern causaliq workflows and third-party graph tools.
 - *Must provide either `network` + `series` OR `traces` pattern
 - Sample size accepts integers or shorthand: `1k` = 1000, `10k` = 10000,
   `1m` = 1000000
-- If `seeds` is omitted, all seeds are included
+- If `seed` is omitted, all seeds are included
 - CLI output defaults to `migrated/<series>/<network>/`
 
 ---
@@ -75,7 +75,7 @@ causaliq-analysis migrate-trace `
   --network=asia `
   --series=TABU/STD `
   --N=10k `
-  --seeds=0,1,2 `
+  --seed=0,1,2 `
   --output=migrated/asia_10k
 
 # Migrate from non-default root directory

@@ -2667,3 +2667,40 @@ def test_print_summary_table_empty_results(capsys):
 
     captured = capsys.readouterr()
     assert "No results to display" in captured.out
+
+
+# Test merge-graphs with filter referencing undefined variable.
+def test_merge_graphs_filter_undefined_variable(cli_runner, tmp_path):
+    """Test merge-graphs filter fails with undefined variable at runtime."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    cache_path = tmp_path / "test.db"
+    output_path = tmp_path / "merged.graphml"
+
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+
+    with WorkflowCache(str(cache_path)) as cache:
+        entry1 = CacheEntry()
+        buf1 = StringIO()
+        graphml.write(dag1, buf1)
+        entry1.add_object("graph", "graphml", buf1.getvalue())
+        entry1.metadata["sample_size"] = 1000
+        cache.put({"seed": 1}, entry1)
+
+    # Filter uses valid syntax but references undefined variable
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={cache_path}",
+            f"--output={output_path}",
+            "--filter=undefined_var > 5",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid filter expression" in result.output

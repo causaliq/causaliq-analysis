@@ -142,15 +142,16 @@ def test_workflow_action_missing_required_parameters():
     """Test workflow action with missing required parameters."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     action = AnalysisActionProvider()
 
     # Missing required parameters for migrate_trace
-    with pytest.raises(ActionExecutionError, match="Must provide"):
+    with pytest.raises(
+        ActionValidationError, match="requires either 'traces'"
+    ):
         action.run("migrate_trace", {}, mode="run")
 
 

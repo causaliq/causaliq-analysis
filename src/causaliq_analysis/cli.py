@@ -38,7 +38,7 @@ def cli() -> None:
     "Omit to include all sample sizes.",
 )
 @click.option(
-    "--seeds",
+    "--seed",
     default="",
     help="Comma-separated seed values (e.g., '0,1,2'). Empty means all seeds.",
 )
@@ -54,7 +54,7 @@ def migrate_trace_cmd(
     series: str,
     root_dir: str,
     sample_size: Optional[str],
-    seeds: str,
+    seed: str,
     output: Optional[str],
 ) -> None:
     """
@@ -65,7 +65,7 @@ def migrate_trace_cmd(
 
     Example:
         cqalys migrate_trace --network=asia --series=TABU/SAMPLE/BASE
-                             --root-dir=experiments --N=10k --seeds=0,1
+                             --root-dir=experiments --N=10k --seed=0,1
                              --output=migrated/asia
     """
     from causaliq_analysis.migrate import (
@@ -81,8 +81,8 @@ def migrate_trace_cmd(
     if sample_size is not None:
         sample_size_int = parse_sample_size(sample_size)
 
-    # Parse seeds
-    seed_tuple = parse_seeds_cli(seeds)
+    # Parse seed
+    seed_tuple = parse_seeds_cli(seed)
 
     # Determine output directory
     if not output:
@@ -196,6 +196,14 @@ def merge_graphs_cmd(
     )
 
     from causaliq_analysis.merge import merge_graphs
+    from causaliq_analysis.validation import validate_filter_expression
+
+    # Pre-validate filter expression syntax
+    if filter_expr:
+        try:
+            validate_filter_expression(filter_expr)
+        except ValueError as e:
+            raise click.ClickException(str(e))
 
     graphs: list = []
     graph_metadata: List[Dict[str, Any]] = []

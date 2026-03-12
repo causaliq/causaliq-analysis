@@ -105,7 +105,14 @@ def get_trace_metadata(trace: Trace) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     for field in _METADATA_FIELDS:
         if field in trace.context:
-            result[field] = trace.context[field]
+            value = trace.context[field]
+            # Special handling for params dict - serialise values
+            if field == "params" and isinstance(value, dict):
+                result[field] = {
+                    k: _json_serialise(v) for k, v in value.items()
+                }
+            else:
+                result[field] = value
 
     return result
 

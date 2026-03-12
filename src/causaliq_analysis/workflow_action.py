@@ -22,6 +22,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ActionInput,
         ActionPattern,
         ActionResult,
+        ActionValidationError,
         CausalIQActionProvider,
     )
     from causaliq_workflow.logger import WorkflowLogger
@@ -34,6 +35,7 @@ else:
             ActionInput,
             ActionPattern,
             ActionResult,
+            ActionValidationError,
             CausalIQActionProvider,
         )
         from causaliq_workflow.logger import WorkflowLogger
@@ -46,6 +48,9 @@ else:
             pass
 
         class ActionExecutionError(Exception):
+            pass
+
+        class ActionValidationError(Exception):  # type: ignore[no-redef]
             pass
 
         # Type alias stub for ActionResult
@@ -76,6 +81,9 @@ from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
     parse_sample_size,
     parse_seeds_workflow,
+    require_param,
+    validate_filter_expression,
+    validate_metric_specs,
 )
 
 
@@ -162,12 +170,23 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="int or str",
         ),
-        "seeds": ActionInput(
-            name="seeds",
-            description="Seeds to include (comma-separated or list)",
+        "seed": ActionInput(
+            name="seed",
+            description="Seed values to include (comma-separated or list)",
             required=False,
             default="",
             type_hint="str or list",
+        ),
+        # Shared filter parameter
+        "filter": ActionInput(
+            name="filter",
+            description=(
+                "Filter expression to select traces/entries by metadata. "
+                "Uses Python syntax (e.g., \"algorithm == 'TABU'\", "
+                "\"N > 1000 and network in ['asia', 'alarm']\")"
+            ),
+            required=False,
+            type_hint="str",
         ),
         # merge_graphs input
         "input": ActionInput(
@@ -229,16 +248,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="str",
         ),
-        # summarise inputs
+        # metric input (used by evaluate_graph and summarise)
         "metric": ActionInput(
             name="metric",
             description=(
-                "List of metric specifications in format <field>.<stat>. "
-                "Supported stats: mean, sd, count. "
-                "Example: ['f1.mean', 'f1.sd', 'shd.count']"
+                "For evaluate_graph: List of metrics to include in output "
+                "(e.g., ['f1', 'shd', 'precision', 'recall']). Required. "
+                "For summarise: List of metric specs in <field>.<stat> format "
+                "(e.g., ['f1.mean', 'shd.sd'])."
             ),
             required=False,
-            type_hint="list[str]",
+            type_hint="list[str] | str",
         ),
         # best_graph inputs
         "pdg_input": ActionInput(
@@ -282,6 +302,189 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "tie_breaks_applied": "Direction ties resolved alphabetically",
         "optimal_dag": "Optimal DAG in GraphML format",
     }
+
+    # Valid parameters per action (for unknown parameter validation)
+    action_parameters: Dict[str, set] = {
+        "migrate_trace": {
+            "traces",
+            "series",
+            "network",
+            "sample_size",
+            "seed",
+            "root_dir",
+            "output",
+        },
+        "merge_graphs": {
+            "input",
+            "aggregate",
+            "weights",
+            "cpdag",
+            "filter",
+            "output",
+            "_aggregation_entries",  # Internal workflow parameter
+        },
+        "evaluate_graph": {
+            "input",
+            "filter",
+            "metric",
+            "reference",
+            "bayesys",
+            "_update_entry",  # Internal workflow parameter
+        },
+        "best_graph": {
+            "pdg_input",
+            "threshold",
+            "output",
+        },
+        "summarise": {
+            "metric",
+            "filter",
+            "input",
+            "output",
+            "_aggregation_entries",  # Internal workflow parameter
+        },
+    }
+
+    def validate_parameters(
+        self, action: str, parameters: Dict[str, Any]
+    ) -> None:
+        """Validate action and parameters before execution.
+
+        Performs action-specific parameter validation using shared
+        validation utilities from causaliq_analysis.validation.
+
+        Args:
+            action: Action to perform.
+            parameters: Parameter dictionary.
+
+        Raises:
+            ActionValidationError: If validation fails.
+        """
+        # Check action is supported via base class
+        super().validate_parameters(action, parameters)
+
+        # Check for unknown parameters
+        valid_params = self.action_parameters.get(action, set())
+        # Filter out 'action' which is always valid
+        param_keys = {k for k in parameters.keys() if k != "action"}
+        unknown = param_keys - valid_params
+        if unknown:
+            raise ActionValidationError(
+                f"Unknown parameter(s) for '{action}': {sorted(unknown)}"
+            )
+
+        try:
+            if action == "migrate_trace":
+                self._validate_migrate_trace(parameters)
+            elif action == "merge_graphs":
+                self._validate_merge_graphs(parameters)
+            elif action == "evaluate_graph":
+                self._validate_evaluate_graph(parameters)
+            elif action == "best_graph":
+                self._validate_best_graph(parameters)
+            elif action == "summarise":
+                self._validate_summarise(parameters)
+        except ValueError as e:
+            raise ActionValidationError(str(e))
+
+    def _validate_migrate_trace(self, parameters: Dict[str, Any]) -> None:
+        """Validate migrate_trace parameters."""
+        # Require traces OR (series AND network)
+        has_traces = (
+            "traces" in parameters and parameters["traces"] is not None
+        )
+        has_series = (
+            "series" in parameters and parameters["series"] is not None
+        )
+        has_network = (
+            "network" in parameters and parameters["network"] is not None
+        )
+
+        if not has_traces and not (has_series and has_network):
+            raise ValueError(
+                "'migrate_trace' requires either 'traces' parameter or "
+                "both 'series' and 'network' parameters"
+            )
+
+        # Validate sample_size if provided
+        sample_size = parameters.get("sample_size")
+        if sample_size is not None:
+            parse_sample_size(sample_size)
+
+        # Validate seed if provided
+        seed = parameters.get("seed")
+        if seed is not None:
+            parse_seeds_workflow(seed)
+
+    def _validate_merge_graphs(self, parameters: Dict[str, Any]) -> None:
+        """Validate merge_graphs parameters."""
+        # Require _aggregation_entries OR input
+        has_agg = "_aggregation_entries" in parameters
+        has_input = "input" in parameters and parameters["input"] is not None
+
+        if not has_agg and not has_input:
+            raise ValueError(
+                "'merge_graphs' requires either '_aggregation_entries' "
+                "(aggregation mode) or 'input' parameter"
+            )
+
+        # Validate filter expression syntax if provided
+        filter_expr = parameters.get("filter")
+        validate_filter_expression(filter_expr)
+
+        # Validate weights if provided as dict (spec format)
+        weights = parameters.get("weights")
+        if weights is not None and isinstance(weights, dict):
+            try:
+                from causaliq_core.utils import (
+                    WeightSpecError,
+                    validate_weight_spec,
+                )
+
+                validate_weight_spec(weights)
+            except WeightSpecError as e:
+                raise ValueError(f"Invalid weight specification: {e}")
+
+    def _validate_evaluate_graph(self, parameters: Dict[str, Any]) -> None:
+        """Validate evaluate_graph parameters."""
+        # UPDATE pattern: requires _update_entry at runtime, but
+        # reference and metric are always required
+        require_param(parameters, "reference", "evaluate_graph")
+        require_param(parameters, "metric", "evaluate_graph")
+
+    def _validate_best_graph(self, parameters: Dict[str, Any]) -> None:
+        """Validate best_graph parameters."""
+        require_param(parameters, "pdg_input", "best_graph")
+
+        # Validate threshold if provided
+        threshold = parameters.get("threshold")
+        if threshold is not None:
+            try:
+                float(threshold)
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"'threshold' must be a number, got: {threshold}"
+                )
+
+    def _validate_summarise(self, parameters: Dict[str, Any]) -> None:
+        """Validate summarise parameters."""
+        # Require metric list
+        metric_specs = parameters.get("metric", [])
+        validate_metric_specs(metric_specs)
+
+        # Validate filter expression syntax if provided
+        filter_expr = parameters.get("filter")
+        validate_filter_expression(filter_expr)
+
+        # In aggregation mode, output is required
+        has_agg = "_aggregation_entries" in parameters
+        if has_agg:
+            output = parameters.get("output")
+            if not output:
+                raise ValueError(
+                    "'summarise' in aggregation mode requires 'output' "
+                    "parameter for CSV output file path"
+                )
 
     def run(
         self,
@@ -367,14 +570,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
             series = parameters.get("series")
             network = parameters.get("network")
             sample_size_input = parameters.get("sample_size")
-            seeds_input = parameters.get("seeds", "")
+            seed_input = parameters.get("seed", "")
 
             # Build trace path pattern
             if traces_pattern:
                 partial_id = traces_pattern.replace(".pkl.gz", "")
             elif series and network:
                 partial_id = f"{series}/{network}"
-            else:
+            else:  # pragma: no cover
                 raise ActionExecutionError(
                     "Must provide either 'traces' or both 'series' and "
                     "'network'"
@@ -385,7 +588,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             if sample_size_input is not None:
                 sample_size = parse_sample_size(sample_size_input)
 
-            seed_tuple = parse_seeds_workflow(seeds_input)
+            seed_tuple = parse_seeds_workflow(seed_input)
 
             # Dry-run mode
             if mode == "dry-run":
@@ -495,7 +698,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             is_aggregation_mode = aggregation_entries is not None
 
             # Validate: must have either aggregation entries or file inputs
-            if not is_aggregation_mode and not input_files:
+            if not is_aggregation_mode and not input_files:  # pragma: no cover
                 raise ActionExecutionError(
                     "merge_graphs requires either 'aggregate' parameter "
                     "(workflow aggregation mode) or 'input' (list of "
@@ -676,10 +879,20 @@ class AnalysisActionProvider(CausalIQActionProvider):
             ActionResult with structural metrics as metadata
         """
         from io import StringIO
+        from typing import Any as TypingAny
 
-        from causaliq_core.graph.io import graphml
+        from causaliq_core.bn.io import read_bn
+        from causaliq_core.graph.io import graphml, read_graph
 
         from causaliq_analysis.metrics import pdag_compare
+
+        def _read_graph_file(path: str) -> TypingAny:
+            """Read graph from file, auto-detecting format from suffix."""
+            suffix = path.lower().split(".")[-1]
+            if suffix in ("xdsl", "dsc"):
+                return read_bn(path).dag
+            else:
+                return read_graph(path)
 
         # Extract UPDATE action entry data
         update_entry = parameters.get("_update_entry")
@@ -690,12 +903,19 @@ class AnalysisActionProvider(CausalIQActionProvider):
             )
 
         reference_path = parameters.get("reference")
-        if not reference_path:
+        if not reference_path:  # pragma: no cover
             raise ActionExecutionError(
                 "evaluate_graph requires 'reference' parameter"
             )
 
         bayesys_version = parameters.get("bayesys")
+
+        # Get requested metrics (metric is mandatory, validated above)
+        requested_metrics = parameters.get("metric")
+        if isinstance(requested_metrics, str):
+            requested_metrics = [requested_metrics]
+        # Type assertion: metric is required, so this is always a list
+        assert requested_metrics is not None, "metric is required"
 
         # Handle dry-run mode
         if mode == "dry-run":
@@ -742,7 +962,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         # Load reference graph
         try:
-            reference = graphml.read(reference_path)
+            reference = _read_graph_file(reference_path)
         except FileNotFoundError:
             raise ActionExecutionError(
                 f"Reference graph not found: {reference_path}"
@@ -761,24 +981,39 @@ class AnalysisActionProvider(CausalIQActionProvider):
             ) from e
 
         # Build metadata with standard metric names
+        # Note: pdag_compare returns 'p' and 'r' for precision/recall
         include_bayesys = bayesys_version is not None
-        metadata: Dict[str, Any] = {
-            "precision": metrics["precision"],
-            "recall": metrics["recall"],
+
+        # All available metrics
+        all_metrics: Dict[str, Any] = {
+            "precision": metrics["p"],
+            "recall": metrics["r"],
             "f1": metrics["f1"],
             "shd": metrics["shd"],
-            "reference": reference_path,
-            "evaluated_graph": graph_name,
         }
 
         # Add Bayesys metrics if requested
+        # Note: bayesys_metrics returns 'p-b', 'r-b', 'f1-b', 'shd-b'
         if include_bayesys:
-            metadata["precision_b"] = metrics["precision_b"]
-            metadata["recall_b"] = metrics["recall_b"]
-            metadata["f1_b"] = metrics["f1_b"]
-            metadata["shd_b"] = metrics["shd_b"]
-            metadata["ddm"] = metrics["ddm"]
-            metadata["bsf"] = metrics["bsf"]
+            all_metrics["precision_b"] = metrics["p-b"]
+            all_metrics["recall_b"] = metrics["r-b"]
+            all_metrics["f1_b"] = metrics["f1-b"]
+            all_metrics["shd_b"] = metrics["shd-b"]
+            all_metrics["ddm"] = metrics["ddm"]
+            all_metrics["bsf"] = metrics["bsf"]
+
+        # Filter to requested metrics (metric is mandatory)
+        filtered_metrics = {
+            k: v for k, v in all_metrics.items() if k in requested_metrics
+        }
+
+        # Build final metadata (always include reference info)
+        metadata: Dict[str, Any] = {
+            **filtered_metrics,
+            "reference": reference_path,
+            "evaluated_graph": graph_name,
+        }
+        if include_bayesys:
             metadata["bayesys"] = bayesys_version
 
         if logger and logger.is_terminal_logging:
@@ -817,7 +1052,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         # Extract parameters
         pdg_input = parameters.get("pdg_input")
-        if not pdg_input:
+        if not pdg_input:  # pragma: no cover
             raise ActionExecutionError(
                 "best_graph requires 'pdg_input' parameter"
             )
@@ -926,8 +1161,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
             filter_expr = parameters.get("filter")
             output_path = parameters.get("output")
 
-            # Validate metric specs
-            if not metric_specs:
+            # Validate metric specs (validation happens in validate_parameters)
+            if not metric_specs:  # pragma: no cover
                 raise ActionExecutionError(
                     "summarise requires 'metric' parameter with at least one "
                     "metric specification (e.g., ['f1.mean', 'shd.sd'])"
@@ -936,14 +1171,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Parse metric specifications
             parsed_metrics: List[Tuple[str, str]] = []
             for spec in metric_specs:
-                if "." not in spec:
+                if "." not in spec:  # pragma: no cover
                     raise ActionExecutionError(
                         f"Invalid metric spec '{spec}': "
                         "must be <field>.<stat>"
                     )
                 parts = spec.rsplit(".", 1)
                 field, stat = parts[0], parts[1]
-                if stat not in SUPPORTED_STATS:
+                if stat not in SUPPORTED_STATS:  # pragma: no cover
                     raise ActionExecutionError(
                         f"Unknown statistic '{stat}' in '{spec}'. "
                         f"Supported: {', '.join(sorted(SUPPORTED_STATS))}"
@@ -952,7 +1187,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
             # Validate output path for aggregation mode
             is_aggregation_mode = aggregation_entries is not None
-            if is_aggregation_mode and not output_path:
+            if is_aggregation_mode and not output_path:  # pragma: no cover
                 raise ActionExecutionError(
                     "summarise in aggregation mode requires 'output' "
                     "parameter for CSV output file path"

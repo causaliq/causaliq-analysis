@@ -50,6 +50,25 @@ def test_get_trace_metadata_ok() -> None:
     assert isinstance(metadata["params"], dict)
 
 
+# Test get_trace_metadata serialises params values.
+def test_get_trace_metadata_params_serialised() -> None:
+    """Test that params dict values are serialised to JSON-compatible types."""
+    traces = Trace.read("TABU/STD/asia", TESTDATA_DIR + "trace")
+    assert traces is not None
+    trace = traces["N1000"]
+
+    metadata = get_trace_metadata(trace)
+
+    # All values in params should be JSON-serialisable (no object refs)
+    params = metadata.get("params", {})
+    for key, value in params.items():
+        # Value should not be an object reference string
+        if isinstance(value, str):
+            assert not value.startswith(
+                "<"
+            ), f"params['{key}'] is object reference: {value}"
+
+
 # Test trace_to_dag with bad argument type.
 def test_trace_to_dag_type_error() -> None:
     with pytest.raises(TypeError):

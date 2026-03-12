@@ -5,7 +5,10 @@ This module contains shared validation functions used across CLI and
 workflow_action modules to avoid code duplication.
 """
 
-from typing import Any, Tuple, Union
+from typing import Any, FrozenSet, List, Optional, Tuple, Union
+
+# Supported summary statistics for metric specifications
+SUPPORTED_STATS: FrozenSet[str] = frozenset({"mean", "sd", "count"})
 
 
 def parse_sample_size(size_input: Union[str, int]) -> int:
@@ -101,7 +104,7 @@ def parse_seeds_cli(seeds_str: str) -> Tuple[int, ...]:
 
     except ValueError as e:
         if "invalid literal" in str(e):
-            raise ValueError(f"Invalid seeds format: {seeds_str}")
+            raise ValueError(f"Invalid seed format: {seeds_str}")
         else:
             raise
 
@@ -147,6 +150,140 @@ def parse_seeds_workflow(seeds_input: Any) -> Tuple[int, ...]:
             seeds = tuple(int(s.strip()) for s in seeds_input.split(","))
             return seeds
         except ValueError:
-            raise ValueError(f"Invalid seeds format: {seeds_input}")
+            raise ValueError(f"Invalid seed format: {seeds_input}")
 
-    raise ValueError(f"Invalid seeds type: {type(seeds_input)}")
+    raise ValueError(f"Invalid seed type: {type(seeds_input)}")
+
+
+def validate_filter_expression(filter_expr: Optional[str]) -> None:
+    """Validate filter expression syntax.
+
+    Checks that the filter expression has valid Python syntax without
+    evaluating it against actual data. This catches syntax errors early.
+
+    Args:
+        filter_expr: Filter expression string, or None (no-op).
+
+    Raises:
+        ValueError: If filter syntax is invalid.
+
+    Examples:
+        >>> validate_filter_expression("network == 'asia'")  # Valid
+        >>> validate_filter_expression("x > 5 and y < 10")   # Valid
+        >>> validate_filter_expression("x ==")  # Raises ValueError
+    """
+    if filter_expr is None or filter_expr.strip() == "":
+        return
+
+    try:
+        from causaliq_core.utils import FilterSyntaxError, validate_filter
+
+        validate_filter(filter_expr)
+    except FilterSyntaxError as e:
+        raise ValueError(f"Invalid filter expression: {e}")
+
+
+def validate_metric_specs(
+    metric_specs: List[str],
+    supported_stats: Optional[FrozenSet[str]] = None,
+) -> List[Tuple[str, str]]:
+    """Validate and parse metric specifications.
+
+    Each metric spec must be in the format '<field>.<stat>' where stat
+    is one of the supported statistics (mean, sd, count).
+
+    Args:
+        metric_specs: List of metric specifications (e.g., ['f1.mean']).
+        supported_stats: Set of valid stat names. Defaults to SUPPORTED_STATS.
+
+    Returns:
+        List of (field, stat) tuples.
+
+    Raises:
+        ValueError: If specs are empty, not a list, or any spec is invalid.
+
+    Examples:
+        >>> validate_metric_specs(['f1.mean', 'shd.sd'])
+        [('f1', 'mean'), ('shd', 'sd')]
+        >>> validate_metric_specs(['invalid'])  # Raises ValueError
+    """
+    if supported_stats is None:
+        supported_stats = SUPPORTED_STATS
+
+    # Ensure metric_specs is a list
+    if not isinstance(metric_specs, list):
+        raise ValueError(
+            f"'metric' must be a list, got {type(metric_specs).__name__}"
+        )
+
+    if not metric_specs:
+        raise ValueError(
+            "At least one metric specification required "
+            "(e.g., ['f1.mean', 'shd.sd'])"
+        )
+
+    parsed: List[Tuple[str, str]] = []
+    for spec in metric_specs:
+        if "." not in spec:
+            raise ValueError(
+                f"Invalid metric spec '{spec}': must be <field>.<stat>"
+            )
+        parts = spec.rsplit(".", 1)
+        field, stat = parts[0], parts[1]
+        if stat not in supported_stats:
+            raise ValueError(
+                f"Unknown statistic '{stat}' in '{spec}'. "
+                f"Supported: {', '.join(sorted(supported_stats))}"
+            )
+        parsed.append((field, stat))
+
+    return parsed
+
+
+def require_param(
+    parameters: dict,
+    param_name: str,
+    action_name: str,
+) -> Any:
+    """Require a parameter to be present.
+
+    Args:
+        parameters: Parameter dictionary.
+        param_name: Name of required parameter.
+        action_name: Action name for error message.
+
+    Returns:
+        The parameter value.
+
+    Raises:
+        ValueError: If parameter is missing.
+    """
+    if param_name not in parameters or parameters[param_name] is None:
+        raise ValueError(f"'{action_name}' requires '{param_name}' parameter")
+    return parameters[param_name]
+
+
+def require_one_of(
+    parameters: dict,
+    param_names: List[str],
+    action_name: str,
+) -> str:
+    """Require at least one of the specified parameters.
+
+    Args:
+        parameters: Parameter dictionary.
+        param_names: List of parameter names (at least one required).
+        action_name: Action name for error message.
+
+    Returns:
+        Name of the first present parameter.
+
+    Raises:
+        ValueError: If none of the parameters are present.
+    """
+    for name in param_names:
+        if name in parameters and parameters[name] is not None:
+            return name
+
+    names_str = "', '".join(param_names)
+    raise ValueError(f"'{action_name}' requires one of: '{names_str}'")
