@@ -291,22 +291,53 @@ class AnalysisActionProvider(CausalIQActionProvider):
         context: Optional[WorkflowContext] = None,
         logger: Optional[WorkflowLogger] = None,
     ) -> ActionResult:
+        """Execute analysis action with action-specific dry-run handling.
+
+        Overrides base class to preserve action-specific dry-run behaviour
+        that requires logger access for terminal output.
+
+        Args:
+            action: Action to perform.
+            parameters: Action parameter values.
+            mode: Execution mode ('dry-run', 'run', 'compare').
+            context: Workflow context for optimisation.
+            logger: Logger for reporting.
+
+        Returns:
+            Tuple of (status, metadata, objects).
+
+        Raises:
+            ActionExecutionError: If execution fails.
         """
-        Execute the analysis action.
+        # Validate parameters (base class hook)
+        self.validate_parameters(action, parameters)
+        # Skip base class _dry_run_result() - action handlers have
+        # their own dry-run logic that needs logger access
+        return self._execute(action, parameters, mode, context, logger)
+
+    def _execute(
+        self,
+        action: str,
+        parameters: Dict[str, Any],
+        mode: str,
+        context: Optional[WorkflowContext],
+        logger: Optional[WorkflowLogger],
+    ) -> ActionResult:
+        """Execute the analysis action.
 
         Args:
             action: Action to perform ('migrate_trace', 'merge_graphs',
-                or 'evaluate_graph')
-            parameters: Action parameter values
-            mode: Execution mode ('dry-run', 'run', 'compare')
-            context: Workflow context for optimization
-            logger: Optional logger for reporting
+                'evaluate_graph', 'best_graph', or 'summarise')
+            parameters: Action parameter values.
+            mode: Execution mode ('dry-run', 'run', 'compare').
+            context: Workflow context for optimisation.
+            logger: Logger for reporting.
 
         Returns:
-            Tuple of (status, metadata, objects)
+            Tuple of (status, metadata, objects).
 
         Raises:
-            ActionExecutionError: If execution fails
+            ActionExecutionError: If execution fails.
         """
         if action == "migrate_trace":
             return self._run_migrate_trace(parameters, mode, context, logger)
@@ -316,14 +347,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             return self._run_evaluate_graph(parameters, mode, context, logger)
         elif action == "best_graph":
             return self._run_best_graph(parameters, mode, context, logger)
-        elif action == "summarise":
-            return self._run_summarise(parameters, mode, context, logger)
         else:
-            raise ActionExecutionError(
-                f"Unknown action: {action}. Supported actions: "
-                "migrate_trace, merge_graphs, evaluate_graph, best_graph, "
-                "summarise"
-            )
+            # action == "summarise" - must be valid since validate_parameters
+            # already verified action is in supported_actions
+            return self._run_summarise(parameters, mode, context, logger)
 
     def _run_migrate_trace(
         self,

@@ -34,15 +34,14 @@ def test_workflow_action_metadata():
 # Test that workflow action validates inputs correctly.
 def test_workflow_action_input_validation():
     """Test that workflow action validates inputs correctly."""
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     action = AnalysisActionProvider()
 
     # Test invalid action
-    with pytest.raises(ActionExecutionError, match="Unknown action"):
+    with pytest.raises(ActionValidationError, match="does not support action"):
         action.run("invalid-op", {}, mode="dry-run")
 
 

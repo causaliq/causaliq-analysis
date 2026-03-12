@@ -127,14 +127,13 @@ def test_workflow_action_unknown_action():
     """Test workflow action with unknown action."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     action = AnalysisActionProvider()
 
-    with pytest.raises(ActionExecutionError, match="Unknown action"):
+    with pytest.raises(ActionValidationError, match="does not support action"):
         action.run("unknown-action", {}, mode="run")
 
 

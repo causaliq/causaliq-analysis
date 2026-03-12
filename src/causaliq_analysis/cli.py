@@ -346,6 +346,10 @@ def merge_graphs_cmd(
         raise click.ClickException(f"Failed to write output: {e}")
 
 
+# Supported metrics for evaluate-graph command
+SUPPORTED_METRICS = frozenset({"f1", "equiv.f1", "shd", "equiv.shd"})
+
+
 @cli.command(name="evaluate-graph")
 @click.option(
     "--graph",
@@ -362,20 +366,21 @@ def merge_graphs_cmd(
     help="Path to reference graph (.csv, .graphml, .tetrad, .xdsl, .dsc).",
 )
 @click.option(
+    "--metric",
+    "-m",
+    "metrics_requested",
+    multiple=True,
+    default=None,
+    help="Metric to compute. Supported: f1, equiv.f1, shd, equiv.shd. "
+    "Can specify multiple. If omitted, computes all metrics.",
+)
+@click.option(
     "--output",
     "-o",
     default=None,
     type=click.Path(),
     help="Output file path for metrics (JSON format). "
     "If omitted, prints to stdout.",
-)
-@click.option(
-    "--bayesys",
-    "-b",
-    default=None,
-    type=click.Choice(["v1.3", "v1.5", "v1.5+"]),
-    help="Include Bayesys metrics with specified version. "
-    "Most common is 'v1.5+' for latest.",
 )
 @click.option(
     "--format",
@@ -388,46 +393,75 @@ def merge_graphs_cmd(
 def evaluate_graph_cmd(
     graph: str,
     reference: str,
+    metrics_requested: Tuple[str, ...],
     output: Optional[str],
-    bayesys: Optional[str],
     output_format: str,
 ) -> None:
     """
     Evaluate a learned graph against a ground truth reference.
 
-    Computes structural accuracy metrics including precision, recall, F1,
-    and SHD (Structural Hamming Distance). Optionally includes Bayesys
-    metrics (DDM, BSF) for compatibility with published benchmarks.
+    Computes structural accuracy metrics including F1 and SHD (Structural
+    Hamming Distance). Supports both direct comparison and equivalence
+    class comparison (comparing CPDAGs).
 
-    Metric naming convention:
-    - Standard metrics: precision, recall, f1, shd
-    - Bayesys metrics: precision_b, recall_b, f1_b, shd_b, ddm, bsf
+    Supported metrics:
+    - f1: F1 score from direct graph comparison
+    - equiv.f1: F1 score comparing equivalence classes (CPDAGs)
+    - shd: Structural Hamming Distance from direct comparison
+    - equiv.shd: SHD comparing equivalence classes (CPDAGs)
 
     Example:
         causaliq-analysis evaluate-graph -g learned.graphml \\
             -r ground_truth.graphml
 
         causaliq-analysis evaluate-graph -g learned.graphml \\
-            -r ground_truth.graphml --bayesys=v1.5+ -o metrics.json
+            -r ground_truth.graphml -m f1 -m shd
 
         causaliq-analysis evaluate-graph -g learned.graphml \\
-            -r ground_truth.graphml --format=table
+            -r ground_truth.graphml -m equiv.f1 --format=table
     """
     import json
-    from typing import Dict, Union
+    from typing import Any, Dict, Union
 
     from causaliq_core.bn.io import read_bn
+    from causaliq_core.graph import DAG, PDAG
+    from causaliq_core.graph.convert import dag_to_pdag, pdag_to_cpdag
     from causaliq_core.graph.io import read_graph
 
     from causaliq_analysis.metrics import pdag_compare
 
-    def _read_graph_file(path: str) -> object:
+    def _read_graph_file(path: str) -> Any:
         """Read graph from file, auto-detecting format from suffix."""
         suffix = path.lower().split(".")[-1]
         if suffix in ("xdsl", "dsc"):
             return read_bn(path).dag
         else:
             return read_graph(path)
+
+    def _to_cpdag(g: Any) -> PDAG:
+        """Convert a graph to its CPDAG (equivalence class)."""
+        if isinstance(g, DAG):
+            return dag_to_pdag(g)
+        elif isinstance(g, PDAG):
+            cpdag = pdag_to_cpdag(g)
+            if cpdag is None:
+                raise ValueError("PDAG is not extendable to a CPDAG")
+            return cpdag
+        else:
+            raise TypeError(f"Cannot convert {type(g).__name__} to CPDAG")
+
+    # Validate requested metrics
+    if metrics_requested:
+        invalid = set(metrics_requested) - SUPPORTED_METRICS
+        if invalid:
+            raise click.ClickException(
+                f"Invalid metric(s): {', '.join(sorted(invalid))}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_METRICS))}"
+            )
+        metrics_to_compute = set(metrics_requested)
+    else:
+        # Default: compute all metrics
+        metrics_to_compute = set(SUPPORTED_METRICS)
 
     # Read learned graph
     try:
@@ -441,34 +475,47 @@ def evaluate_graph_cmd(
     except Exception as e:
         raise click.ClickException(f"Failed to read reference graph: {e}")
 
-    # Compute metrics
-    try:
-        raw_metrics = pdag_compare(learned_graph, reference_graph, bayesys)
-    except ValueError as e:
-        raise click.ClickException(f"Comparison failed: {e}")
-    except TypeError as e:
-        raise click.ClickException(f"Invalid graph type: {e}")
+    # Determine which comparisons are needed
+    need_direct = bool({"f1", "shd"} & metrics_to_compute)
+    need_equiv = bool({"equiv.f1", "equiv.shd"} & metrics_to_compute)
 
-    # Convert to standardised naming convention
-    metrics: Dict[str, Union[int, float, None]] = {
-        "precision": raw_metrics.get("p"),
-        "recall": raw_metrics.get("r"),
-        "f1": raw_metrics.get("f1"),
-        "shd": raw_metrics.get("shd"),
-    }
+    metrics: Dict[str, Union[int, float, None]] = {}
 
-    # Add Bayesys metrics if requested
-    if bayesys:
-        metrics.update(
-            {
-                "precision_b": raw_metrics.get("p-b"),
-                "recall_b": raw_metrics.get("r-b"),
-                "f1_b": raw_metrics.get("f1-b"),
-                "shd_b": raw_metrics.get("shd-b"),
-                "ddm": raw_metrics.get("ddm"),
-                "bsf": raw_metrics.get("bsf"),
-            }
-        )
+    # Compute direct metrics if needed
+    if need_direct:
+        try:
+            raw_metrics = pdag_compare(learned_graph, reference_graph)
+        except ValueError as e:
+            raise click.ClickException(f"Comparison failed: {e}")
+        except TypeError as e:
+            raise click.ClickException(f"Invalid graph type: {e}")
+
+        if "f1" in metrics_to_compute:
+            metrics["f1"] = raw_metrics.get("f1")
+        if "shd" in metrics_to_compute:
+            metrics["shd"] = raw_metrics.get("shd")
+
+    # Compute equivalence class metrics if needed
+    if need_equiv:
+        try:
+            learned_cpdag = _to_cpdag(learned_graph)
+            reference_cpdag = _to_cpdag(reference_graph)
+        except (ValueError, TypeError) as e:
+            raise click.ClickException(f"CPDAG conversion failed: {e}")
+
+        try:
+            equiv_metrics = pdag_compare(learned_cpdag, reference_cpdag)
+        except ValueError as e:
+            raise click.ClickException(
+                f"Equivalence class comparison failed: {e}"
+            )
+        except TypeError as e:
+            raise click.ClickException(f"Invalid graph type: {e}")
+
+        if "equiv.f1" in metrics_to_compute:
+            metrics["equiv.f1"] = equiv_metrics.get("f1")
+        if "equiv.shd" in metrics_to_compute:
+            metrics["equiv.shd"] = equiv_metrics.get("shd")
 
     # Output results
     if output_format == "table":
