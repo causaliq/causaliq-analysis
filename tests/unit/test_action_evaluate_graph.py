@@ -362,72 +362,6 @@ def test_evaluate_graph_reference_read_error() -> None:
     assert "Failed to read reference graph" in str(exc_info.value)
 
 
-# Test evaluate_graph includes Bayesys metrics when requested.
-def test_evaluate_graph_with_bayesys() -> None:
-    """Test that Bayesys metrics are included when bayesys parameter set."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
-    mock_logger.is_terminal_logging = False
-
-    mock_entry = create_mock_graphml_entry()
-
-    update_entry = {
-        "matrix_values": {"seed": 42},
-        "metadata": {},
-        "entry": mock_entry,
-    }
-
-    # Note: pdag_compare uses 'p', 'r', 'p-b', 'r-b', 'f1-b', 'shd-b'
-    mock_metrics = {
-        "p": 0.8,
-        "r": 0.9,
-        "f1": 0.85,
-        "shd": 2,
-        "p-b": 0.7,
-        "r-b": 0.8,
-        "f1-b": 0.75,
-        "shd-b": 3,
-        "ddm": 1.5,
-        "bsf": 0.9,
-    }
-
-    with patch(
-        "causaliq_analysis.metrics.pdag_compare",
-        return_value=mock_metrics,
-    ):
-        with patch(
-            "causaliq_core.graph.io.graphml.read",
-            return_value=MagicMock(),
-        ):
-            result = provider.run(
-                action="evaluate_graph",
-                parameters={
-                    "_update_entry": update_entry,
-                    "reference": "ref.graphml",
-                    "bayesys": "3.0",
-                    "metric": [
-                        "precision_b",
-                        "recall_b",
-                        "f1_b",
-                        "shd_b",
-                        "ddm",
-                        "bsf",
-                    ],
-                },
-                mode="run",
-                context=None,
-                logger=mock_logger,
-            )
-
-    assert result[0] == "success"
-    assert result[1]["precision_b"] == 0.7
-    assert result[1]["ddm"] == 1.5
-    assert result[1]["bsf"] == 0.9
-    assert result[1]["bayesys"] == "3.0"
-
-
 # Test evaluate_graph handles metric computation failure.
 def test_evaluate_graph_metric_failure() -> None:
     """Test error when pdag_compare raises an exception."""
@@ -844,3 +778,333 @@ def test_evaluate_graph_metric_filter_list() -> None:
     assert "shd" in result[1]
     assert "precision" not in result[1]
     assert "recall" not in result[1]
+
+
+# Test evaluate_graph computes equiv.f1 metric.
+def test_evaluate_graph_equiv_f1() -> None:
+    """Test that equiv.f1 converts graphs to CPDAGs before comparison."""
+    from causaliq_core.graph import DAG
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Standard metrics from direct comparison
+    mock_standard_metrics = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    # Equiv metrics from CPDAG comparison
+    mock_equiv_metrics = {"p": 0.9, "r": 0.85, "f1": 0.87, "shd": 2}
+
+    mock_dag = MagicMock(spec=DAG)
+    mock_cpdag = MagicMock()
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        side_effect=[mock_standard_metrics, mock_equiv_metrics],
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_dag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.dag_to_pdag",
+                return_value=mock_cpdag,
+            ) as mock_to_cpdag:
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["equiv.f1"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+
+    assert result[0] == "success"
+    assert "equiv.f1" in result[1]
+    assert result[1]["equiv.f1"] == 0.87
+    # Should have converted both graphs to CPDAG
+    assert mock_to_cpdag.call_count == 2
+
+
+# Test evaluate_graph computes equiv.shd metric.
+def test_evaluate_graph_equiv_shd() -> None:
+    """Test that equiv.shd converts graphs to CPDAGs before comparison."""
+    from causaliq_core.graph import PDAG
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_standard_metrics = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    mock_equiv_metrics = {"p": 0.9, "r": 0.85, "f1": 0.87, "shd": 2}
+
+    mock_pdag = MagicMock(spec=PDAG)
+    mock_cpdag = MagicMock()
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        side_effect=[mock_standard_metrics, mock_equiv_metrics],
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_pdag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.pdag_to_cpdag",
+                return_value=mock_cpdag,
+            ) as mock_to_cpdag:
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["equiv.shd"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+
+    assert result[0] == "success"
+    assert "equiv.shd" in result[1]
+    assert result[1]["equiv.shd"] == 2
+    # Should have converted both graphs to CPDAG
+    assert mock_to_cpdag.call_count == 2
+
+
+# Test evaluate_graph with both standard and equiv metrics.
+def test_evaluate_graph_mixed_metrics() -> None:
+    """Test that both standard and equiv metrics can be requested."""
+    from causaliq_core.graph import DAG
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_standard_metrics = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    mock_equiv_metrics = {"p": 0.9, "r": 0.85, "f1": 0.87, "shd": 2}
+
+    mock_dag = MagicMock(spec=DAG)
+    mock_cpdag = MagicMock()
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        side_effect=[mock_standard_metrics, mock_equiv_metrics],
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_dag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.dag_to_pdag",
+                return_value=mock_cpdag,
+            ):
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["f1", "shd", "equiv.f1", "equiv.shd"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+
+    assert result[0] == "success"
+    # Standard metrics
+    assert result[1]["f1"] == 0.77
+    assert result[1]["shd"] == 5
+    # Equiv metrics
+    assert result[1]["equiv.f1"] == 0.87
+    assert result[1]["equiv.shd"] == 2
+
+
+# Test evaluate_graph equiv error when PDAG not extendable to CPDAG.
+def test_evaluate_graph_equiv_pdag_not_extendable() -> None:
+    """Test error when PDAG cannot be extended to a CPDAG."""
+    from causaliq_core.graph import PDAG
+
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_standard_metrics = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    mock_pdag = MagicMock(spec=PDAG)
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_standard_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_pdag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.pdag_to_cpdag",
+                return_value=None,  # PDAG not extendable
+            ):
+                with pytest.raises(ActionExecutionError) as exc_info:
+                    provider.run(
+                        action="evaluate_graph",
+                        parameters={
+                            "_update_entry": update_entry,
+                            "reference": "ref.graphml",
+                            "metric": ["equiv.f1"],
+                        },
+                        mode="run",
+                        context=None,
+                        logger=mock_logger,
+                    )
+
+    assert "PDAG is not extendable to a CPDAG" in str(exc_info.value)
+
+
+# Test evaluate_graph equiv error with unsupported graph type.
+def test_evaluate_graph_equiv_unsupported_graph_type() -> None:
+    """Test error when graph is neither DAG nor PDAG."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_standard_metrics = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    # Create a mock that is neither DAG nor PDAG
+    mock_unknown_graph = MagicMock()
+    mock_unknown_graph.__class__.__name__ = "UnknownGraph"
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_standard_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_unknown_graph,
+        ):
+            with pytest.raises(ActionExecutionError) as exc_info:
+                provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["equiv.f1"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+
+    assert "Cannot convert" in str(exc_info.value)
+    assert "to CPDAG" in str(exc_info.value)
+
+
+# Test evaluate_graph equiv computation failure.
+def test_evaluate_graph_equiv_computation_failure() -> None:
+    """Test error when equivalence metric computation fails."""
+    from causaliq_core.graph import DAG
+
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_standard_metrics = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    mock_dag = MagicMock(spec=DAG)
+    mock_cpdag = MagicMock()
+
+    # First call to pdag_compare succeeds, second (equiv) fails
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        side_effect=[mock_standard_metrics, ValueError("Comparison failed")],
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_dag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.dag_to_pdag",
+                return_value=mock_cpdag,
+            ):
+                with pytest.raises(ActionExecutionError) as exc_info:
+                    provider.run(
+                        action="evaluate_graph",
+                        parameters={
+                            "_update_entry": update_entry,
+                            "reference": "ref.graphml",
+                            "metric": ["equiv.f1"],
+                        },
+                        mode="run",
+                        context=None,
+                        logger=mock_logger,
+                    )
+
+    assert "Equivalence metric computation failed" in str(exc_info.value)

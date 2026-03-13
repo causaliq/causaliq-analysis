@@ -288,3 +288,84 @@ def test_validate_unknown_parameter_rejected() -> None:
             "migrate_trace",
             {"series": "TEST", "network": "asia", "unknown_param": "value"},
         )
+
+
+# Test evaluate_graph rejects invalid metric names.
+def test_validate_evaluate_graph_invalid_metric_name() -> None:
+    """evaluate_graph rejects invalid metric names."""
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(ActionValidationError, match="Invalid metric"):
+        provider.validate_parameters(
+            "evaluate_graph",
+            {"reference": "ground_truth.graphml", "metric": "invalid_metric"},
+        )
+
+
+# Test evaluate_graph rejects invalid metric in list.
+def test_validate_evaluate_graph_invalid_metric_in_list() -> None:
+    """evaluate_graph rejects invalid metric names in a list."""
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(ActionValidationError, match="Invalid metric.*eqx"):
+        provider.validate_parameters(
+            "evaluate_graph",
+            {"reference": "ground_truth.graphml", "metric": ["f1", "eqx"]},
+        )
+
+
+# Test evaluate_graph accepts equiv.f1 metric.
+def test_validate_evaluate_graph_equiv_f1() -> None:
+    """evaluate_graph accepts equiv.f1 metric."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    # Should not raise
+    provider.validate_parameters(
+        "evaluate_graph",
+        {"reference": "ground_truth.graphml", "metric": "equiv.f1"},
+    )
+
+
+# Test evaluate_graph accepts equiv.shd metric.
+def test_validate_evaluate_graph_equiv_shd() -> None:
+    """evaluate_graph accepts equiv.shd metric."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    # Should not raise
+    provider.validate_parameters(
+        "evaluate_graph",
+        {"reference": "ground_truth.graphml", "metric": "equiv.shd"},
+    )
+
+
+# Test evaluate_graph accepts all valid metrics together.
+def test_validate_evaluate_graph_all_valid_metrics() -> None:
+    """evaluate_graph accepts all valid metrics in a list."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    # Should not raise
+    provider.validate_parameters(
+        "evaluate_graph",
+        {
+            "reference": "ground_truth.graphml",
+            "metric": [
+                "f1",
+                "shd",
+                "precision",
+                "recall",
+                "equiv.f1",
+                "equiv.shd",
+            ],
+        },
+    )

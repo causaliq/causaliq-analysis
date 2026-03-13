@@ -122,6 +122,18 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "summarise": ActionPattern.AGGREGATE,
     }
 
+    # Valid metrics for evaluate_graph action
+    VALID_EVALUATE_METRICS = frozenset(
+        {
+            "f1",
+            "shd",
+            "precision",
+            "recall",
+            "equiv.f1",
+            "equiv.shd",
+        }
+    )
+
     # Input specifications
     inputs = {
         "action": ActionInput(
@@ -242,12 +254,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="str",
         ),
-        "bayesys": ActionInput(
-            name="bayesys",
-            description="Bayesys compatibility version (e.g., '3.0')",
-            required=False,
-            type_hint="str",
-        ),
         # metric input (used by evaluate_graph and summarise)
         "metric": ActionInput(
             name="metric",
@@ -328,7 +334,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "filter",
             "metric",
             "reference",
-            "bayesys",
             "_update_entry",  # Internal workflow parameter
         },
         "best_graph": {
@@ -451,6 +456,18 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # reference and metric are always required
         require_param(parameters, "reference", "evaluate_graph")
         require_param(parameters, "metric", "evaluate_graph")
+
+        # Validate metric names
+        metric = parameters.get("metric")
+        metrics = [metric] if isinstance(metric, str) else metric
+        if metrics:
+            invalid = set(metrics) - self.VALID_EVALUATE_METRICS
+            if invalid:
+                valid_list = ", ".join(sorted(self.VALID_EVALUATE_METRICS))
+                raise ValueError(
+                    f"Invalid metric(s): {', '.join(sorted(invalid))}. "
+                    f"Valid metrics are: {valid_list}"
+                )
 
     def _validate_best_graph(self, parameters: Dict[str, Any]) -> None:
         """Validate best_graph parameters."""
@@ -908,8 +925,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "evaluate_graph requires 'reference' parameter"
             )
 
-        bayesys_version = parameters.get("bayesys")
-
         # Get requested metrics (metric is mandatory, validated above)
         requested_metrics = parameters.get("metric")
         if isinstance(requested_metrics, str):
@@ -929,7 +944,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "skipped",
                 {
                     "reference": reference_path,
-                    "bayesys": bayesys_version,
                 },
                 [],
             )
@@ -974,33 +988,57 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         # Compute metrics
         try:
-            metrics = pdag_compare(graph, reference, bayesys=bayesys_version)
+            metrics = pdag_compare(graph, reference)
         except Exception as e:
             raise ActionExecutionError(
                 f"Metric computation failed: {e}"
             ) from e
 
+        # Check if equivalence class metrics are needed
+        need_equiv = any(m.startswith("equiv.") for m in requested_metrics)
+        equiv_metrics_computed: Dict[str, Any] = {}
+
+        if need_equiv:
+            from causaliq_core.graph import DAG, PDAG
+            from causaliq_core.graph.convert import dag_to_pdag, pdag_to_cpdag
+
+            def _to_cpdag(g: Any) -> PDAG:
+                """Convert graph to CPDAG (equivalence class)."""
+                if isinstance(g, DAG):
+                    return dag_to_pdag(g)
+                elif isinstance(g, PDAG):
+                    cpdag = pdag_to_cpdag(g)
+                    if cpdag is None:
+                        raise ActionExecutionError(
+                            "PDAG is not extendable to a CPDAG"
+                        )
+                    return cpdag
+                raise ActionExecutionError(
+                    f"Cannot convert {type(g).__name__} to CPDAG"
+                )
+
+            try:
+                learned_cpdag = _to_cpdag(graph)
+                reference_cpdag = _to_cpdag(reference)
+                equiv_result = pdag_compare(learned_cpdag, reference_cpdag)
+                equiv_metrics_computed = {
+                    "equiv.f1": equiv_result["f1"],
+                    "equiv.shd": equiv_result["shd"],
+                }
+            except Exception as e:
+                raise ActionExecutionError(
+                    f"Equivalence metric computation failed: {e}"
+                ) from e
+
         # Build metadata with standard metric names
         # Note: pdag_compare returns 'p' and 'r' for precision/recall
-        include_bayesys = bayesys_version is not None
-
-        # All available metrics
         all_metrics: Dict[str, Any] = {
             "precision": metrics["p"],
             "recall": metrics["r"],
             "f1": metrics["f1"],
             "shd": metrics["shd"],
+            **equiv_metrics_computed,
         }
-
-        # Add Bayesys metrics if requested
-        # Note: bayesys_metrics returns 'p-b', 'r-b', 'f1-b', 'shd-b'
-        if include_bayesys:
-            all_metrics["precision_b"] = metrics["p-b"]
-            all_metrics["recall_b"] = metrics["r-b"]
-            all_metrics["f1_b"] = metrics["f1-b"]
-            all_metrics["shd_b"] = metrics["shd-b"]
-            all_metrics["ddm"] = metrics["ddm"]
-            all_metrics["bsf"] = metrics["bsf"]
 
         # Filter to requested metrics (metric is mandatory)
         filtered_metrics = {
@@ -1013,8 +1051,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "reference": reference_path,
             "evaluated_graph": graph_name,
         }
-        if include_bayesys:
-            metadata["bayesys"] = bayesys_version
 
         if logger and logger.is_terminal_logging:
             print(
