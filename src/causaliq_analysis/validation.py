@@ -58,13 +58,13 @@ def parse_sample_size(size_input: Union[str, int]) -> int:
             raise ValueError(f"Invalid sample size format: {size_str}")
 
 
-def parse_seeds_cli(seeds_str: str) -> Tuple[int, ...]:
+def parse_seed_cli(seed_str: str) -> Tuple[int, ...]:
     """Parse seed string to tuple of integers (CLI format).
 
-    CLI format treats comma-separated values as ranges if exactly 2 values.
+    CLI format supports single values and hyphen-delimited ranges.
 
     Args:
-        seeds_str: Seeds string from CLI
+        seed_str: Seed string from CLI
 
     Returns:
         Tuple of seed integers
@@ -73,49 +73,59 @@ def parse_seeds_cli(seeds_str: str) -> Tuple[int, ...]:
         ValueError: If format is invalid
 
     Examples:
-        >>> parse_seeds_cli("")
+        >>> parse_seed_cli("")
         ()
-        >>> parse_seeds_cli("5")
+        >>> parse_seed_cli("5")
         (5,)
-        >>> parse_seeds_cli("0,2")
-        (0, 1, 2)
+        >>> parse_seed_cli("0-24")
+        (0, 1, 2, ..., 24)
     """
-    if not seeds_str or seeds_str.strip() == "":
+    if not seed_str or seed_str.strip() == "":
         return ()
 
-    try:
-        parts = [int(s.strip()) for s in seeds_str.split(",")]
+    seed_str = seed_str.strip()
 
-        if len(parts) == 1:
-            # Single seed
-            return tuple(parts)
-        elif len(parts) == 2:
-            # Range: start to end inclusive
-            start, end = parts
+    # Detect comma-separated (common mistake)
+    if "," in seed_str:
+        raise ValueError(
+            f"Invalid seed format '{seed_str}': use hyphen for range "
+            "(e.g., '0-24') not comma"
+        )
+
+    try:
+        if "-" in seed_str:
+            # Range: start-end inclusive
+            parts = seed_str.split("-")
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Invalid range format '{seed_str}': use 'start-end'"
+                )
+            start, end = int(parts[0].strip()), int(parts[1].strip())
             if start > end:
                 raise ValueError(
                     f"Invalid range: start ({start}) > end ({end})"
                 )
             return tuple(range(start, end + 1))
         else:
-            raise ValueError(
-                "Seeds should be either a single value or a range (start,end)"
-            )
+            # Single seed
+            return (int(seed_str),)
 
     except ValueError as e:
         if "invalid literal" in str(e):
-            raise ValueError(f"Invalid seed format: {seeds_str}")
-        else:
-            raise
+            raise ValueError(f"Invalid seed format: {seed_str}")
+        raise
 
 
-def parse_seeds_workflow(seeds_input: Any) -> Tuple[int, ...]:
-    """Parse seeds from various input formats (workflow format).
+def parse_seed_workflow(seed_input: Any) -> Tuple[int, ...]:
+    """Parse seed from various input formats (workflow format).
 
-    Workflow format treats comma-separated values as explicit lists.
+    Workflow format supports:
+    - Single integer: 5 → (5,)
+    - YAML list: [0, 1, 2] → (0, 1, 2)
+    - Range string: "0-24" → (0, 1, ..., 24)
 
     Args:
-        seeds_input: Seeds as string, list, tuple, int, or None
+        seed_input: Seed as int, list, tuple, or range string
 
     Returns:
         Tuple of seed integers
@@ -124,35 +134,61 @@ def parse_seeds_workflow(seeds_input: Any) -> Tuple[int, ...]:
         ValueError: If format is invalid
 
     Examples:
-        >>> parse_seeds_workflow("")
-        ()
-        >>> parse_seeds_workflow("1,2,3")
-        (1, 2, 3)
-        >>> parse_seeds_workflow([1, 2, 3])
-        (1, 2, 3)
-        >>> parse_seeds_workflow(5)
+        >>> parse_seed_workflow(5)
         (5,)
+        >>> parse_seed_workflow([0, 1, 2])
+        (0, 1, 2)
+        >>> parse_seed_workflow("0-24")
+        (0, 1, 2, ..., 24)
     """
-    if isinstance(seeds_input, tuple):
-        return seeds_input
-
-    if isinstance(seeds_input, list):
-        return tuple(seeds_input)
-
-    if isinstance(seeds_input, int):
-        return (seeds_input,)
-
-    if not seeds_input or str(seeds_input).strip() == "":
+    if seed_input is None:
         return ()
 
-    if isinstance(seeds_input, str):
-        try:
-            seeds = tuple(int(s.strip()) for s in seeds_input.split(","))
-            return seeds
-        except ValueError:
-            raise ValueError(f"Invalid seed format: {seeds_input}")
+    if isinstance(seed_input, tuple):
+        return seed_input
 
-    raise ValueError(f"Invalid seed type: {type(seeds_input)}")
+    if isinstance(seed_input, list):
+        return tuple(seed_input)
+
+    if isinstance(seed_input, int):
+        return (seed_input,)
+
+    if isinstance(seed_input, str):
+        seed_str = seed_input.strip()
+        if not seed_str:
+            return ()
+
+        # Detect comma-separated (common YAML mistake)
+        if "," in seed_str:
+            raise ValueError(
+                f"Invalid seed format '{seed_str}': contains comma. "
+                "Use YAML list syntax: seed: [0, 1, 2] or range: seed: 0-24"
+            )
+
+        try:
+            if "-" in seed_str:
+                # Range: start-end inclusive
+                parts = seed_str.split("-")
+                if len(parts) != 2:
+                    raise ValueError(
+                        f"Invalid range format '{seed_str}': use 'start-end'"
+                    )
+                start = int(parts[0].strip())
+                end = int(parts[1].strip())
+                if start > end:
+                    raise ValueError(
+                        f"Invalid range: start ({start}) > end ({end})"
+                    )
+                return tuple(range(start, end + 1))
+            else:
+                # Single seed as string
+                return (int(seed_str),)
+        except ValueError as e:
+            if "invalid literal" in str(e):
+                raise ValueError(f"Invalid seed format: {seed_str}")
+            raise
+
+    raise ValueError(f"Invalid seed type: {type(seed_input)}")
 
 
 def validate_filter_expression(filter_expr: Optional[str]) -> None:
@@ -184,7 +220,7 @@ def validate_filter_expression(filter_expr: Optional[str]) -> None:
 
 
 def validate_metric_specs(
-    metric_specs: List[str],
+    metric_specs: Union[str, List[str]],
     supported_stats: Optional[FrozenSet[str]] = None,
 ) -> List[Tuple[str, str]]:
     """Validate and parse metric specifications.
@@ -210,10 +246,13 @@ def validate_metric_specs(
     if supported_stats is None:
         supported_stats = SUPPORTED_STATS
 
-    # Ensure metric_specs is a list
-    if not isinstance(metric_specs, list):
+    # Normalise metric_specs to a list (accept string or list)
+    if isinstance(metric_specs, str):
+        metric_specs = [metric_specs]
+    elif not isinstance(metric_specs, list):
         raise ValueError(
-            f"'metric' must be a list, got {type(metric_specs).__name__}"
+            f"'metric' must be a string or list, "
+            f"got {type(metric_specs).__name__}"
         )
 
     if not metric_specs:
@@ -224,6 +263,12 @@ def validate_metric_specs(
 
     parsed: List[Tuple[str, str]] = []
     for spec in metric_specs:
+        # Detect comma-separated string (common YAML mistake)
+        if "," in spec:
+            raise ValueError(
+                f"Invalid metric spec '{spec}': contains comma. "
+                "Use YAML list syntax instead: metric: [f1.mean, shd.sd]"
+            )
         if "." not in spec:
             raise ValueError(
                 f"Invalid metric spec '{spec}': must be <field>.<stat>"

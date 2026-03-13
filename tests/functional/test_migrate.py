@@ -420,7 +420,7 @@ def test_run_migrate_trace_skips_no_result(
     def mock_filter_traces(
         traces: dict,
         sample_size: int = None,
-        seeds: tuple = None,
+        seed: tuple = None,
     ) -> dict:
         result_traces = {}
         for k, v in real_traces.items():

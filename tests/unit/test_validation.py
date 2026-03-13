@@ -7,8 +7,8 @@ import pytest
 from causaliq_analysis.validation import (
     SUPPORTED_STATS,
     parse_sample_size,
-    parse_seeds_cli,
-    parse_seeds_workflow,
+    parse_seed_cli,
+    parse_seed_workflow,
     require_one_of,
     require_param,
     validate_filter_expression,
@@ -84,84 +84,91 @@ def test_parse_sample_size_invalid_m_suffix():
         parse_sample_size(".m")
 
 
-# Test CLI seeds parsing
-def test_parse_seeds_cli_empty():
-    """Test parsing empty seeds string."""
-    assert parse_seeds_cli("") == ()
-    assert parse_seeds_cli("   ") == ()
+# Test CLI seed parsing
+def test_parse_seed_cli_empty():
+    """Test parsing empty seed string."""
+    assert parse_seed_cli("") == ()
+    assert parse_seed_cli("   ") == ()
 
 
-def test_parse_seeds_cli_single():
+def test_parse_seed_cli_single():
     """Test parsing single seed."""
-    assert parse_seeds_cli("5") == (5,)
-    assert parse_seeds_cli("  10  ") == (10,)
+    assert parse_seed_cli("5") == (5,)
+    assert parse_seed_cli("  10  ") == (10,)
 
 
-def test_parse_seeds_cli_range():
-    """Test parsing seed ranges."""
-    assert parse_seeds_cli("0,2") == (0, 1, 2)
-    assert parse_seeds_cli("5,7") == (5, 6, 7)
-    assert parse_seeds_cli("3,3") == (3,)  # single element range
+def test_parse_seed_cli_range():
+    """Test parsing seed ranges with hyphen syntax."""
+    assert parse_seed_cli("0-2") == (0, 1, 2)
+    assert parse_seed_cli("5-7") == (5, 6, 7)
+    assert parse_seed_cli("3-3") == (3,)  # single element range
+    assert parse_seed_cli("0-24") == tuple(range(25))
 
 
-def test_parse_seeds_cli_invalid_range():
+def test_parse_seed_cli_invalid_range():
     """Test invalid seed ranges."""
     with pytest.raises(ValueError, match="Invalid range"):
-        parse_seeds_cli("5,2")  # start > end
+        parse_seed_cli("5-2")  # start > end
 
 
-def test_parse_seeds_cli_invalid_format():
+def test_parse_seed_cli_invalid_format():
     """Test invalid seed formats."""
-    with pytest.raises(ValueError, match="Seeds should be either"):
-        parse_seeds_cli("1,2,3")  # more than 2 values
+    with pytest.raises(ValueError, match="use hyphen for range"):
+        parse_seed_cli("1,2,3")  # comma not allowed
 
     with pytest.raises(ValueError, match="Invalid seed format"):
-        parse_seeds_cli("invalid")
+        parse_seed_cli("invalid")
 
-    with pytest.raises(ValueError, match="Invalid seed format"):
-        parse_seeds_cli("1,invalid")
-
-
-# Test workflow seeds parsing
-def test_parse_seeds_workflow_empty():
-    """Test parsing empty seeds."""
-    assert parse_seeds_workflow("") == ()
-    assert parse_seeds_workflow(None) == ()
-    assert parse_seeds_workflow("   ") == ()
+    with pytest.raises(ValueError, match="Invalid range format"):
+        parse_seed_cli("1-2-3")  # too many hyphens
 
 
-def test_parse_seeds_workflow_tuple():
-    """Test parsing tuple seeds."""
-    assert parse_seeds_workflow((1, 2, 3)) == (1, 2, 3)
+# Test workflow seed parsing
+def test_parse_seed_workflow_empty():
+    """Test parsing empty seed."""
+    assert parse_seed_workflow("") == ()
+    assert parse_seed_workflow(None) == ()
+    assert parse_seed_workflow("   ") == ()
 
 
-def test_parse_seeds_workflow_list():
-    """Test parsing list seeds."""
-    assert parse_seeds_workflow([1, 2, 3]) == (1, 2, 3)
+def test_parse_seed_workflow_tuple():
+    """Test parsing tuple seed."""
+    assert parse_seed_workflow((1, 2, 3)) == (1, 2, 3)
 
 
-def test_parse_seeds_workflow_string():
-    """Test parsing string seeds."""
-    assert parse_seeds_workflow("1,2,3") == (1, 2, 3)
-    assert parse_seeds_workflow("  5  ") == (5,)
-    assert parse_seeds_workflow("10,20,30") == (10, 20, 30)
+def test_parse_seed_workflow_list():
+    """Test parsing list seed (standard YAML syntax)."""
+    assert parse_seed_workflow([1, 2, 3]) == (1, 2, 3)
 
 
-# Test workflow seeds parsing single integer.
-def test_parse_seeds_workflow_single_int():
+def test_parse_seed_workflow_range_string():
+    """Test parsing range string seed."""
+    assert parse_seed_workflow("0-2") == (0, 1, 2)
+    assert parse_seed_workflow("0-24") == tuple(range(25))
+    assert parse_seed_workflow("  5  ") == (5,)
+
+
+# Test workflow seed parsing single integer.
+def test_parse_seed_workflow_single_int():
     """Test parsing single integer seed (from YAML matrix)."""
-    assert parse_seeds_workflow(0) == (0,)
-    assert parse_seeds_workflow(5) == (5,)
-    assert parse_seeds_workflow(123) == (123,)
+    assert parse_seed_workflow(0) == (0,)
+    assert parse_seed_workflow(5) == (5,)
+    assert parse_seed_workflow(123) == (123,)
 
 
-def test_parse_seeds_workflow_invalid():
+def test_parse_seed_workflow_rejects_comma_separated():
+    """Test that comma-separated strings are rejected with helpful error."""
+    with pytest.raises(ValueError, match="contains comma.*Use YAML list"):
+        parse_seed_workflow("1,2,3")
+
+
+def test_parse_seed_workflow_invalid():
     """Test invalid seed formats."""
     with pytest.raises(ValueError, match="Invalid seed format"):
-        parse_seeds_workflow("invalid,format")
+        parse_seed_workflow("invalid")
 
     with pytest.raises(ValueError, match="Invalid seed type"):
-        parse_seeds_workflow({"invalid": "dict"})
+        parse_seed_workflow({"invalid": "dict"})
 
 
 # Test SUPPORTED_STATS constant.
@@ -204,6 +211,13 @@ def test_validate_metric_specs_valid():
     assert result == [("f1", "mean"), ("shd", "sd"), ("precision", "count")]
 
 
+# Test validate_metric_specs accepts string input.
+def test_validate_metric_specs_string_input():
+    """Metric spec as string is normalised to list."""
+    result = validate_metric_specs("f1.mean")
+    assert result == [("f1", "mean")]
+
+
 # Test validate_metric_specs rejects empty list.
 def test_validate_metric_specs_empty():
     """Empty metric specs raise ValueError."""
@@ -223,6 +237,16 @@ def test_validate_metric_specs_unknown_stat():
     """Metric spec with unknown statistic raises ValueError."""
     with pytest.raises(ValueError, match="Unknown statistic 'median'"):
         validate_metric_specs(["f1.median"])
+
+
+# Test validate_metric_specs rejects comma-separated strings.
+def test_validate_metric_specs_comma_separated_rejected():
+    """Comma-separated string raises helpful ValueError."""
+    with pytest.raises(
+        ValueError,
+        match=r"contains comma.*Use YAML list syntax",
+    ):
+        validate_metric_specs("f1.mean, shd.sd")
 
 
 # Test validate_metric_specs handles nested field names.

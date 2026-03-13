@@ -92,34 +92,35 @@ def test_parse_sample_size_invalid_formats():
         parse_sample_size([1000])
 
 
-# Test seeds parsing with various input formats.
-def test_parse_seeds_various_formats():
-    """Test seeds parsing with various input formats."""
+# Test seed parsing with various input formats.
+def test_parse_seed_various_formats():
+    """Test seed parsing with various input formats."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.validation import parse_seeds_workflow
+    from causaliq_analysis.validation import parse_seed_workflow
 
     # Test different input types
-    assert parse_seeds_workflow((0, 1)) == (0, 1)
-    assert parse_seeds_workflow([0, 1]) == (0, 1)
-    assert parse_seeds_workflow("0,1") == (0, 1)
-    assert parse_seeds_workflow("0, 1, 2") == (0, 1, 2)
-    assert parse_seeds_workflow("") == ()
-    assert parse_seeds_workflow(None) == ()
+    assert parse_seed_workflow((0, 1)) == (0, 1)
+    assert parse_seed_workflow([0, 1]) == (0, 1)
+    assert parse_seed_workflow("0-1") == (0, 1)
+    assert parse_seed_workflow("0-24") == tuple(range(25))
+    assert parse_seed_workflow("") == ()
+    assert parse_seed_workflow(None) == ()
 
 
-# Test seeds parsing with invalid formats.
-def test_parse_seeds_invalid_formats():
-    """Test seeds parsing with invalid formats."""
+# Test seed parsing with invalid formats.
+def test_parse_seed_invalid_formats():
+    """Test seed parsing with invalid formats."""
     pytest.importorskip("causaliq_workflow")
 
-    from causaliq_analysis.validation import parse_seeds_workflow
+    from causaliq_analysis.validation import parse_seed_workflow
+
+    # Comma-separated rejected with helpful error
+    with pytest.raises(ValueError, match="contains comma"):
+        parse_seed_workflow("0,1,2")
 
     with pytest.raises(ValueError):
-        parse_seeds_workflow("invalid,seeds")
-
-    with pytest.raises(ValueError):
-        parse_seeds_workflow({"not": "valid"})
+        parse_seed_workflow({"not": "valid"})
 
 
 # Test workflow action with unknown action.

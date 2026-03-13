@@ -80,7 +80,7 @@ else:
 from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
     parse_sample_size,
-    parse_seeds_workflow,
+    parse_seed_workflow,
     require_param,
     validate_filter_expression,
     validate_metric_specs,
@@ -419,7 +419,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # Validate seed if provided
         seed = parameters.get("seed")
         if seed is not None:
-            parse_seeds_workflow(seed)
+            parse_seed_workflow(seed)
 
     def _validate_merge_graphs(self, parameters: Dict[str, Any]) -> None:
         """Validate merge_graphs parameters."""
@@ -493,15 +493,13 @@ class AnalysisActionProvider(CausalIQActionProvider):
         filter_expr = parameters.get("filter")
         validate_filter_expression(filter_expr)
 
-        # In aggregation mode, output is required
-        has_agg = "_aggregation_entries" in parameters
-        if has_agg:
-            output = parameters.get("output")
-            if not output:
-                raise ValueError(
-                    "'summarise' in aggregation mode requires 'output' "
-                    "parameter for CSV output file path"
-                )
+        # Require output parameter for CSV (summarise only writes CSV)
+        output_path = parameters.get("output")
+        if output_path and str(output_path).lower().endswith(".db"):
+            raise ValueError(
+                "summarise only supports CSV output, not workflow cache. "
+                "Use a .csv extension for the output parameter."
+            )
 
     def run(
         self,
@@ -605,7 +603,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             if sample_size_input is not None:
                 sample_size = parse_sample_size(sample_size_input)
 
-            seed_tuple = parse_seeds_workflow(seed_input)
+            seed_tuple = parse_seed_workflow(seed_input)
 
             # Dry-run mode
             if mode == "dry-run":
@@ -630,7 +628,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 partial_id=partial_id,
                 root_dir=root_dir,
                 sample_size=sample_size,
-                seeds=seed_tuple if seed_tuple else None,
+                seed=seed_tuple if seed_tuple else None,
                 log_fn=log_fn,
             )
 
@@ -1197,6 +1195,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             filter_expr = parameters.get("filter")
             output_path = parameters.get("output")
 
+            # Normalise metric_specs to list (accept string or list)
+            if isinstance(metric_specs, str):
+                metric_specs = [metric_specs]
+
             # Validate metric specs (validation happens in validate_parameters)
             if not metric_specs:  # pragma: no cover
                 raise ActionExecutionError(
@@ -1207,6 +1209,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Parse metric specifications
             parsed_metrics: List[Tuple[str, str]] = []
             for spec in metric_specs:
+                # Detect comma-separated string (common YAML mistake)
+                if "," in spec:  # pragma: no cover
+                    raise ActionExecutionError(
+                        f"Invalid metric spec '{spec}': contains comma. "
+                        "Use YAML list syntax: metric: [f1.mean, shd.sd]"
+                    )
                 if "." not in spec:  # pragma: no cover
                     raise ActionExecutionError(
                         f"Invalid metric spec '{spec}': "
@@ -1221,13 +1229,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     )
                 parsed_metrics.append((field, stat))
 
-            # Validate output path for aggregation mode
+            # Determine output target
             is_aggregation_mode = aggregation_entries is not None
-            if is_aggregation_mode and not output_path:  # pragma: no cover
-                raise ActionExecutionError(
-                    "summarise in aggregation mode requires 'output' "
-                    "parameter for CSV output file path"
-                )
 
             # Extract unique fields for value collection
             unique_fields = list(dict.fromkeys(f for f, _ in parsed_metrics))
@@ -1368,8 +1371,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Add computed values to metadata
             metadata.update(results)
 
-            # Write CSV output if path provided
-            if output_path:
+            # Write output: CSV file or terminal ("-" means terminal)
+            if output_path and output_path != "-":
+                # Write CSV output
                 out_file = Path(output_path)
                 out_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1387,6 +1391,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     raise ActionExecutionError(
                         f"Failed to write CSV output: {e}"
                     ) from e
+            else:
+                # Write to terminal (output is "-" or not specified)
+                import io
+
+                output = io.StringIO()
+                writer = csv.writer(output)
+                writer.writerow(results.keys())
+                writer.writerow(results.values())
+                print(output.getvalue().strip())
 
             return ("success", metadata, [])
 

@@ -69,7 +69,7 @@ def test_migrate_trace_accepts_all_valid_parameters() -> None:
             "series": "TABU/BASE",
             "network": "asia",
             "sample_size": 1000,
-            "seed": "1,2,3",
+            "seed": "0-2",  # Range syntax
             "root_dir": "/experiments",
             "output": "/output/dir",
         },
@@ -126,7 +126,7 @@ def test_migrate_trace_sample_size_formats() -> None:
 
 # Test migrate_trace validates seed format.
 def test_migrate_trace_seed_must_be_valid_format() -> None:
-    """migrate_trace rejects invalid seed formats."""
+    """migrate_trace rejects comma-separated seed formats."""
     provider = AnalysisActionProvider()
 
     with pytest.raises(ActionValidationError) as exc_info:
@@ -134,16 +134,16 @@ def test_migrate_trace_seed_must_be_valid_format() -> None:
             "migrate_trace",
             {
                 "traces": "/path",
-                "seed": "not,valid,seeds",
+                "seed": "0,1,2",
             },
         )
 
-    assert "Invalid seed format" in str(exc_info.value)
+    assert "contains comma" in str(exc_info.value)
 
 
 # Test migrate_trace accepts various seed formats.
 def test_migrate_trace_seed_formats() -> None:
-    """migrate_trace accepts single, list, and comma-separated seed formats."""
+    """migrate_trace accepts single, list, and range seed formats."""
     provider = AnalysisActionProvider()
 
     # Single seed (integer)
@@ -151,9 +151,9 @@ def test_migrate_trace_seed_formats() -> None:
         "migrate_trace", {"traces": "/path", "seed": 42}
     )
 
-    # Comma-separated string
+    # Range string
     provider.validate_parameters(
-        "migrate_trace", {"traces": "/path", "seed": "1,2,3"}
+        "migrate_trace", {"traces": "/path", "seed": "0-24"}
     )
 
     # List of integers

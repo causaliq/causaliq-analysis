@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import click
 
 from . import __version__
-from .validation import parse_sample_size, parse_seeds_cli
+from .validation import parse_sample_size, parse_seed_cli
 
 
 @click.group(name="causaliq-analysis")
@@ -40,7 +40,7 @@ def cli() -> None:
 @click.option(
     "--seed",
     default="",
-    help="Comma-separated seed values (e.g., '0,1,2'). Empty means all seeds.",
+    help="Seed value or range (e.g., '5' or '0-24'). Empty means all seeds.",
 )
 @click.option(
     "--output",
@@ -65,7 +65,7 @@ def migrate_trace_cmd(
 
     Example:
         cqalys migrate_trace --network=asia --series=TABU/SAMPLE/BASE
-                             --root-dir=experiments --N=10k --seed=0,1
+                             --root-dir=experiments --N=10k --seed=0-1
                              --output=migrated/asia
     """
     from causaliq_analysis.migrate import (
@@ -82,7 +82,7 @@ def migrate_trace_cmd(
         sample_size_int = parse_sample_size(sample_size)
 
     # Parse seed
-    seed_tuple = parse_seeds_cli(seed)
+    seed_tuple = parse_seed_cli(seed)
 
     # Determine output directory
     if not output:
@@ -94,7 +94,7 @@ def migrate_trace_cmd(
             partial_id=partial_id,
             root_dir=root_dir,
             sample_size=sample_size_int,
-            seeds=seed_tuple if seed_tuple else None,
+            seed=seed_tuple if seed_tuple else None,
             log_fn=click.echo,
         )
 

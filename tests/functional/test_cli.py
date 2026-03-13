@@ -51,7 +51,7 @@ def test_migrate_trace_success(cli_runner, tmp_path, monkeypatch):
 
     # Mock run_migrate_trace to return test data
     def mock_run_migrate_trace(
-        partial_id, root_dir, sample_size, seeds, log_fn
+        partial_id, root_dir, sample_size, seed, log_fn
     ):
         if log_fn:
             log_fn("Loading traces...")
@@ -106,7 +106,7 @@ def test_migrate_trace_with_sample_size(cli_runner, tmp_path, monkeypatch):
     from causaliq_analysis.migrate import MigratedGraph, MigrateTraceResult
 
     def mock_run_migrate_trace(
-        partial_id, root_dir, sample_size, seeds, log_fn
+        partial_id, root_dir, sample_size, seed, log_fn
     ):
         # Verify sample_size was parsed correctly
         assert sample_size == 1000
@@ -155,7 +155,7 @@ def test_migrate_trace_with_skipped(cli_runner, tmp_path, monkeypatch):
     from causaliq_analysis.migrate import MigratedGraph, MigrateTraceResult
 
     def mock_run_migrate_trace(
-        partial_id, root_dir, sample_size, seeds, log_fn
+        partial_id, root_dir, sample_size, seed, log_fn
     ):
         return MigrateTraceResult(
             graphs=[
@@ -201,7 +201,7 @@ def test_migrate_trace_value_error(cli_runner, tmp_path, monkeypatch):
     """Test migrate_trace handles ValueError from run_migrate_trace."""
 
     def mock_run_migrate_trace(
-        partial_id, root_dir, sample_size, seeds, log_fn
+        partial_id, root_dir, sample_size, seed, log_fn
     ):
         raise ValueError("No traces found for pattern")
 
@@ -231,7 +231,7 @@ def test_migrate_trace_general_error(cli_runner, tmp_path, monkeypatch):
     """Test migrate_trace handles general exceptions."""
 
     def mock_run_migrate_trace(
-        partial_id, root_dir, sample_size, seeds, log_fn
+        partial_id, root_dir, sample_size, seed, log_fn
     ):
         raise RuntimeError("Unexpected failure")
 

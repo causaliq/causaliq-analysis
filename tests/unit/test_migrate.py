@@ -139,8 +139,8 @@ def test_get_network_name_short_id_fallback() -> None:
     assert name == "X"
 
 
-# Test filter_traces with seeds filters correctly.
-def test_filter_traces_by_seeds() -> None:
+# Test filter_traces with seed filters correctly.
+def test_filter_traces_by_seed() -> None:
     # Create traces with seed-like IDs
     traces = {
         "N1000_0": Trace({"id": "TABU/STD/net/N1000_0", "N": 1000}),
@@ -149,7 +149,7 @@ def test_filter_traces_by_seeds() -> None:
         "N1000_5": Trace({"id": "TABU/STD/net/N1000_5", "N": 1000}),
     }
 
-    filtered = filter_traces(traces, seeds=(0, 2))
+    filtered = filter_traces(traces, seed=(0, 2))
 
     assert len(filtered) == 2
     assert "N1000_0" in filtered
@@ -158,34 +158,34 @@ def test_filter_traces_by_seeds() -> None:
     assert "N1000_5" not in filtered
 
 
-# Test filter_traces seeds with non-numeric parts skipped.
-def test_filter_traces_seeds_skips_non_numeric() -> None:
+# Test filter_traces seed with non-numeric parts skipped.
+def test_filter_traces_seed_skips_non_numeric() -> None:
     # Create trace with ID that has non-numeric parts
     traces = {
         "abc_def_3": Trace({"id": "TABU/STD/net/abc_def_3", "N": 1000}),
     }
 
-    filtered = filter_traces(traces, seeds=(3,))
+    filtered = filter_traces(traces, seed=(3,))
 
     # Should find seed 3 despite non-numeric parts
     assert len(filtered) == 1
     assert "abc_def_3" in filtered
 
 
-# Test filter_traces seeds excludes when no matching seed found.
-def test_filter_traces_seeds_excludes_no_match() -> None:
+# Test filter_traces seed excludes when no matching seed found.
+def test_filter_traces_seed_excludes_no_match() -> None:
     traces = {
         "N1000_0": Trace({"id": "TABU/STD/net/N1000_0", "N": 1000}),
         "N1000_1": Trace({"id": "TABU/STD/net/N1000_1", "N": 1000}),
     }
 
-    filtered = filter_traces(traces, seeds=(5, 10))
+    filtered = filter_traces(traces, seed=(5, 10))
 
-    # No traces match seeds 5 or 10
+    # No traces match seed 5 or 10
     assert len(filtered) == 0
 
 
-# Test filter_traces combines sample_size and seeds filters.
+# Test filter_traces combines sample_size and seed filters.
 def test_filter_traces_combined_filters() -> None:
     traces = {
         "N500_0": Trace({"id": "TABU/STD/net/N500_0", "N": 500}),
@@ -193,7 +193,7 @@ def test_filter_traces_combined_filters() -> None:
         "N1000_5": Trace({"id": "TABU/STD/net/N1000_5", "N": 1000}),
     }
 
-    filtered = filter_traces(traces, sample_size=1000, seeds=(0,))
+    filtered = filter_traces(traces, sample_size=1000, seed=(0,))
 
     assert len(filtered) == 1
     assert "N1000_0" in filtered

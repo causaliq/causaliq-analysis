@@ -350,14 +350,14 @@ class MigrateTraceResult:
 def filter_traces(
     traces: Dict[str, Trace],
     sample_size: Optional[int] = None,
-    seeds: Optional[Tuple[int, ...]] = None,
+    seed: Optional[Tuple[int, ...]] = None,
 ) -> Dict[str, Trace]:
-    """Filter traces by sample size and seeds.
+    """Filter traces by sample size and seed.
 
     Args:
         traces: Dictionary of traces to filter.
         sample_size: If provided, only include traces with this N value.
-        seeds: If provided, only include traces with seed in this tuple.
+        seed: If provided, only include traces with seed in this tuple.
 
     Returns:
         Filtered dictionary of traces.
@@ -371,14 +371,14 @@ def filter_traces(
             if trace_n != sample_size:
                 continue
 
-        # Filter by seeds (extract seed from trace_id)
-        if seeds:
+        # Filter by seed (extract seed from trace_id)
+        if seed:
             parts = trace_id.split("_")
             seed_found = False
             for part in parts:
                 try:
-                    seed = int(part)
-                    if seed in seeds:
+                    seed_val = int(part)
+                    if seed_val in seed:
                         seed_found = True
                         break
                 except ValueError:
@@ -395,20 +395,20 @@ def run_migrate_trace(
     partial_id: str,
     root_dir: str,
     sample_size: Optional[int] = None,
-    seeds: Optional[Tuple[int, ...]] = None,
+    seed: Optional[Tuple[int, ...]] = None,
     log_fn: Optional[Callable[[str], None]] = None,
 ) -> MigrateTraceResult:
     """Core migration logic shared by CLI and workflow action.
 
     Reads traces from pickle files, optionally filters by sample size
-    and seeds, and generates GraphML + metadata content for each trace.
+    and seed, and generates GraphML + metadata content for each trace.
     Graphs are exported as-is, preserving their original structure.
 
     Args:
         partial_id: Trace ID pattern (e.g., "TABU/STD/asia").
         root_dir: Root directory containing trace files.
         sample_size: If provided, only migrate traces with this N value.
-        seeds: If provided, only migrate traces with seed in this tuple.
+        seed: If provided, only migrate traces with seed in this tuple.
         log_fn: Optional callback for logging messages.
 
     Returns:
@@ -439,12 +439,12 @@ def run_migrate_trace(
         raise ValueError(f"No traces found for {partial_id} in {root_dir}")
 
     # Filter traces
-    filtered_traces = filter_traces(traces, sample_size, seeds)
+    filtered_traces = filter_traces(traces, sample_size, seed)
 
     if not filtered_traces:
         raise ValueError(
             f"No traces match filters: sample_size={sample_size}, "
-            f"seeds={seeds}"
+            f"seed={seed}"
         )
 
     _log(f"Found {len(filtered_traces)} matching traces")

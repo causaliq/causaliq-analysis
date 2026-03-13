@@ -69,19 +69,19 @@ def test_validate_migrate_trace_invalid_sample_size() -> None:
         )
 
 
-# Test migrate_trace validates seeds format.
-def test_validate_migrate_trace_invalid_seeds() -> None:
-    """migrate_trace rejects invalid seeds format."""
+# Test migrate_trace validates seed format.
+def test_validate_migrate_trace_invalid_seed() -> None:
+    """migrate_trace rejects invalid seed format (comma-separated)."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
 
-    with pytest.raises(ActionValidationError, match="Invalid seed format"):
+    with pytest.raises(ActionValidationError, match="contains comma"):
         provider.validate_parameters(
             "migrate_trace",
-            {"traces": "/path", "seed": "not,valid,seeds,format"},
+            {"traces": "/path", "seed": "0,1,2"},
         )
 
 
@@ -242,20 +242,18 @@ def test_validate_summarise_invalid_metric_spec() -> None:
         )
 
 
-# Test summarise aggregation mode requires output.
-def test_validate_summarise_aggregation_requires_output() -> None:
-    """summarise in aggregation mode requires output."""
-    from causaliq_core import ActionValidationError
-
+# Test summarise aggregation mode validates without output (runtime check).
+def test_validate_summarise_aggregation_without_output_passes() -> None:
+    """summarise validation passes without output (checked at runtime)."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
 
-    with pytest.raises(ActionValidationError, match="requires 'output'"):
-        provider.validate_parameters(
-            "summarise",
-            {"metric": ["f1.mean"], "_aggregation_entries": []},
-        )
+    # Should not raise - output check moved to runtime (can use cache)
+    provider.validate_parameters(
+        "summarise",
+        {"metric": ["f1.mean"], "_aggregation_entries": []},
+    )
 
 
 # Test summarise validates filter syntax.

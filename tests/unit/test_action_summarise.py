@@ -75,28 +75,107 @@ def test_summarise_unknown_stat() -> None:
     assert "Unknown statistic 'median'" in str(exc_info.value)
 
 
-# Test summarise aggregation mode requires output parameter.
-def test_summarise_aggregation_requires_output() -> None:
-    """Test that aggregation mode requires output path."""
+# Test summarise rejects .db output (only CSV supported).
+def test_summarise_rejects_db_output() -> None:
+    """Test that summarise rejects .db output files."""
+    from causaliq_core import ActionValidationError
+
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(ActionValidationError) as exc_info:
         provider.run(
             action="summarise",
             parameters={
                 "_aggregation_entries": [{"matrix_values": {}}],
                 "metric": ["f1.mean"],
-                # No output parameter
+                "output": "results.db",
             },
             mode="run",
             context=None,
             logger=mock_logger,
         )
-    assert "requires 'output' parameter" in str(exc_info.value)
+    assert "only supports CSV output" in str(exc_info.value)
+
+
+# Test summarise writes to terminal when no output file specified.
+def test_summarise_writes_to_terminal(capsys: Any) -> None:
+    """Test that summarise writes CSV to terminal when no output specified."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {"seed": 1},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+        },
+        {
+            "matrix_values": {"seed": 2},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.9}}},
+        },
+    ]
+
+    status, metadata, objects = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": ["f1.mean"],
+            # No output parameter - should print to terminal
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert status == "success"
+    assert metadata["source_count"] == 2
+    assert abs(metadata["f1.mean"] - 0.85) < 1e-9
+
+    # Check terminal output
+    captured = capsys.readouterr()
+    assert "f1.mean" in captured.out
+
+
+# Test summarise with output="-" writes to terminal.
+def test_summarise_dash_output_writes_to_terminal(capsys: Any) -> None:
+    """Test that output='-' writes CSV to terminal (workflow syntax)."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {"seed": 1},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+        },
+    ]
+
+    status, metadata, objects = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": ["f1.mean"],
+            "output": "-",  # Explicit terminal output
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert status == "success"
+    assert metadata["source_count"] == 1
+
+    # Check terminal output
+    captured = capsys.readouterr()
+    assert "f1.mean" in captured.out
 
 
 # Test summarise dry-run mode returns skipped.
@@ -609,7 +688,7 @@ def test_summarise_csv_write_error(tmp_path: Any) -> None:
 
 # Test summarise generic exception is wrapped.
 def test_summarise_generic_exception_wrapped() -> None:
-    """Test that unexpected exceptions are wrapped in ActionExecutionError."""
+    """Test that unexpected exceptions are wrapped in ActionValidationError."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
@@ -619,12 +698,14 @@ def test_summarise_generic_exception_wrapped() -> None:
     mock_logger.is_terminal_logging = False
 
     # Pass invalid metric type - validation catches it
-    with pytest.raises(ActionValidationError, match="must be a list"):
+    with pytest.raises(
+        ActionValidationError, match="must be a string or list"
+    ):
         provider.run(
             action="summarise",
             parameters={
                 "_aggregation_entries": [{"matrix_values": {}}],
-                "metric": 123,  # Invalid type, should be list
+                "metric": 123,  # Invalid type, should be string or list
                 "output": "out.csv",
             },
             mode="run",
@@ -657,6 +738,41 @@ def test_summarise_input_as_string(tmp_path: Any) -> None:
         parameters={
             "metric": ["f1.mean"],
             "input": str(cache_path),  # String, not list
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["f1.mean"] == 0.8
+
+
+# Test summarise metric as single string is normalised.
+def test_summarise_metric_as_string(tmp_path: Any) -> None:
+    """Test that metric as string is normalised to list."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create a cache with one entry
+    cache_path = tmp_path / "single.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        entry = CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}})
+        cache.put({"seed": 1}, entry)
+
+    output_path = tmp_path / "summary.csv"
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "metric": "f1.mean",  # String, not list
+            "input": str(cache_path),
             "output": str(output_path),
         },
         mode="run",
