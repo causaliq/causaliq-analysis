@@ -818,3 +818,312 @@ def test_summarise_wraps_generic_exception(tmp_path: Any) -> None:
                 logger=mock_logger,
             )
         assert "Summarise failed" in str(exc_info.value)
+
+
+# Test CSV includes matrix values from context as first columns.
+def test_summarise_csv_includes_context_matrix_values(tmp_path: Any) -> None:
+    """Verify matrix values from context appear as first CSV columns."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries = [
+        {
+            "matrix_values": {"algorithm": "pc", "seed": 0},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {"algorithm": "pc", "seed": 1},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.7}}},
+            "cache_path": "test.db",
+        },
+    ]
+
+    output_path = tmp_path / "summary.csv"
+
+    # Create mock context with matrix_values
+    mock_context = MagicMock()
+    mock_context.matrix_values = {"network": "asia", "sample_size": 1000}
+
+    status, metadata, outputs = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": ["f1.mean"],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=mock_context,
+        logger=mock_logger,
+    )
+
+    assert status == "success"
+    assert output_path.exists()
+
+    # Read CSV and verify matrix values are first columns
+    with open(output_path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+
+    assert len(lines) == 2  # header + 1 data row
+    header = lines[0].split(",")
+    data = lines[1].split(",")
+
+    # Matrix values should be first columns
+    assert header[0] == "network"
+    assert header[1] == "sample_size"
+    assert header[2] == "f1.mean"
+    assert data[0] == "asia"
+    assert data[1] == "1000"
+    assert data[2] == "0.75"  # mean of 0.8 and 0.7
+
+
+# Test CSV clears on first job and appends on subsequent jobs.
+def test_summarise_csv_clears_on_first_job_appends_after(
+    tmp_path: Any,
+) -> None:
+    """Verify first job clears file, subsequent jobs append rows."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    output_path = tmp_path / "summary.csv"
+
+    # Pre-create a stale file (simulating previous workflow run)
+    output_path.write_text("stale,data\nold,values\n")
+
+    # First job: job_index=0, should clear the stale file
+    aggregation_entries_1 = [
+        {
+            "matrix_values": {"seed": 0},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+            "cache_path": "test.db",
+        },
+    ]
+    mock_context_1 = MagicMock()
+    mock_context_1.matrix_values = {"network": "asia", "sample_size": 1000}
+    mock_context_1.job_index = 0
+    mock_context_1.total_jobs = 2
+
+    provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries_1,
+            "metric": ["f1.mean"],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=mock_context_1,
+        logger=mock_logger,
+    )
+
+    # Second job: job_index=1, should append
+    aggregation_entries_2 = [
+        {
+            "matrix_values": {"seed": 0},
+            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.6}}},
+            "cache_path": "test.db",
+        },
+    ]
+    mock_context_2 = MagicMock()
+    mock_context_2.matrix_values = {"network": "alarm", "sample_size": 500}
+    mock_context_2.job_index = 1
+    mock_context_2.total_jobs = 2
+
+    provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries_2,
+            "metric": ["f1.mean"],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=mock_context_2,
+        logger=mock_logger,
+    )
+
+    # Read CSV - should have both rows and no stale data
+    with open(output_path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+
+    assert len(lines) == 3  # header + 2 data rows (stale data cleared)
+    header = lines[0].split(",")
+    row1 = lines[1].split(",")
+    row2 = lines[2].split(",")
+
+    # Verify no stale data
+    assert header[0] == "network"  # not "stale"
+    assert header[1] == "sample_size"
+    assert header[2] == "f1.mean"
+
+    # Verify first job data
+    assert row1[0] == "asia"
+    assert row1[1] == "1000"
+    assert row1[2] == "0.8"
+
+    # Verify second job data (appended)
+    assert row2[0] == "alarm"
+    assert row2[1] == "500"
+    assert row2[2] == "0.6"
+
+
+# Test direct mode filters cache entries by context matrix values.
+def test_summarise_direct_mode_filters_by_context_matrix(
+    tmp_path: Any,
+) -> None:
+    """Verify direct mode input filters cache entries by context matrix."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create a cache with entries for different networks
+    cache_path = tmp_path / "multi.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        # Asia entries
+        cache.put(
+            {"network": "asia", "seed": 0},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}}),
+        )
+        cache.put(
+            {"network": "asia", "seed": 1},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.9}}}),
+        )
+        # Alarm entries (should be filtered out)
+        cache.put(
+            {"network": "alarm", "seed": 0},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.5}}}),
+        )
+
+    output_path = tmp_path / "summary.csv"
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # Context specifies network=asia, so only asia entries should be counted
+    mock_context = MagicMock()
+    mock_context.matrix_values = {"network": "asia"}
+    mock_context.job_index = 0
+    mock_context.total_jobs = 1
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "metric": ["f1.mean", "f1.count"],
+            "input": str(cache_path),
+            "output": str(output_path),
+        },
+        mode="run",
+        context=mock_context,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    # Only 2 asia entries should be counted (not the alarm entry)
+    assert result[1]["f1.count"] == 2
+    # Mean of 0.8 and 0.9 = 0.85
+    assert abs(result[1]["f1.mean"] - 0.85) < 0.01
+
+
+# Test direct mode with filter expression.
+def test_summarise_direct_mode_with_filter_expression(tmp_path: Any) -> None:
+    """Verify direct mode applies filter expression to cache entries."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create a cache with entries having different seed values
+    cache_path = tmp_path / "filtered.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        cache.put(
+            {"seed": 0},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}}),
+        )
+        cache.put(
+            {"seed": 1},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.9}}}),
+        )
+        cache.put(
+            {"seed": 2},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.5}}}),
+        )
+
+    output_path = tmp_path / "summary.csv"
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # Filter to only include seed < 2
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "metric": ["f1.mean", "f1.count"],
+            "input": str(cache_path),
+            "output": str(output_path),
+            "filter": "seed < 2",
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    # Only 2 entries with seed < 2 should be counted
+    assert result[1]["f1.count"] == 2
+    # Mean of 0.8 and 0.9 = 0.85
+    assert abs(result[1]["f1.mean"] - 0.85) < 0.01
+
+
+# Test direct mode skips entries when filter raises exception.
+def test_summarise_direct_mode_filter_exception_skips_entry(
+    tmp_path: Any,
+) -> None:
+    """Verify entries are skipped when filter evaluation raises exception."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Create a cache with entries
+    cache_path = tmp_path / "filter_error.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        # Entry with value that exists
+        cache.put(
+            {"seed": 0},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.8, "x": 5}}}),
+        )
+        # Entry without x (filter will fail)
+        cache.put(
+            {"seed": 1},
+            CacheEntry(metadata={"provider": {"action": {"f1": 0.9}}}),
+        )
+
+    output_path = tmp_path / "summary.csv"
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # Filter uses undefined_var which will raise exception for all entries
+    # Since exception is caught, entries are skipped
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "metric": ["f1.mean", "f1.count"],
+            "input": str(cache_path),
+            "output": str(output_path),
+            "filter": "undefined_var > 0",
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    # All entries should be skipped due to filter exception
+    assert result[1]["f1.count"] == 0
+    assert result[1]["f1.mean"] is None

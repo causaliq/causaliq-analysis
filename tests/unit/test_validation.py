@@ -162,6 +162,22 @@ def test_parse_seed_workflow_rejects_comma_separated():
         parse_seed_workflow("1,2,3")
 
 
+# Test invalid range format with multiple hyphens.
+def test_parse_seed_workflow_invalid_range_format():
+    """Test that malformed range strings are rejected."""
+    with pytest.raises(
+        ValueError, match="Invalid range format.*use 'start-end'"
+    ):
+        parse_seed_workflow("1-2-3")
+
+
+# Test reversed range where start > end.
+def test_parse_seed_workflow_reversed_range():
+    """Test that reversed ranges are rejected."""
+    with pytest.raises(ValueError, match="Invalid range: start.*> end"):
+        parse_seed_workflow("5-2")
+
+
 def test_parse_seed_workflow_invalid():
     """Test invalid seed formats."""
     with pytest.raises(ValueError, match="Invalid seed format"):

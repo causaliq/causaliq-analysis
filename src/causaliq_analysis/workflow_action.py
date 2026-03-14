@@ -1267,6 +1267,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
             source_count = 0
             source_caches: set = set()
 
+            # Get matrix values from context (used for filtering and output)
+            ctx_matrix: Dict[str, Any] = {}
+            if context and hasattr(context, "matrix_values"):
+                ctx_matrix = context.matrix_values or {}
+
             if is_aggregation_mode and aggregation_entries:
                 # Aggregation mode: extract from pre-scanned entries
                 for entry_dict in aggregation_entries:
@@ -1331,6 +1336,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
                         unique_fields,
                         all_values,
                         filter_expr,
+                        ctx_matrix,
                         log_fn,
                     )
                     source_count += count
@@ -1371,6 +1377,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Add computed values to metadata
             metadata.update(results)
 
+            # Build output row: matrix values first, then metrics
+            # This creates rows like: network, sample_size, f1.mean, ...
+            row_data: Dict[str, Any] = {}
+
+            # Add matrix values as first columns (from context)
+            for key, value in ctx_matrix.items():
+                row_data[key] = value
+
+            # Add metric results
+            row_data.update(results)
+
             # Write output: CSV file or terminal ("-" means terminal)
             if output_path and output_path != "-":
                 # Write CSV output
@@ -1378,15 +1395,34 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 out_file.parent.mkdir(parents=True, exist_ok=True)
 
                 try:
+                    # If first job in matrix, delete any pre-existing file
+                    # to avoid stale data from previous workflow runs
+                    is_first_job = (
+                        context
+                        and hasattr(context, "job_index")
+                        and context.job_index == 0
+                    )
+                    file_exists = out_file.exists()
+
+                    if is_first_job and file_exists:
+                        out_file.unlink()
+                        file_exists = False
+
                     with open(
-                        out_file, "w", encoding="utf-8", newline=""
+                        out_file,
+                        "a" if file_exists else "w",
+                        encoding="utf-8",
+                        newline="",
                     ) as f:
                         writer = csv.writer(f)
-                        writer.writerow(results.keys())
-                        writer.writerow(results.values())
+                        if not file_exists:
+                            writer.writerow(row_data.keys())
+                        writer.writerow(row_data.values())
+
+                    action = "appended to" if file_exists else "written to"
                     metadata["csv_output"] = str(out_file)
                     if log_fn:
-                        log_fn(f"Summary written to {out_file}")
+                        log_fn(f"Summary {action} {out_file}")
                 except Exception as e:
                     raise ActionExecutionError(
                         f"Failed to write CSV output: {e}"
@@ -1397,8 +1433,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
                 output = io.StringIO()
                 writer = csv.writer(output)
-                writer.writerow(results.keys())
-                writer.writerow(results.values())
+                writer.writerow(row_data.keys())
+                writer.writerow(row_data.values())
                 print(output.getvalue().strip())
 
             return ("success", metadata, [])
@@ -1414,6 +1450,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         fields: List[str],
         all_values: Dict[str, List[float]],
         filter_expr: Optional[str],
+        matrix_filter: Optional[Dict[str, Any]],
         log_fn: Optional[Any],
     ) -> int:
         """Collect metric values from a workflow cache.
@@ -1423,6 +1460,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             fields: List of field names to extract.
             all_values: Dictionary to append values to.
             filter_expr: Optional filter expression.
+            matrix_filter: Optional matrix values to filter by.
             log_fn: Optional logging function.
 
         Returns:
@@ -1446,6 +1484,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
                         continue
 
                     matrix_values = entry_info["matrix_values"]
+
+                    # Filter by matrix values if specified
+                    if matrix_filter:
+                        if not all(
+                            matrix_values.get(k) == v
+                            for k, v in matrix_filter.items()
+                        ):
+                            continue
+
                     flat_meta = self._flatten_entry_metadata(
                         matrix_values, entry.metadata
                     )
