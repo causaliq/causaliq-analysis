@@ -71,7 +71,7 @@ def test_migrate_trace_accepts_all_valid_parameters() -> None:
             "sample_size": 1000,
             "seed": "0-2",  # Range syntax
             "root_dir": "/experiments",
-            "output": "/output/dir",
+            "output": "/output/results.db",
         },
     )
 
@@ -432,7 +432,7 @@ def test_merge_graphs_accepts_all_valid_parameters() -> None:
             "weights": {"score": {"bayesian_score": 1.0}},
             "cpdag": True,
             "filter": "N >= 1000",
-            "output": "pdg.graphml",
+            "output": "pdg.db",
         },
     )
 
@@ -459,15 +459,15 @@ def test_best_graph_rejects_unknown_parameter() -> None:
     assert "Unknown parameter" in str(exc_info.value)
 
 
-# Test best_graph requires pdg_input.
-def test_best_graph_requires_pdg_input() -> None:
-    """best_graph requires pdg_input parameter."""
+# Test best_graph requires input.
+def test_best_graph_requires_input() -> None:
+    """best_graph requires input parameter."""
     provider = AnalysisActionProvider()
 
     with pytest.raises(ActionValidationError) as exc_info:
         provider.validate_parameters("best_graph", {})
 
-    assert "requires 'pdg_input'" in str(exc_info.value)
+    assert "requires 'input'" in str(exc_info.value)
 
 
 # Test best_graph validates threshold type.
@@ -479,7 +479,7 @@ def test_best_graph_threshold_must_be_numeric() -> None:
         provider.validate_parameters(
             "best_graph",
             {
-                "pdg_input": "pdg.graphml",
+                "input": "pdg.graphml",
                 "threshold": "not_a_number",
             },
         )

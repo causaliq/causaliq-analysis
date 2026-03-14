@@ -1005,6 +1005,7 @@ def test_summarise_direct_mode_cache_read_error(
     # Create a corrupt db file
     cache_path = tmp_path / "corrupt.db"
     cache_path.write_text("not a valid sqlite database")
+    output_path = tmp_path / "output.csv"
 
     action = AnalysisActionProvider()
 
@@ -1014,6 +1015,7 @@ def test_summarise_direct_mode_cache_read_error(
             {
                 "metric": ["f1.mean"],
                 "input": str(cache_path),
+                "output": str(output_path),
             },
             mode="run",
         )

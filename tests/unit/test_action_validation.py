@@ -184,16 +184,16 @@ def test_validate_evaluate_graph_with_reference() -> None:
     )
 
 
-# Test best_graph validation requires pdg_input.
-def test_validate_best_graph_requires_pdg_input() -> None:
-    """best_graph requires pdg_input parameter."""
+# Test best_graph validation requires input.
+def test_validate_best_graph_requires_input() -> None:
+    """best_graph requires input parameter."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
 
-    with pytest.raises(ActionValidationError, match="requires 'pdg_input'"):
+    with pytest.raises(ActionValidationError, match="requires 'input'"):
         provider.validate_parameters("best_graph", {})
 
 
@@ -209,7 +209,61 @@ def test_validate_best_graph_invalid_threshold() -> None:
     with pytest.raises(ActionValidationError, match="must be a number"):
         provider.validate_parameters(
             "best_graph",
-            {"pdg_input": "pdg.graphml", "threshold": "invalid"},
+            {"input": "pdg.graphml", "threshold": "invalid"},
+        )
+
+
+# Test best_graph output must be .db.
+def test_validate_best_graph_output_must_be_db() -> None:
+    """best_graph output must be a workflow cache (.db)."""
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(
+        ActionValidationError, match="must be a workflow cache"
+    ):
+        provider.validate_parameters(
+            "best_graph",
+            {"input": "pdg.graphml", "output": "output.graphml"},
+        )
+
+
+# Test migrate_trace output must be .db.
+def test_validate_migrate_trace_output_must_be_db() -> None:
+    """migrate_trace output must be a workflow cache (.db)."""
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(
+        ActionValidationError, match="must be a workflow cache"
+    ):
+        provider.validate_parameters(
+            "migrate_trace",
+            {"traces": "/path", "output": "output.csv"},
+        )
+
+
+# Test merge_graphs output must be .db.
+def test_validate_merge_graphs_output_must_be_db() -> None:
+    """merge_graphs output must be a workflow cache (.db)."""
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(
+        ActionValidationError, match="must be a workflow cache"
+    ):
+        provider.validate_parameters(
+            "merge_graphs",
+            {"input": "cache.db", "output": "output.graphml"},
         )
 
 
@@ -242,18 +296,20 @@ def test_validate_summarise_invalid_metric_spec() -> None:
         )
 
 
-# Test summarise aggregation mode validates without output (runtime check).
-def test_validate_summarise_aggregation_without_output_passes() -> None:
-    """summarise validation passes without output (checked at runtime)."""
+# Test summarise requires output parameter.
+def test_validate_summarise_requires_output() -> None:
+    """summarise validation requires output parameter."""
+    from causaliq_core import ActionValidationError
+
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
 
-    # Should not raise - output check moved to runtime (can use cache)
-    provider.validate_parameters(
-        "summarise",
-        {"metric": ["f1.mean"], "_aggregation_entries": []},
-    )
+    with pytest.raises(ActionValidationError, match="requires 'output'"):
+        provider.validate_parameters(
+            "summarise",
+            {"metric": ["f1.mean"], "_aggregation_entries": []},
+        )
 
 
 # Test summarise validates filter syntax.

@@ -98,84 +98,33 @@ def test_summarise_rejects_db_output() -> None:
             context=None,
             logger=mock_logger,
         )
-    assert "only supports CSV output" in str(exc_info.value)
+    assert "must be a CSV file" in str(exc_info.value)
 
 
-# Test summarise writes to terminal when no output file specified.
-def test_summarise_writes_to_terminal(capsys: Any) -> None:
-    """Test that summarise writes CSV to terminal when no output specified."""
+# Test summarise requires output parameter.
+def test_summarise_requires_output_parameter() -> None:
+    """Test that summarise requires output parameter."""
+    from causaliq_core import ActionValidationError
+
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
-        {
-            "matrix_values": {"seed": 1},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
-        },
-        {
-            "matrix_values": {"seed": 2},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.9}}},
-        },
-    ]
-
-    status, metadata, objects = provider.run(
-        action="summarise",
-        parameters={
-            "_aggregation_entries": aggregation_entries,
-            "metric": ["f1.mean"],
-            # No output parameter - should print to terminal
-        },
-        mode="run",
-        context=None,
-        logger=mock_logger,
-    )
-
-    assert status == "success"
-    assert metadata["source_count"] == 2
-    assert abs(metadata["f1.mean"] - 0.85) < 1e-9
-
-    # Check terminal output
-    captured = capsys.readouterr()
-    assert "f1.mean" in captured.out
-
-
-# Test summarise with output="-" writes to terminal.
-def test_summarise_dash_output_writes_to_terminal(capsys: Any) -> None:
-    """Test that output='-' writes CSV to terminal (workflow syntax)."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
-    mock_logger.is_terminal_logging = False
-
-    aggregation_entries: List[Dict[str, Any]] = [
-        {
-            "matrix_values": {"seed": 1},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
-        },
-    ]
-
-    status, metadata, objects = provider.run(
-        action="summarise",
-        parameters={
-            "_aggregation_entries": aggregation_entries,
-            "metric": ["f1.mean"],
-            "output": "-",  # Explicit terminal output
-        },
-        mode="run",
-        context=None,
-        logger=mock_logger,
-    )
-
-    assert status == "success"
-    assert metadata["source_count"] == 1
-
-    # Check terminal output
-    captured = capsys.readouterr()
-    assert "f1.mean" in captured.out
+    with pytest.raises(ActionValidationError) as exc_info:
+        provider.run(
+            action="summarise",
+            parameters={
+                "_aggregation_entries": [],
+                "metric": ["f1.mean"],
+                # No output parameter
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "requires 'output' parameter" in str(exc_info.value)
 
 
 # Test summarise dry-run mode returns skipped.
@@ -334,7 +283,7 @@ def test_summarise_sd_insufficient_values(tmp_path: Any) -> None:
     )
 
     assert result[0] == "success"
-    assert result[1]["f1.sd"] is None
+    assert result[1]["f1.sd"] == ""  # Empty string for non-computable stats
 
 
 # Test summarise applies filter to aggregation entries.
@@ -427,7 +376,7 @@ def test_summarise_skips_non_numeric(tmp_path: Any) -> None:
 
 
 # Test summarise direct mode requires input or aggregation entries.
-def test_summarise_requires_input_or_entries() -> None:
+def test_summarise_requires_input_or_entries(tmp_path: Any) -> None:
     """Test that summarise requires aggregation entries or input files."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
@@ -435,11 +384,14 @@ def test_summarise_requires_input_or_entries() -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
+    output_path = tmp_path / "summary.csv"
+
     with pytest.raises(Exception) as exc_info:
         provider.run(
             action="summarise",
             parameters={
                 "metric": ["f1.mean"],
+                "output": str(output_path),
                 # No _aggregation_entries and no input
             },
             mode="run",
@@ -450,7 +402,7 @@ def test_summarise_requires_input_or_entries() -> None:
 
 
 # Test summarise direct mode only supports .db files.
-def test_summarise_direct_mode_only_db() -> None:
+def test_summarise_direct_mode_only_db(tmp_path: Any) -> None:
     """Test that direct mode rejects non-.db input files."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
@@ -458,12 +410,15 @@ def test_summarise_direct_mode_only_db() -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
+    output_path = tmp_path / "summary.csv"
+
     with pytest.raises(Exception) as exc_info:
         provider.run(
             action="summarise",
             parameters={
                 "metric": ["f1.mean"],
                 "input": ["results.json"],
+                "output": str(output_path),
             },
             mode="run",
             context=None,
@@ -552,7 +507,7 @@ def test_summarise_metadata_complete(tmp_path: Any) -> None:
 
 
 # Test summarise dry-run mode without aggregation entries.
-def test_summarise_dry_run_direct_mode(capsys: Any) -> None:
+def test_summarise_dry_run_direct_mode(tmp_path: Any, capsys: Any) -> None:
     """Test that dry-run mode prints direct mode message."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
@@ -560,11 +515,14 @@ def test_summarise_dry_run_direct_mode(capsys: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = True
 
+    output_path = tmp_path / "summary.csv"
+
     result = provider.run(
         action="summarise",
         parameters={
             "metric": ["f1.mean"],
             "input": ["test.db"],
+            "output": str(output_path),
         },
         mode="dry-run",
         context=None,
@@ -647,7 +605,7 @@ def test_summarise_mean_no_values(tmp_path: Any) -> None:
     )
 
     assert result[0] == "success"
-    assert result[1]["f1.mean"] is None
+    assert result[1]["f1.mean"] == ""  # Empty string for non-computable stats
 
 
 # Test summarise CSV write exception.
@@ -1126,4 +1084,4 @@ def test_summarise_direct_mode_filter_exception_skips_entry(
     assert result[0] == "success"
     # All entries should be skipped due to filter exception
     assert result[1]["f1.count"] == 0
-    assert result[1]["f1.mean"] is None
+    assert result[1]["f1.mean"] == ""  # Empty string for non-computable stats

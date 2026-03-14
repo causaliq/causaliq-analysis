@@ -668,3 +668,54 @@ def test_merge_graphs_dict_weights_without_aggregation() -> None:
                 logger=mock_logger,
             )
     assert "Metadata-driven weights require aggregation" in str(exc_info.value)
+
+
+# Test empty aggregation entries raises error (no fallback to direct mode).
+def test_merge_graphs_empty_aggregation_entries_error() -> None:
+    """Test that empty aggregation entries raises error, not fallback."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # Empty list of aggregation entries (no matches for matrix values)
+    aggregation_entries: List[Dict[str, Any]] = []
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="merge_graphs",
+            parameters={"_aggregation_entries": aggregation_entries},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+
+    # Should get clear error about no matches, not fall back to direct mode
+    assert "No cache entries matched" in str(exc_info.value)
+
+
+# Test aggregation mode is detected from non-None entries even if empty.
+def test_merge_graphs_aggregation_mode_detected_from_empty_list() -> None:
+    """Test aggregation mode is triggered by empty list (not None)."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    # Empty list is still aggregation mode (vs None for direct mode)
+    aggregation_entries: List[Dict[str, Any]] = []
+
+    result = provider.run(
+        action="merge_graphs",
+        parameters={"_aggregation_entries": aggregation_entries},
+        mode="dry-run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    # Dry-run should indicate aggregation mode with 0 entries
+    assert result[0] == "skipped"
+    assert result[1]["aggregation_mode"] is True
+    assert result[1]["num_inputs"] == 0

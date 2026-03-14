@@ -118,7 +118,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "migrate_trace": ActionPattern.CREATE,
         "merge_graphs": ActionPattern.AGGREGATE,
         "evaluate_graph": ActionPattern.UPDATE,
-        "best_graph": ActionPattern.CREATE,
+        "best_graph": ActionPattern.AGGREGATE,
         "summarise": ActionPattern.AGGREGATE,
     }
 
@@ -266,15 +266,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="list[str] | str",
         ),
-        # best_graph inputs
-        "pdg_input": ActionInput(
-            name="pdg_input",
-            description=(
-                "Path to PDG file (GraphML format) to extract DAG from"
-            ),
-            required=False,
-            type_hint="str",
-        ),
+        # best_graph inputs - uses 'input' for cache containing merged_pdg
         "threshold": ActionInput(
             name="threshold",
             description=(
@@ -337,9 +329,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "_update_entry",  # Internal workflow parameter
         },
         "best_graph": {
-            "pdg_input",
+            "input",
             "threshold",
             "output",
+            "_aggregation_entries",  # Internal workflow parameter
         },
         "summarise": {
             "metric",
@@ -421,6 +414,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
         if seed is not None:
             parse_seed_workflow(seed)
 
+        # Validate output - must be .db (workflow cache)
+        output_path = parameters.get("output")
+        if output_path is not None:
+            if not str(output_path).lower().endswith(".db"):
+                raise ValueError(
+                    "migrate_trace output must be a workflow cache (.db). "
+                    f"Got: {output_path}"
+                )
+
     def _validate_merge_graphs(self, parameters: Dict[str, Any]) -> None:
         """Validate merge_graphs parameters."""
         # Require _aggregation_entries OR input
@@ -450,6 +452,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
             except WeightSpecError as e:
                 raise ValueError(f"Invalid weight specification: {e}")
 
+        # Validate output - must be .db (workflow cache)
+        output_path = parameters.get("output")
+        if output_path is not None:
+            if not str(output_path).lower().endswith(".db"):
+                raise ValueError(
+                    "merge_graphs output must be a workflow cache (.db). "
+                    f"Got: {output_path}"
+                )
+
     def _validate_evaluate_graph(self, parameters: Dict[str, Any]) -> None:
         """Validate evaluate_graph parameters."""
         # UPDATE pattern: requires _update_entry at runtime, but
@@ -471,7 +482,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
     def _validate_best_graph(self, parameters: Dict[str, Any]) -> None:
         """Validate best_graph parameters."""
-        require_param(parameters, "pdg_input", "best_graph")
+        # Require input (cache path or direct file)
+        require_param(parameters, "input", "best_graph")
 
         # Validate threshold if provided
         threshold = parameters.get("threshold")
@@ -481,6 +493,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
             except (ValueError, TypeError):
                 raise ValueError(
                     f"'threshold' must be a number, got: {threshold}"
+                )
+
+        # Validate output - must be .db (workflow cache)
+        output_path = parameters.get("output")
+        if output_path is not None:
+            if not str(output_path).lower().endswith(".db"):
+                raise ValueError(
+                    "best_graph output must be a workflow cache (.db). "
+                    f"Got: {output_path}"
                 )
 
     def _validate_summarise(self, parameters: Dict[str, Any]) -> None:
@@ -493,12 +514,16 @@ class AnalysisActionProvider(CausalIQActionProvider):
         filter_expr = parameters.get("filter")
         validate_filter_expression(filter_expr)
 
-        # Require output parameter for CSV (summarise only writes CSV)
+        # Validate output - must be .csv
         output_path = parameters.get("output")
-        if output_path and str(output_path).lower().endswith(".db"):
+        if output_path is None:
             raise ValueError(
-                "summarise only supports CSV output, not workflow cache. "
-                "Use a .csv extension for the output parameter."
+                "summarise requires 'output' parameter with .csv file path."
+            )
+        if not str(output_path).lower().endswith(".csv"):
+            raise ValueError(
+                "summarise output must be a CSV file (.csv). "
+                f"Got: {output_path}"
             )
 
     def run(
@@ -723,10 +748,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Dry-run mode
             if mode == "dry-run":
                 if logger and logger.is_terminal_logging:
-                    if is_aggregation_mode and aggregation_entries:
+                    if is_aggregation_mode:
+                        entry_count = len(aggregation_entries or [])
                         print(
                             f"Would merge graphs from "
-                            f"{len(aggregation_entries)} aggregated entries"
+                            f"{entry_count} aggregated entries"
                         )
                     else:
                         print(
@@ -738,8 +764,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                         "message": "Dry-run mode",
                         "aggregation_mode": is_aggregation_mode,
                         "num_inputs": (
-                            len(aggregation_entries)
-                            if aggregation_entries
+                            len(aggregation_entries or [])
+                            if is_aggregation_mode
                             else len(input_files)
                         ),
                     },
@@ -756,8 +782,16 @@ class AnalysisActionProvider(CausalIQActionProvider):
             graph_metadata: List[Dict[str, Any]] = []
             source_info: Dict[str, Any] = {}
 
-            if is_aggregation_mode and aggregation_entries:
+            if is_aggregation_mode:
                 # Aggregation mode: extract graphs from pre-scanned entries
+                # If no entries matched, this is an error (don't fall back to
+                # direct mode which would read ALL entries)
+                if not aggregation_entries:
+                    raise ActionExecutionError(
+                        "No cache entries matched the current matrix values. "
+                        "Check that matrix values in workflow match those in "
+                        "the input cache (values are case-sensitive)."
+                    )
                 graphs, graph_metadata, source_info = (
                     self._extract_graphs_from_entries(
                         aggregation_entries, log_fn
@@ -1067,11 +1101,20 @@ class AnalysisActionProvider(CausalIQActionProvider):
     ) -> ActionResult:
         """Extract optimal DAG from PDG using greedy algorithm.
 
-        CREATE pattern action: reads PDG file, extracts optimal DAG,
-        returns it as a new cache entry.
+        AGGREGATE pattern action: reads PDG from cache entry or file,
+        extracts optimal DAG, returns it as a new cache entry.
+
+        Supports two modes of operation:
+
+        1. **Aggregation mode**: When called from workflow with cache input,
+           receives pre-scanned cache entries via '_aggregation_entries'.
+           Extracts PDG from the merged_pdg object in the entry.
+
+        2. **Direct mode**: When called from CLI with file path, reads PDG
+           directly from the specified GraphML file.
 
         Args:
-            parameters: Action parameters including pdg_input, threshold
+            parameters: Action parameters including input, threshold
             mode: Execution mode ('dry-run', 'run', 'compare')
             context: Workflow context
             logger: Optional logger
@@ -1085,36 +1128,92 @@ class AnalysisActionProvider(CausalIQActionProvider):
         from causaliq_core.graph.io import graphml
 
         # Extract parameters
-        pdg_input = parameters.get("pdg_input")
-        if not pdg_input:  # pragma: no cover
-            raise ActionExecutionError(
-                "best_graph requires 'pdg_input' parameter"
-            )
+        aggregation_entries: Optional[List[Dict[str, Any]]] = parameters.get(
+            "_aggregation_entries"
+        )
+        input_path = parameters.get("input")
         threshold = parameters.get("threshold", 0.0)
+
+        # Detect aggregation mode
+        is_aggregation_mode = aggregation_entries is not None
 
         # Handle dry-run mode
         if mode == "dry-run":
             if logger and logger.is_terminal_logging:
-                print(
-                    f"Would extract optimal DAG from {pdg_input} "
-                    f"(threshold={threshold})"
-                )
+                if is_aggregation_mode:
+                    entry_count = len(aggregation_entries or [])
+                    print(
+                        f"Would extract DAG from {entry_count} cache "
+                        f"entries (threshold={threshold})"
+                    )
+                else:
+                    print(
+                        f"Would extract optimal DAG from {input_path} "
+                        f"(threshold={threshold})"
+                    )
             return (
                 "skipped",
                 {
-                    "pdg_input": pdg_input,
+                    "input": input_path,
                     "threshold": threshold,
+                    "aggregation_mode": is_aggregation_mode,
                 },
                 [],
             )
 
-        # Read PDG
-        try:
-            pdg = graphml.read_pdg(pdg_input)
-        except FileNotFoundError:
-            raise ActionExecutionError(f"PDG file not found: {pdg_input}")
-        except Exception as e:
-            raise ActionExecutionError(f"Failed to read PDG: {e}") from e
+        # Read PDG based on mode
+        pdg = None
+        source_info: str = ""
+
+        if is_aggregation_mode:
+            # Aggregation mode: extract PDG from cache entry
+            if not aggregation_entries:
+                raise ActionExecutionError(
+                    "No cache entries matched the current matrix values. "
+                    "Check that matrix values in workflow match those in "
+                    "the input cache."
+                )
+
+            # For best_graph, we expect exactly one entry per matrix combo
+            if len(aggregation_entries) > 1:
+                raise ActionExecutionError(
+                    f"best_graph expects one entry per matrix combination, "
+                    f"got {len(aggregation_entries)}. Use filter to select "
+                    f"a single entry."
+                )
+
+            entry = aggregation_entries[0]
+            objects = entry.get("objects", {})
+            merged_pdg_content = objects.get("merged_pdg")
+
+            if not merged_pdg_content:
+                raise ActionExecutionError(
+                    "Cache entry does not contain 'merged_pdg' object. "
+                    "Ensure input cache was created by merge_graphs action."
+                )
+
+            try:
+                pdg = graphml.read_pdg(StringIO(merged_pdg_content))
+                matrix_vals = entry.get("matrix_values", {})
+                source_info = f"cache entry {matrix_vals}"
+            except Exception as e:
+                raise ActionExecutionError(
+                    f"Failed to parse merged_pdg from cache: {e}"
+                ) from e
+        else:
+            # Direct mode: read from file path
+            if not input_path:
+                raise ActionExecutionError(
+                    "best_graph requires 'input' parameter"
+                )
+
+            try:
+                pdg = graphml.read_pdg(input_path)
+                source_info = input_path
+            except FileNotFoundError:
+                raise ActionExecutionError(f"PDG file not found: {input_path}")
+            except Exception as e:
+                raise ActionExecutionError(f"Failed to read PDG: {e}") from e
 
         # Extract optimal DAG
         try:
@@ -1129,7 +1228,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         if logger and logger.is_terminal_logging:
             print(
-                f"Extracted DAG: {result.edges_included} edges, "
+                f"Extracted DAG from {source_info}: "
+                f"{result.edges_included} edges, "
                 f"{result.edges_skipped_cycle} skipped (cycle), "
                 f"{result.tie_breaks_applied} tie-breaks"
             )
@@ -1138,7 +1238,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         metadata: Dict[str, Any] = {
             "action": "best_graph",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "pdg_input": pdg_input,
+            "input": input_path,
             "threshold": threshold,
             "edges_included": result.edges_included,
             "edges_skipped_cycle": result.edges_skipped_cycle,
@@ -1238,10 +1338,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Dry-run mode
             if mode == "dry-run":
                 if logger and logger.is_terminal_logging:
-                    if is_aggregation_mode and aggregation_entries:
+                    if is_aggregation_mode:
+                        entry_count = len(aggregation_entries or [])
                         print(
                             f"Would summarise metrics from "
-                            f"{len(aggregation_entries)} entries"
+                            f"{entry_count} entries"
                         )
                     else:
                         print("Would summarise metrics from input files")
@@ -1272,9 +1373,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
             if context and hasattr(context, "matrix_values"):
                 ctx_matrix = context.matrix_values or {}
 
-            if is_aggregation_mode and aggregation_entries:
+            if is_aggregation_mode:
                 # Aggregation mode: extract from pre-scanned entries
-                for entry_dict in aggregation_entries:
+                # Process whatever entries were provided (may be empty if
+                # no entries matched the current matrix values)
+                for entry_dict in aggregation_entries or []:
                     matrix_values = entry_dict.get("matrix_values", {})
                     entry_metadata = entry_dict.get("metadata", {})
                     cache_path = entry_dict.get("cache_path", "unknown")
@@ -1309,8 +1412,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     if log_fn:
                         log_fn(f"Processed entry: {matrix_values}")
 
-            else:
-                # Direct mode: read from input files
+            elif not is_aggregation_mode:
+                # Direct mode: read from input files (only when NOT in
+                # aggregation mode - don't fall back when aggregation finds
+                # no matches)
                 input_raw = parameters.get("input", []) or []
                 if isinstance(input_raw, str):
                     input_files = [input_raw]
@@ -1356,12 +1461,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     if values:
                         results[col_name] = statistics.mean(values)
                     else:
-                        results[col_name] = None
+                        results[col_name] = ""
                 elif stat == "sd":
                     if len(values) >= 2:
                         results[col_name] = statistics.stdev(values)
                     else:
-                        results[col_name] = None
+                        results[col_name] = ""
 
             # Build metadata
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -1388,54 +1493,44 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Add metric results
             row_data.update(results)
 
-            # Write output: CSV file or terminal ("-" means terminal)
-            if output_path and output_path != "-":
-                # Write CSV output
-                out_file = Path(output_path)
-                out_file.parent.mkdir(parents=True, exist_ok=True)
+            # Write CSV output (output_path is validated to be .csv)
+            assert output_path is not None  # Validated by _validate_summarise
+            out_file = Path(output_path)
+            out_file.parent.mkdir(parents=True, exist_ok=True)
 
-                try:
-                    # If first job in matrix, delete any pre-existing file
-                    # to avoid stale data from previous workflow runs
-                    is_first_job = (
-                        context
-                        and hasattr(context, "job_index")
-                        and context.job_index == 0
-                    )
-                    file_exists = out_file.exists()
+            try:
+                # If first job in matrix, delete any pre-existing file
+                # to avoid stale data from previous workflow runs
+                is_first_job = (
+                    context
+                    and hasattr(context, "job_index")
+                    and context.job_index == 0
+                )
+                file_exists = out_file.exists()
 
-                    if is_first_job and file_exists:
-                        out_file.unlink()
-                        file_exists = False
+                if is_first_job and file_exists:
+                    out_file.unlink()
+                    file_exists = False
 
-                    with open(
-                        out_file,
-                        "a" if file_exists else "w",
-                        encoding="utf-8",
-                        newline="",
-                    ) as f:
-                        writer = csv.writer(f)
-                        if not file_exists:
-                            writer.writerow(row_data.keys())
-                        writer.writerow(row_data.values())
+                with open(
+                    out_file,
+                    "a" if file_exists else "w",
+                    encoding="utf-8",
+                    newline="",
+                ) as f:
+                    writer = csv.writer(f)
+                    if not file_exists:
+                        writer.writerow(row_data.keys())
+                    writer.writerow(row_data.values())
 
-                    action = "appended to" if file_exists else "written to"
-                    metadata["csv_output"] = str(out_file)
-                    if log_fn:
-                        log_fn(f"Summary {action} {out_file}")
-                except Exception as e:
-                    raise ActionExecutionError(
-                        f"Failed to write CSV output: {e}"
-                    ) from e
-            else:
-                # Write to terminal (output is "-" or not specified)
-                import io
-
-                output = io.StringIO()
-                writer = csv.writer(output)
-                writer.writerow(row_data.keys())
-                writer.writerow(row_data.values())
-                print(output.getvalue().strip())
+                action = "appended to" if file_exists else "written to"
+                metadata["csv_output"] = str(out_file)
+                if log_fn:
+                    log_fn(f"Summary {action} {out_file}")
+            except Exception as e:
+                raise ActionExecutionError(
+                    f"Failed to write CSV output: {e}"
+                ) from e
 
             return ("success", metadata, [])
 
