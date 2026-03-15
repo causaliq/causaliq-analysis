@@ -433,9 +433,10 @@ def test_merge_graph_cache_get_returns_none(runner, tmp_path, monkeypatch):
 
     mock_entry = MagicMock()
     mock_entry.metadata = {"sample_size": 1000}
-    mock_entry.object_names.return_value = ["graph"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = graphml_content
     mock_entry.get_object.return_value = mock_obj
 
@@ -495,9 +496,10 @@ def test_merge_graph_weights_generic_error(runner, tmp_path, monkeypatch):
 
     mock_entry = MagicMock()
     mock_entry.metadata = {"sample_size": 1000}
-    mock_entry.object_names.return_value = ["graph"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = graphml_content
     mock_entry.get_object.return_value = mock_obj
 

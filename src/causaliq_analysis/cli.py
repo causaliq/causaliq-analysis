@@ -248,9 +248,9 @@ def merge_graphs_cmd(
 
                         # Find all graphml objects in this entry
                         found_graphs = 0
-                        for obj_name in entry.object_names():
-                            obj = entry.get_object(obj_name)
-                            if obj is None or obj.type != "graphml":
+                        for obj_type in entry.object_types():
+                            obj = entry.get_object(obj_type)
+                            if obj is None or obj.format != "graphml":
                                 continue
 
                             try:
@@ -260,7 +260,7 @@ def merge_graphs_cmd(
                                 found_graphs += 1
                             except Exception as e:
                                 raise click.ClickException(
-                                    f"Failed to parse graph '{obj_name}' "
+                                    f"Failed to parse graph '{obj_type}' "
                                     f"from {matrix_values}: {e}"
                                 )
 

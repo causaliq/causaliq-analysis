@@ -18,11 +18,12 @@ VALID_GRAPHML = """<?xml version="1.0" encoding="UTF-8"?>
 def create_mock_graphml_entry() -> MagicMock:
     """Create mock entry with valid graphml object."""
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = VALID_GRAPHML
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["graph.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
     return mock_entry
 

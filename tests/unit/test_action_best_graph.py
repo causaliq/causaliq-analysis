@@ -53,8 +53,8 @@ def test_best_graph_creates_dag_entry() -> None:
     assert result[1]["edges_included"] == 2
     # Check objects list contains optimal_dag graphml
     assert len(result[2]) == 1
-    assert result[2][0]["name"] == "optimal_dag"
-    assert result[2][0]["type"] == "graphml"
+    assert result[2][0]["type"] == "dag"
+    assert result[2][0]["format"] == "graphml"
 
 
 # Test best_graph dry-run mode skips execution.
@@ -362,8 +362,8 @@ def test_best_graph_aggregation_multiple_entries() -> None:
 
 
 # Test best_graph aggregation mode with missing entry object.
-def test_best_graph_aggregation_missing_merged_pdg() -> None:
-    """Test best_graph raises error when entry lacks merged_pdg object."""
+def test_best_graph_aggregation_missing_pdg() -> None:
+    """Test best_graph raises error when entry lacks pdg object."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
         AnalysisActionProvider,
@@ -373,7 +373,7 @@ def test_best_graph_aggregation_missing_merged_pdg() -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with pytest.raises(ActionExecutionError, match="merged_pdg"):
+    with pytest.raises(ActionExecutionError, match="pdg"):
         provider.run(
             action="best_graph",
             parameters={
@@ -390,7 +390,7 @@ def test_best_graph_aggregation_missing_merged_pdg() -> None:
 
 # Test best_graph aggregation mode with invalid PDG content.
 def test_best_graph_aggregation_invalid_pdg() -> None:
-    """Test best_graph raises error when merged_pdg is invalid."""
+    """Test best_graph raises error when pdg is invalid."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
         AnalysisActionProvider,
@@ -408,7 +408,7 @@ def test_best_graph_aggregation_invalid_pdg() -> None:
                 "_aggregation_entries": [
                     {
                         "matrix_values": {"network": "asia"},
-                        "objects": {"merged_pdg": "not valid graphml"},
+                        "objects": {"pdg": "not valid graphml"},
                     },
                 ],
             },
@@ -448,7 +448,7 @@ def test_best_graph_aggregation_success() -> None:
             "_aggregation_entries": [
                 {
                     "matrix_values": {"network": "asia"},
-                    "objects": {"merged_pdg": pdg_graphml},
+                    "objects": {"pdg": pdg_graphml},
                 },
             ],
         },
@@ -460,7 +460,7 @@ def test_best_graph_aggregation_success() -> None:
     assert result[0] == "success"
     assert result[1]["edges_included"] == 1
     assert len(result[2]) == 1
-    assert result[2][0]["name"] == "optimal_dag"
+    assert result[2][0]["type"] == "dag"
 
 
 # Test best_graph direct mode without input path.

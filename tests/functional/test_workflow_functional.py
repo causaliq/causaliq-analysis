@@ -103,18 +103,18 @@ def test_migrate_trace_functional():
     assert metadata["num_graphs"] > 0
 
     # Check objects returned for cache storage (GraphML only, no JSON)
-    graphml_objects = [o for o in objects if o["type"] == "graphml"]
-    json_objects = [o for o in objects if o["type"] == "json"]
+    graphml_objects = [o for o in objects if o["format"] == "graphml"]
+    json_objects = [o for o in objects if o.get("format") == "json"]
 
     assert len(graphml_objects) > 0
     assert (
         len(json_objects) == 0
     )  # Per-graph metadata in metadata dict, not objects
 
-    # Check per-graph metadata is in metadata dict keyed by object name
+    # Check per-graph metadata is in metadata dict keyed by object type
     for obj in graphml_objects:
-        assert obj["name"] in metadata
-        assert "N" in metadata[obj["name"]]
+        assert obj["type"] in metadata
+        assert "N" in metadata[obj["type"]]
 
 
 # Test migrate_trace with sample_size filter.
@@ -172,12 +172,14 @@ def test_migrate_trace_full_circle():
     original_dag = trace_to_dag(traces["N1000"])
 
     # Find the GraphML object for N1000
-    graphml_objects = [o for o in objects if o["type"] == "graphml"]
-    n1000_graphml = [o for o in graphml_objects if "N1000" in o["name"]]
-    assert len(n1000_graphml) >= 1
+    graphml_objects = [o for o in objects if o["format"] == "graphml"]
+    # With sample_size filter, we get exactly one graph with flattened metadata
+    assert len(graphml_objects) == 1
+    n1000_graphml = graphml_objects[0]
+    assert metadata.get("N") == 1000  # Flattened for single graph
 
     # Parse the GraphML content
-    graphml_content = n1000_graphml[0]["content"]
+    graphml_content = n1000_graphml["content"]
     buffer = StringIO(graphml_content)
     restored_graph = graphml.read(buffer)
 
@@ -185,12 +187,10 @@ def test_migrate_trace_full_circle():
     assert set(restored_graph.nodes) == set(original_dag.nodes)
     assert set(restored_graph.edges.keys()) == set(original_dag.edges.keys())
 
-    # Check per-graph metadata is in metadata dict (not as separate object)
-    object_name = n1000_graphml[0]["name"]
-    assert object_name in metadata
-    graph_metadata = metadata[object_name]
-    assert "N" in graph_metadata
-    assert graph_metadata["N"] == 1000
+    # Check per-graph metadata is flattened (single graph case)
+    assert "N" in metadata
+    assert metadata["N"] == 1000
+    assert "trace_id" in metadata
 
 
 # Test migrate_trace with traces parameter instead of series/network.
@@ -560,8 +560,8 @@ def test_merge_graphs_functional(
 
     # Check PDG object returned
     assert len(objects) == 1
-    assert objects[0]["type"] == "graphml"
-    assert objects[0]["name"] == "merged_pdg"
+    assert objects[0]["format"] == "graphml"
+    assert objects[0]["type"] == "pdg"
     assert "<?xml" in objects[0]["content"]
 
     # Verify PDG can be parsed back

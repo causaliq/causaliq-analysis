@@ -241,7 +241,7 @@ def test_migrate_trace_workflow_real_data():
     assert status == "success"
     assert metadata["num_graphs"] > 0
     assert len(objects) > 0
-    assert objects[0]["type"] == "graphml"
+    assert objects[0]["format"] == "graphml"
 
 
 # Test merge_graphs with aggregation mode end-to-end.
@@ -271,7 +271,7 @@ def test_merge_graphs_aggregation_end_to_end(
         entry1 = CacheEntry(
             metadata={"algorithm": "pc", "sample_size": 1000},
         )
-        entry1.add_object("graph", "graphml", buffer.getvalue())
+        entry1.add_object("dag", "graphml", buffer.getvalue())
         cache.put({"network": "asia", "seed": 1}, entry1)
 
         # Entry 2: B -> A
@@ -280,7 +280,7 @@ def test_merge_graphs_aggregation_end_to_end(
         entry2 = CacheEntry(
             metadata={"algorithm": "pc", "sample_size": 1000},
         )
-        entry2.add_object("graph", "graphml", buffer.getvalue())
+        entry2.add_object("dag", "graphml", buffer.getvalue())
         cache.put({"network": "asia", "seed": 2}, entry2)
 
     # Build aggregation entries as workflow would
@@ -345,7 +345,7 @@ def test_merge_graphs_aggregation_with_filter(
             buffer = StringIO()
             graphml.write(dag, buffer)
             entry = CacheEntry(metadata={"status": status})
-            entry.add_object("graph", "graphml", buffer.getvalue())
+            entry.add_object("dag", "graphml", buffer.getvalue())
             cache.put(
                 {"network": "asia", "run": len(cache.list_entries())},
                 entry,
@@ -408,14 +408,14 @@ def test_merge_graphs_aggregation_with_weights(
         buffer = StringIO()
         graphml.write(dag1, buffer)
         entry1 = CacheEntry(metadata={"algorithm": "pc"})
-        entry1.add_object("graph", "graphml", buffer.getvalue())
+        entry1.add_object("dag", "graphml", buffer.getvalue())
         cache.put({"network": "asia", "seed": 1}, entry1)
 
         # FCI algorithm - weight 0.5
         buffer = StringIO()
         graphml.write(dag2, buffer)
         entry2 = CacheEntry(metadata={"algorithm": "fci"})
-        entry2.add_object("graph", "graphml", buffer.getvalue())
+        entry2.add_object("dag", "graphml", buffer.getvalue())
         cache.put({"network": "asia", "seed": 2}, entry2)
 
     aggregation_entries = []
@@ -482,7 +482,7 @@ def test_merge_graphs_provenance_source_caches(
             buffer = StringIO()
             graphml.write(dag, buffer)
             entry = CacheEntry(metadata={"source": str(cache_path.name)})
-            entry.add_object("graph", "graphml", buffer.getvalue())
+            entry.add_object("dag", "graphml", buffer.getvalue())
             cache.put({"network": "asia"}, entry)
 
     # Combine entries from both caches

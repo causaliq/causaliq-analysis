@@ -658,28 +658,36 @@ class AnalysisActionProvider(CausalIQActionProvider):
             )
 
             # Build objects list for cache storage (GraphML only)
-            # Per-graph metadata keyed by object name at top level
+            # Per-graph metadata at top level (flattened)
             objects = []
             metadata: Dict[str, Any] = {
                 "num_graphs": result.num_graphs,
                 "skipped": result.skipped,
             }
 
-            for graph in result.graphs:
-                # Sanitise trace_id for object name
-                safe_id = graph.trace_id.replace("/", "_").replace("\\", "_")
+            for i, graph in enumerate(result.graphs):
+                # Use 'dag' for single graph, 'dag_N' for multiple
+                if len(result.graphs) == 1:
+                    obj_type = "dag"
+                else:
+                    obj_type = f"dag_{i}"
 
                 # Add GraphML object
                 objects.append(
                     {
-                        "type": "graphml",
-                        "name": safe_id,
+                        "type": obj_type,
+                        "format": "graphml",
+                        "action": "migrate_trace",
                         "content": graph.graphml,
                     }
                 )
 
-                # Per-graph metadata keyed by object name
-                metadata[safe_id] = graph.metadata
+                # Per-graph metadata: flatten for single, nest for multiple
+                graph_meta = {"trace_id": graph.trace_id, **graph.metadata}
+                if len(result.graphs) == 1:
+                    metadata.update(graph_meta)
+                else:
+                    metadata[obj_type] = graph_meta
 
             return (
                 "success",
@@ -875,6 +883,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "num_graphs": len(graphs),
                 "cpdag": cpdag,
                 "aggregation_mode": is_aggregation_mode,
+                "output": {"type": "pdg", "format": "graphml"},
             }
             if filter_expr is not None:
                 metadata["filter"] = filter_expr
@@ -887,8 +896,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
             objects = [
                 {
-                    "type": "graphml",
-                    "name": "merged_pdg",
+                    "type": "pdg",
+                    "format": "graphml",
+                    "action": "merge_graphs",
                     "content": pdg_graphml,
                 }
             ]
@@ -987,18 +997,18 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         # Find graphml object in entry
         graph = None
-        graph_name = None
-        for obj_name in entry.object_names():
-            obj = entry.get_object(obj_name)
-            if obj is None or obj.type != "graphml":
+        graph_type = None
+        for obj_type in entry.object_types():
+            obj = entry.get_object(obj_type)
+            if obj is None or obj.format != "graphml":
                 continue
             try:
                 graph = graphml.read(StringIO(obj.content))
-                graph_name = obj_name
+                graph_type = obj_type
                 break
             except Exception as e:
                 raise ActionExecutionError(
-                    f"Failed to parse graph '{obj_name}': {e}"
+                    f"Failed to parse graph '{obj_type}': {e}"
                 ) from e
 
         if graph is None:
@@ -1081,12 +1091,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
         metadata: Dict[str, Any] = {
             **filtered_metrics,
             "reference": reference_path,
-            "evaluated_graph": graph_name,
+            "evaluated_graph": graph_type,
         }
 
         if logger and logger.is_terminal_logging:
             print(
-                f"Evaluated {graph_name}: F1={metrics['f1']:.3f}, "
+                f"Evaluated {graph_type}: F1={metrics['f1']:.3f}, "
                 f"SHD={metrics['shd']}"
             )
 
@@ -1184,21 +1194,21 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
             entry = aggregation_entries[0]
             objects = entry.get("objects", {})
-            merged_pdg_content = objects.get("merged_pdg")
+            pdg_content = objects.get("pdg")
 
-            if not merged_pdg_content:
+            if not pdg_content:
                 raise ActionExecutionError(
-                    "Cache entry does not contain 'merged_pdg' object. "
+                    "Cache entry does not contain 'pdg' object. "
                     "Ensure input cache was created by merge_graphs action."
                 )
 
             try:
-                pdg = graphml.read_pdg(StringIO(merged_pdg_content))
+                pdg = graphml.read_pdg(StringIO(pdg_content))
                 matrix_vals = entry.get("matrix_values", {})
                 source_info = f"cache entry {matrix_vals}"
             except Exception as e:
                 raise ActionExecutionError(
-                    f"Failed to parse merged_pdg from cache: {e}"
+                    f"Failed to parse pdg from cache: {e}"
                 ) from e
         else:
             # Direct mode: read from file path
@@ -1238,7 +1248,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
         metadata: Dict[str, Any] = {
             "action": "best_graph",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "input": input_path,
+            "input_source": input_path if input_path else "aggregation",
+            "input": {"type": "pdg"},
+            "output": {"type": "dag", "format": "graphml"},
             "threshold": threshold,
             "edges_included": result.edges_included,
             "edges_skipped_cycle": result.edges_skipped_cycle,
@@ -1248,8 +1260,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         objects = [
             {
-                "type": "graphml",
-                "name": "optimal_dag",
+                "type": "dag",
+                "format": "graphml",
+                "action": "best_graph",
                 "content": dag_graphml,
             }
         ]
@@ -1700,9 +1713,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
             flat_meta = self._flatten_entry_metadata(matrix_values, metadata)
 
             # Find all graphml objects in this entry
-            for obj_name in entry.object_names():
-                obj = entry.get_object(obj_name)
-                if obj is None or obj.type != "graphml":
+            for obj_type in entry.object_types():
+                obj = entry.get_object(obj_type)
+                if obj is None or obj.format != "graphml":
                     continue
 
                 try:
@@ -1711,10 +1724,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     graph_metadata.append(flat_meta)
                     found_in_entry += 1
                     if log_fn:
-                        log_fn(f"Loaded '{obj_name}' from {matrix_values}")
+                        log_fn(f"Loaded '{obj_type}' from {matrix_values}")
                 except Exception as e:
                     raise ActionExecutionError(
-                        f"Failed to parse graph '{obj_name}' from "
+                        f"Failed to parse graph '{obj_type}' from "
                         f"entry {matrix_values}: {e}"
                     ) from e
 
@@ -1868,9 +1881,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
                     # Find all graphml objects in this entry
                     found_in_entry = 0
-                    for obj_name in entry.object_names():
-                        obj = entry.get_object(obj_name)
-                        if obj is None or obj.type != "graphml":
+                    for obj_type in entry.object_types():
+                        obj = entry.get_object(obj_type)
+                        if obj is None or obj.format != "graphml":
                             continue
 
                         try:
@@ -1879,11 +1892,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
                             found_in_entry += 1
                             if log_fn:
                                 log_fn(
-                                    f"Loaded '{obj_name}' from {matrix_values}"
+                                    f"Loaded '{obj_type}' from {matrix_values}"
                                 )
                         except Exception as e:
                             raise ActionExecutionError(
-                                f"Failed to parse graph '{obj_name}' from "
+                                f"Failed to parse graph '{obj_type}' from "
                                 f"cache entry {matrix_values}: {e}"
                             ) from e
 

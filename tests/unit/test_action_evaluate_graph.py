@@ -211,7 +211,7 @@ def test_evaluate_graph_no_graphml_in_entry() -> None:
     mock_logger.is_terminal_logging = False
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = []
+    mock_entry.object_types.return_value = []
 
     update_entry = {
         "matrix_values": {"seed": 42},
@@ -244,11 +244,12 @@ def test_evaluate_graph_invalid_graphml() -> None:
     mock_logger.is_terminal_logging = False
 
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = "invalid xml"
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["graph.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
 
     update_entry = {
@@ -463,14 +464,16 @@ def test_evaluate_graph_skips_non_graphml() -> None:
 
     # First object is not graphml, second is
     mock_obj_json = MagicMock()
-    mock_obj_json.type = "json"
+    mock_obj_json.type = "metadata"
+    mock_obj_json.format = "json"
 
     mock_obj_graphml = MagicMock()
-    mock_obj_graphml.type = "graphml"
+    mock_obj_graphml.type = "dag"
+    mock_obj_graphml.format = "graphml"
     mock_obj_graphml.content = VALID_GRAPHML
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["data.json", "graph.graphml"]
+    mock_entry.object_types.return_value = ["metadata", "dag"]
     mock_entry.get_object.side_effect = [mock_obj_json, mock_obj_graphml]
 
     update_entry = {
@@ -508,7 +511,7 @@ def test_evaluate_graph_skips_non_graphml() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["evaluated_graph"] == "graph.graphml"
+    assert result[1]["evaluated_graph"] == "dag"
 
 
 # Test evaluate_graph handles None object in entry.
@@ -522,11 +525,12 @@ def test_evaluate_graph_skips_none_object() -> None:
 
     # First object returns None, second is valid
     mock_obj_graphml = MagicMock()
-    mock_obj_graphml.type = "graphml"
+    mock_obj_graphml.type = "dag"
+    mock_obj_graphml.format = "graphml"
     mock_obj_graphml.content = VALID_GRAPHML
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["orphan.graphml", "graph.graphml"]
+    mock_entry.object_types.return_value = ["orphan", "dag"]
     mock_entry.get_object.side_effect = [None, mock_obj_graphml]
 
     update_entry = {

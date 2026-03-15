@@ -90,7 +90,7 @@ def test_merge_graphs_no_graphs_found() -> None:
 
     # Mock entry with no graphml objects
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = []
+    mock_entry.object_types.return_value = []
 
     aggregation_entries: List[Dict[str, Any]] = [
         {
@@ -140,10 +140,11 @@ def test_extract_graphs_skips_non_graphml_objects() -> None:
 
     # Create mock entry with non-graphml object
     mock_obj = MagicMock()
-    mock_obj.type = "json"  # Not graphml
+    mock_obj.type = "metadata"
+    mock_obj.format = "json"  # Not graphml
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["data.json"]
+    mock_entry.object_types.return_value = ["metadata"]
     mock_entry.get_object.return_value = mock_obj
 
     entries = [
@@ -170,7 +171,7 @@ def test_extract_graphs_handles_none_object() -> None:
     provider = AnalysisActionProvider()
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["orphan.graphml"]
+    mock_entry.object_types.return_value = ["orphan"]
     mock_entry.get_object.return_value = None
 
     entries = [
@@ -211,7 +212,7 @@ def test_extract_graphs_logs_success(capsys: Any) -> None:
 
     assert len(graphs) == 1
     captured = capsys.readouterr()
-    assert "Loaded 'graph.graphml' from" in captured.out
+    assert "Loaded 'dag' from" in captured.out
 
 
 # Test _extract_graphs_from_entries with invalid graphml (lines 597-599).
@@ -223,11 +224,12 @@ def test_extract_graphs_invalid_graphml_raises_error() -> None:
 
     # Create mock object with invalid graphml content
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = "not valid graphml"
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["bad.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
 
     entries = [
@@ -252,7 +254,7 @@ def test_extract_graphs_logs_no_graphml_objects(capsys: Any) -> None:
     provider = AnalysisActionProvider()
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = []
+    mock_entry.object_types.return_value = []
 
     entries = [
         {
@@ -389,12 +391,13 @@ def test_read_graphs_from_cache_success(capsys: Any) -> None:
 
     # Create mock object
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = graphml_content
 
     # Create mock entry
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["graph.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
 
     # Create mock cache
@@ -488,11 +491,12 @@ def test_read_graphs_from_cache_invalid_graphml() -> None:
     provider = AnalysisActionProvider()
 
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = "not valid xml"
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["bad.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
 
     mock_cache = MagicMock()
@@ -518,7 +522,7 @@ def test_read_graphs_from_cache_logs_no_graphml(capsys: Any) -> None:
     provider = AnalysisActionProvider()
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = []
+    mock_entry.object_types.return_value = []
 
     mock_cache = MagicMock()
     mock_cache.list_entries.return_value = [{"matrix_values": {"seed": 1}}]
@@ -546,10 +550,11 @@ def test_read_graphs_from_cache_skips_non_graphml() -> None:
     provider = AnalysisActionProvider()
 
     mock_obj = MagicMock()
-    mock_obj.type = "json"  # Not graphml
+    mock_obj.type = "metadata"
+    mock_obj.format = "json"  # Not graphml
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["data.json"]
+    mock_entry.object_types.return_value = ["metadata"]
     mock_entry.get_object.return_value = mock_obj
 
     mock_cache = MagicMock()
@@ -590,11 +595,12 @@ def test_merge_graphs_from_cache_input() -> None:
 </graphml>"""
 
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = graphml_content
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["graph.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
 
     mock_cache = MagicMock()
@@ -639,11 +645,12 @@ def test_merge_graphs_dict_weights_without_aggregation() -> None:
 </graphml>"""
 
     mock_obj = MagicMock()
-    mock_obj.type = "graphml"
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
     mock_obj.content = graphml_content
 
     mock_entry = MagicMock()
-    mock_entry.object_names.return_value = ["graph.graphml"]
+    mock_entry.object_types.return_value = ["dag"]
     mock_entry.get_object.return_value = mock_obj
 
     mock_cache = MagicMock()
