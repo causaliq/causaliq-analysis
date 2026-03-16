@@ -213,9 +213,9 @@ def test_validate_best_graph_invalid_threshold() -> None:
         )
 
 
-# Test best_graph output must be .db.
-def test_validate_best_graph_output_must_be_db() -> None:
-    """best_graph output must be a workflow cache (.db)."""
+# Test best_graph validates filter expression syntax.
+def test_validate_best_graph_filter_expression() -> None:
+    """best_graph validates filter expression syntax."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
@@ -223,11 +223,11 @@ def test_validate_best_graph_output_must_be_db() -> None:
     provider = AnalysisActionProvider()
 
     with pytest.raises(
-        ActionValidationError, match="must be a workflow cache"
+        ActionValidationError, match="Invalid filter expression"
     ):
         provider.validate_parameters(
             "best_graph",
-            {"input": "pdg.graphml", "output": "output.graphml"},
+            {"input": "cache.db", "filter": "invalid [ expression"},
         )
 
 

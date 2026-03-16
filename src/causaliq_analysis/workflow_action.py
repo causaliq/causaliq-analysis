@@ -118,7 +118,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "migrate_trace": ActionPattern.CREATE,
         "merge_graphs": ActionPattern.AGGREGATE,
         "evaluate_graph": ActionPattern.UPDATE,
-        "best_graph": ActionPattern.AGGREGATE,
+        "best_graph": ActionPattern.UPDATE,
         "summarise": ActionPattern.AGGREGATE,
     }
 
@@ -331,8 +331,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "best_graph": {
             "input",
             "threshold",
-            "output",
-            "_aggregation_entries",  # Internal workflow parameter
+            "filter",
+            "_update_entry",  # Internal workflow parameter
         },
         "summarise": {
             "metric",
@@ -481,9 +481,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 )
 
     def _validate_best_graph(self, parameters: Dict[str, Any]) -> None:
-        """Validate best_graph parameters."""
-        # Require input (cache path or direct file)
-        require_param(parameters, "input", "best_graph")
+        """Validate best_graph parameters.
+
+        UPDATE pattern: requires input cache path containing entries with
+        PDG objects. Adds DAG object to each matched entry.
+
+        When called from workflow UPDATE mode, _update_entry is passed and
+        input is handled by workflow engine.
+        """
+        # Require input only when not in UPDATE mode (workflow handles input)
+        if "_update_entry" not in parameters:
+            require_param(parameters, "input", "best_graph")
 
         # Validate threshold if provided
         threshold = parameters.get("threshold")
@@ -495,14 +503,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     f"'threshold' must be a number, got: {threshold}"
                 )
 
-        # Validate output - must be .db (workflow cache)
-        output_path = parameters.get("output")
-        if output_path is not None:
-            if not str(output_path).lower().endswith(".db"):
-                raise ValueError(
-                    "best_graph output must be a workflow cache (.db). "
-                    f"Got: {output_path}"
-                )
+        # Validate filter expression syntax if provided
+        filter_expr = parameters.get("filter")
+        validate_filter_expression(filter_expr)
 
     def _validate_summarise(self, parameters: Dict[str, Any]) -> None:
         """Validate summarise parameters."""
@@ -1111,14 +1114,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
     ) -> ActionResult:
         """Extract optimal DAG from PDG using greedy algorithm.
 
-        AGGREGATE pattern action: reads PDG from cache entry or file,
-        extracts optimal DAG, returns it as a new cache entry.
+        UPDATE pattern action: reads PDG from cache entry, extracts
+        optimal DAG, returns it as an object to add to the entry.
 
         Supports two modes of operation:
 
-        1. **Aggregation mode**: When called from workflow with cache input,
-           receives pre-scanned cache entries via '_aggregation_entries'.
-           Extracts PDG from the merged_pdg object in the entry.
+        1. **Update mode**: When called from workflow with cache input,
+           receives entry data via '_update_entry'. Extracts PDG from
+           the pdg object in the entry.
 
         2. **Direct mode**: When called from CLI with file path, reads PDG
            directly from the specified GraphML file.
@@ -1130,31 +1133,30 @@ class AnalysisActionProvider(CausalIQActionProvider):
             logger: Optional logger
 
         Returns:
-            ActionResult with optimal DAG and extraction statistics
+            ActionResult with optimal DAG object to add to entry
         """
         from datetime import datetime, timezone
         from io import StringIO
 
         from causaliq_core.graph.io import graphml
 
-        # Extract parameters
-        aggregation_entries: Optional[List[Dict[str, Any]]] = parameters.get(
-            "_aggregation_entries"
-        )
+        # Extract UPDATE action entry data
+        update_entry = parameters.get("_update_entry")
         input_path = parameters.get("input")
         threshold = parameters.get("threshold", 0.0)
 
-        # Detect aggregation mode
-        is_aggregation_mode = aggregation_entries is not None
+        # Detect update mode
+        is_update_mode = update_entry is not None
 
         # Handle dry-run mode
         if mode == "dry-run":
             if logger and logger.is_terminal_logging:
-                if is_aggregation_mode:
-                    entry_count = len(aggregation_entries or [])
+                if is_update_mode:
+                    assert update_entry is not None  # Type narrowing
+                    matrix_values = update_entry.get("matrix_values", {})
                     print(
-                        f"Would extract DAG from {entry_count} cache "
-                        f"entries (threshold={threshold})"
+                        f"Would extract DAG from entry {matrix_values} "
+                        f"(threshold={threshold})"
                     )
                 else:
                     print(
@@ -1166,7 +1168,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 {
                     "input": input_path,
                     "threshold": threshold,
-                    "aggregation_mode": is_aggregation_mode,
+                    "update_mode": is_update_mode,
                 },
                 [],
             )
@@ -1175,36 +1177,24 @@ class AnalysisActionProvider(CausalIQActionProvider):
         pdg = None
         source_info: str = ""
 
-        if is_aggregation_mode:
-            # Aggregation mode: extract PDG from cache entry
-            if not aggregation_entries:
-                raise ActionExecutionError(
-                    "No cache entries matched the current matrix values. "
-                    "Check that matrix values in workflow match those in "
-                    "the input cache."
-                )
+        if is_update_mode:
+            # Update mode: extract PDG from entry
+            assert update_entry is not None  # Type narrowing
+            entry = update_entry.get("entry")
+            if entry is None:
+                raise ActionExecutionError("No entry object in _update_entry")
 
-            # For best_graph, we expect exactly one entry per matrix combo
-            if len(aggregation_entries) > 1:
-                raise ActionExecutionError(
-                    f"best_graph expects one entry per matrix combination, "
-                    f"got {len(aggregation_entries)}. Use filter to select "
-                    f"a single entry."
-                )
-
-            entry = aggregation_entries[0]
-            objects = entry.get("objects", {})
-            pdg_content = objects.get("pdg")
-
-            if not pdg_content:
+            # Find pdg object in entry
+            pdg_obj = entry.get_object("pdg")
+            if pdg_obj is None:
                 raise ActionExecutionError(
                     "Cache entry does not contain 'pdg' object. "
                     "Ensure input cache was created by merge_graphs action."
                 )
 
             try:
-                pdg = graphml.read_pdg(StringIO(pdg_content))
-                matrix_vals = entry.get("matrix_values", {})
+                pdg = graphml.read_pdg(StringIO(pdg_obj.content))
+                matrix_vals = update_entry.get("matrix_values", {})
                 source_info = f"cache entry {matrix_vals}"
             except Exception as e:
                 raise ActionExecutionError(
@@ -1248,7 +1238,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         metadata: Dict[str, Any] = {
             "action": "best_graph",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "input_source": input_path if input_path else "aggregation",
+            "input_source": input_path if input_path else "update",
             "input": {"type": "pdg"},
             "output": {"type": "dag", "format": "graphml"},
             "threshold": threshold,

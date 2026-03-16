@@ -561,7 +561,7 @@ def evaluate_graph_cmd(
     "-o",
     required=True,
     type=click.Path(),
-    help="Output file path for optimal DAG (GraphML format).",
+    help="Output directory for DAG and metadata files.",
 )
 @click.option(
     "--threshold",
@@ -570,18 +570,10 @@ def evaluate_graph_cmd(
     type=float,
     help="Minimum edge probability threshold (default: 0.0).",
 )
-@click.option(
-    "--stats",
-    "-s",
-    is_flag=True,
-    default=False,
-    help="Print extraction statistics to stderr.",
-)
 def best_graph_cmd(
     input: str,
     output: str,
     threshold: float,
-    stats: bool,
 ) -> None:
     """
     Extract optimal DAG from a PDG using greedy algorithm.
@@ -594,53 +586,69 @@ def best_graph_cmd(
     For direction ties, alphabetical ordering is used (source -> target
     where source < target).
 
+    Creates output directory containing dag.graphml and _meta.json.
+
     Example:
-        causaliq-analysis best-graph -i merged.graphml -o optimal.graphml
+        causaliq-analysis best-graph -i merged.graphml -o results/optimal
 
-        causaliq-analysis best-graph -i merged.graphml -o optimal.graphml \\
-            --threshold=0.5 --stats
+        causaliq-analysis best-graph -i merged.graphml -o results/optimal \\
+            --threshold=0.5
     """
-    from causaliq_core.graph.io import graphml
+    import json
 
-    # Read PDG
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    # Execute action
+    action = AnalysisActionProvider()
     try:
-        pdg = graphml.read_pdg(input)
+        status, metadata, objects = action.run(
+            "best_graph",
+            {"input": input, "threshold": threshold},
+            mode="run",
+        )
     except Exception as e:
-        raise click.ClickException(f"Failed to read PDG: {e}")
+        raise click.ClickException(str(e))
 
-    # Extract optimal DAG
+    if status != "success":
+        raise click.ClickException(f"Action failed: {metadata}")
+
+    # Find DAG object
+    dag_obj = next((o for o in objects if o["type"] == "dag"), None)
+    if dag_obj is None:
+        raise click.ClickException("No DAG object returned by action")
+
+    # Create output directory and write files
+    output_dir = Path(output)
     try:
-        result = pdg.to_dag_greedy(threshold=threshold)
+        output_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        raise click.ClickException(f"DAG extraction failed: {e}")
+        raise click.ClickException(f"Failed to create output directory: {e}")
 
-    # Write output DAG
-    output_path = Path(output)
+    # Write DAG file
+    dag_path = output_dir / "dag.graphml"
     try:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        graphml.write(result.dag, str(output_path))
+        dag_path.write_text(dag_obj["content"], encoding="utf-8")
     except Exception as e:
         raise click.ClickException(f"Failed to write output: {e}")
 
-    click.echo(f"Optimal DAG written to {output_path}")
+    # Write metadata file
+    meta_path = output_dir / "_meta.json"
+    meta_data = {
+        "metadata": {"causaliq-analysis": {"best_graph": metadata}},
+        "objects": {
+            "dag": {
+                "format": dag_obj["format"],
+                "action": dag_obj["action"],
+            }
+        },
+    }
+    try:
+        meta_path.write_text(json.dumps(meta_data, indent=2), encoding="utf-8")
+    except Exception as e:
+        raise click.ClickException(f"Failed to write metadata: {e}")
 
-    # Print statistics if requested
-    if stats:
-        import sys
-
-        print(f"Edges included: {result.edges_included}", file=sys.stderr)
-        print(
-            f"Edges skipped (cycle): {result.edges_skipped_cycle}",
-            file=sys.stderr,
-        )
-        print(
-            f"Edges skipped (threshold): {result.edges_skipped_threshold}",
-            file=sys.stderr,
-        )
-        print(
-            f"Tie-breaks (alphabetical): {result.tie_breaks_applied}",
-            file=sys.stderr,
-        )
+    click.echo(f"Optimal DAG written to {dag_path}")
+    click.echo(f"Metadata written to {meta_path}")
 
 
 @cli.command(name="summarise")

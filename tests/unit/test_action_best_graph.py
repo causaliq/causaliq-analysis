@@ -283,9 +283,9 @@ def test_best_graph_terminal_logging(capsys: Any) -> None:
     assert "edges" in captured.out
 
 
-# Test best_graph dry-run with aggregation mode (terminal logging).
-def test_best_graph_dry_run_aggregation_mode(capsys: Any) -> None:
-    """Test best_graph dry-run prints aggregation mode message."""
+# Test best_graph dry-run with update mode (terminal logging).
+def test_best_graph_dry_run_update_mode(capsys: Any) -> None:
+    """Test best_graph dry-run prints update mode message."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -296,7 +296,7 @@ def test_best_graph_dry_run_aggregation_mode(capsys: Any) -> None:
         action="best_graph",
         parameters={
             "input": "cache.db",
-            "_aggregation_entries": [{"matrix_values": {"network": "asia"}}],
+            "_update_entry": {"matrix_values": {"network": "asia"}},
         },
         mode="dry-run",
         context=None,
@@ -305,12 +305,12 @@ def test_best_graph_dry_run_aggregation_mode(capsys: Any) -> None:
 
     assert result[0] == "skipped"
     captured = capsys.readouterr()
-    assert "Would extract DAG from 1 cache" in captured.out
+    assert "Would extract DAG from entry" in captured.out
 
 
-# Test best_graph aggregation mode with no matching entries.
-def test_best_graph_aggregation_no_entries() -> None:
-    """Test best_graph raises error when no entries match."""
+# Test best_graph update mode with missing entry object.
+def test_best_graph_update_missing_entry() -> None:
+    """Test best_graph raises error when _update_entry has no entry object."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
         AnalysisActionProvider,
@@ -320,12 +320,12 @@ def test_best_graph_aggregation_no_entries() -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with pytest.raises(ActionExecutionError, match="No cache entries matched"):
+    with pytest.raises(ActionExecutionError, match="No entry object"):
         provider.run(
             action="best_graph",
             parameters={
                 "input": "cache.db",
-                "_aggregation_entries": [],  # Empty entries
+                "_update_entry": {"matrix_values": {"network": "asia"}},
             },
             mode="run",
             context=None,
@@ -333,36 +333,8 @@ def test_best_graph_aggregation_no_entries() -> None:
         )
 
 
-# Test best_graph aggregation mode with multiple entries.
-def test_best_graph_aggregation_multiple_entries() -> None:
-    """Test best_graph raises error when multiple entries match."""
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
-
-    provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
-    mock_logger.is_terminal_logging = False
-
-    with pytest.raises(ActionExecutionError, match="expects one entry"):
-        provider.run(
-            action="best_graph",
-            parameters={
-                "input": "cache.db",
-                "_aggregation_entries": [
-                    {"matrix_values": {"seed": 1}},
-                    {"matrix_values": {"seed": 2}},
-                ],
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
-
-
-# Test best_graph aggregation mode with missing entry object.
-def test_best_graph_aggregation_missing_pdg() -> None:
+# Test best_graph update mode with missing pdg object.
+def test_best_graph_update_missing_pdg() -> None:
     """Test best_graph raises error when entry lacks pdg object."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -373,14 +345,19 @@ def test_best_graph_aggregation_missing_pdg() -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
+    # Mock entry that returns None for get_object("pdg")
+    mock_entry = MagicMock()
+    mock_entry.get_object.return_value = None
+
     with pytest.raises(ActionExecutionError, match="pdg"):
         provider.run(
             action="best_graph",
             parameters={
                 "input": "cache.db",
-                "_aggregation_entries": [
-                    {"matrix_values": {"network": "asia"}, "objects": {}},
-                ],
+                "_update_entry": {
+                    "matrix_values": {"network": "asia"},
+                    "entry": mock_entry,
+                },
             },
             mode="run",
             context=None,
@@ -388,8 +365,8 @@ def test_best_graph_aggregation_missing_pdg() -> None:
         )
 
 
-# Test best_graph aggregation mode with invalid PDG content.
-def test_best_graph_aggregation_invalid_pdg() -> None:
+# Test best_graph update mode with invalid PDG content.
+def test_best_graph_update_invalid_pdg() -> None:
     """Test best_graph raises error when pdg is invalid."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -400,17 +377,22 @@ def test_best_graph_aggregation_invalid_pdg() -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
+    # Mock entry with invalid PDG content
+    mock_obj = MagicMock()
+    mock_obj.content = "not valid graphml"
+
+    mock_entry = MagicMock()
+    mock_entry.get_object.return_value = mock_obj
+
     with pytest.raises(ActionExecutionError, match="Failed to parse"):
         provider.run(
             action="best_graph",
             parameters={
                 "input": "cache.db",
-                "_aggregation_entries": [
-                    {
-                        "matrix_values": {"network": "asia"},
-                        "objects": {"pdg": "not valid graphml"},
-                    },
-                ],
+                "_update_entry": {
+                    "matrix_values": {"network": "asia"},
+                    "entry": mock_entry,
+                },
             },
             mode="run",
             context=None,
@@ -418,9 +400,9 @@ def test_best_graph_aggregation_invalid_pdg() -> None:
         )
 
 
-# Test best_graph aggregation mode success.
-def test_best_graph_aggregation_success() -> None:
-    """Test best_graph aggregation mode extracts DAG from cache entry."""
+# Test best_graph update mode success.
+def test_best_graph_update_success() -> None:
+    """Test best_graph update mode extracts DAG from cache entry."""
     from io import StringIO
 
     from causaliq_core.graph import PDG, EdgeProbabilities
@@ -441,16 +423,21 @@ def test_best_graph_aggregation_success() -> None:
     graphml.write_pdg(pdg, buffer)
     pdg_graphml = buffer.getvalue()
 
+    # Mock entry with valid PDG content
+    mock_obj = MagicMock()
+    mock_obj.content = pdg_graphml
+
+    mock_entry = MagicMock()
+    mock_entry.get_object.return_value = mock_obj
+
     result = provider.run(
         action="best_graph",
         parameters={
             "input": "cache.db",
-            "_aggregation_entries": [
-                {
-                    "matrix_values": {"network": "asia"},
-                    "objects": {"pdg": pdg_graphml},
-                },
-            ],
+            "_update_entry": {
+                "matrix_values": {"network": "asia"},
+                "entry": mock_entry,
+            },
         },
         mode="run",
         context=None,
