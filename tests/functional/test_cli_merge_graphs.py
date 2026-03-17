@@ -19,7 +19,7 @@ def test_merge_graphs_from_graphml_files(cli_runner, tmp_path):
 
     graph1_path = tmp_path / "graph1.graphml"
     graph2_path = tmp_path / "graph2.graphml"
-    output_path = tmp_path / "merged.graphml"
+    output_dir = tmp_path / "merged"
 
     with open(graph1_path, "w") as f:
         graphml.write(dag1, f)
@@ -32,13 +32,15 @@ def test_merge_graphs_from_graphml_files(cli_runner, tmp_path):
             "merge-graphs",
             f"--input={graph1_path}",
             f"--input={graph2_path}",
-            f"--output={output_path}",
+            f"--output={output_dir}",
         ],
     )
 
     assert result.exit_code == 0
     assert "Merged 2 graphs" in result.output
-    assert output_path.exists()
+    assert output_dir.is_dir()
+    assert (output_dir / "pdg.graphml").exists()
+    assert (output_dir / "_meta.json").exists()
 
 
 # Test merge-graphs command from workflow cache.
@@ -575,3 +577,125 @@ def test_merge_graphs_filter_undefined_variable(cli_runner, tmp_path):
 
     assert result.exit_code != 0
     assert "Invalid filter expression" in result.output
+
+
+# Test merge-graphs rejects duplicate --output option.
+def test_merge_graphs_duplicate_output_rejected(cli_runner, tmp_path):
+    """Test merge-graphs raises error if --output specified multiple times."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={graph_path}",
+            "--output=out1.graphml",
+            "--output=out2.graphml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test merge-graphs rejects duplicate --filter option.
+def test_merge_graphs_duplicate_filter_rejected(cli_runner, tmp_path):
+    """Test merge-graphs raises error if --filter specified multiple times."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={graph_path}",
+            "--output=output.graphml",
+            "--filter=x > 1",
+            "--filter=y < 5",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test merge-graphs rejects duplicate --weights option.
+def test_merge_graphs_duplicate_weights_rejected(cli_runner, tmp_path):
+    """Test merge-graphs raises error if --weights specified multiple times."""
+    import json
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    weights1 = tmp_path / "weights1.json"
+    weights2 = tmp_path / "weights2.json"
+    weights1.write_text(json.dumps({"algorithm": {"TABU": 1.0}}))
+    weights2.write_text(json.dumps({"algorithm": {"GES": 1.0}}))
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={graph_path}",
+            "--output=output.graphml",
+            f"--weights={weights1}",
+            f"--weights={weights2}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test merge-graphs metadata write failure.
+def test_merge_graphs_metadata_write_failure(
+    cli_runner, tmp_path, monkeypatch
+):
+    """Test merge-graphs handles metadata write failure gracefully."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    output_dir = tmp_path / "merged"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    # Mock open to fail when writing _meta.json
+    original_open = open
+
+    def mock_open(path, *args, **kwargs):
+        if "_meta.json" in str(path):
+            raise IOError("Simulated write failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={graph_path}",
+            f"--output={output_dir}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Failed to write metadata" in result.output

@@ -153,22 +153,29 @@ def migrate_trace_cmd(
 @click.option(
     "--output",
     "-o",
+    multiple=True,
+    callback=single_value_callback,
     required=True,
     type=click.Path(),
-    help="Output file path for merged PDG (GraphML format).",
+    help="Output directory for merged PDG. Creates folder with "
+    "pdg.graphml and _meta.json files.",
 )
 @click.option(
     "--filter",
     "-f",
     "filter_expr",
-    default=None,
+    multiple=True,
+    callback=single_value_callback,
+    default=(),
     help="Filter expression for cache entries (Python syntax). "
     "Example: \"network == 'asia' and sample_size > 500\"",
 )
 @click.option(
     "--weights",
     "-w",
-    default=None,
+    multiple=True,
+    callback=single_value_callback,
+    default=(),
     type=click.Path(exists=True),
     help="JSON file specifying metadata-driven weights. "
     "Only applies to .db cache inputs.",
@@ -368,17 +375,37 @@ def merge_graphs_cmd(
     except (TypeError, ValueError) as e:
         raise click.ClickException(f"Merge failed: {e}")
 
-    # Ensure output directory exists
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Create output directory
+    output_dir = Path(output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    pdg_path = output_dir / "pdg.graphml"
+    meta_path = output_dir / "_meta.json"
 
     # Write merged PDG
     try:
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(pdg_path, "w", encoding="utf-8") as f:
             graphml.write_pdg(merged, f)
-        click.echo(f"Merged {len(graphs)} graphs to {output_path}")
     except Exception as e:
-        raise click.ClickException(f"Failed to write output: {e}")
+        raise click.ClickException(f"Failed to write PDG: {e}")
+
+    # Write metadata
+    meta_data: Dict[str, Any] = {
+        "num_graphs": len(graphs),
+        "cpdag": cpdag,
+        "weights_file": weights if weights else None,
+        "filter": filter_expr if filter_expr else None,
+    }
+    if weights_list:
+        meta_data["weights_applied"] = weights_list
+
+    try:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta_data, f, indent=2)
+    except Exception as e:
+        raise click.ClickException(f"Failed to write metadata: {e}")
+
+    click.echo(f"Merged {len(graphs)} graphs to {output_dir}")
 
 
 # Supported metrics for evaluate-graph command
