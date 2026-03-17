@@ -6,21 +6,20 @@ modern causaliq workflows and third-party graph tools.
 
 ## Parameters
 
-| Parameter | CLI | Action | Required | Description |
-|-----------|-----|--------|----------|-------------|
-| `network` | `--network` | `network` | Yes* | Network name to process |
-| `series` | `--series` | `series` | Yes* | Series path (e.g., TABU/SAMPLE/BASE) |
-| `traces` | — | `traces` | Yes* | Direct path pattern (action only) |
-| `root_dir` | `--root-dir` | `root_dir` | No | Root directory (default: `experiments`) |
-| `sample_size` | `--N` | `sample_size` | No | Filter by sample size (e.g., `10k`) |
-| `seed` | `--seed` | `seed` | No | Filter by seed (comma-separated) |
-| `output` | `--output` | — | CLI only | Output directory for files |
+| Parameter | CLI Flag | Required | Description |
+|-----------|----------|----------|-------------|
+| `network` | `-n/--network` | Yes* | Network name to process |
+| `series` | `-s/--series` | Yes* | Series path (e.g., TABU/SAMPLE/BASE) |
+| `root_dir` | `-r/--root-dir` | Yes | Root directory |
+| `sample_size` | `-N/--sample-size` | Yes | Filter by sample size (e.g., `10k`) |
+| `seed` | `-S/--seed` | No | Filter by seed (single value or range) |
+| `output` | `-o/--output` | CLI only | Output directory  for `_meta.json` and `.graphml` files  |
 
 **Notes:**
 
-- *Must provide either `network` + `series` OR `traces` pattern
-- Sample size accepts integers or shorthand: `1k` = 1000, `10k` = 10000,
+- Sample size accepts integers or shorthand: `1K` = 1000, `10k` = 10000,
   `1m` = 1000000
+- Seed accepts: single value (`5`), range (`0-24`), or, in actions only, a YAML list (`[0, 1, 2]`)
 - If `seed` is omitted, all seeds are included
 - CLI output defaults to `migrated/<series>/<network>/`
 
@@ -75,7 +74,7 @@ causaliq-analysis migrate-trace `
   --network=asia `
   --series=TABU/STD `
   --N=10k `
-  --seed=0,1,2 `
+  --seed=0-2 `
   --output=migrated/asia_10k
 
 # Migrate from non-default root directory

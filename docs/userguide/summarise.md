@@ -6,17 +6,19 @@ This is an `aggregate` action (see [workflow patterns](introduction.md#workflow-
 
 ## Parameters
 
-| Parameter   | CLI  | Required | Default | Description |
-|-------------|------|----------|---------|-------------|
-| `metric`    | `-m` | Yes      | None      | List of summary metrics required, e.g. mean, standard deviation etc. |
-| `input`     | `-i` | Yes      | None      | List of files containing raw results (`.json` or `.db` cache). |
-| `output`    | `-o` | Yes      | None      | Tabular summary in .csv format (see below) |
-| `filter`    | `-f` | No       | None      | filter entries in input |
+| Parameter   | CLI             | Required | Description |
+|-------------|-----------------|----------|-------------|
+| `metric`    | `-m`/`--metric` | Yes      | List of summary metrics required, e.g. mean, standard deviation etc. |
+| `input`     | `-i`/`--input`  | Yes      | List of files containing raw results (`.json` or `.db` cache). |
+| `output`    | `-o`/`--output` | Yes      | Tabular summary in .csv format (see below) |
+| `filter`    | —               | No       | filter entries in input |
 
 **Notes:**
 
 - In workflows, `summarise` is an aggregation action: `input`, `output`, and
   `matrix` are all **required**. The matrix controls output dimensionality.
+- `-metric` and `-input` can be repeated in CLI for multiple metrics and inputs, and can use YAML list syntax in actions
+- `-output` can only have a single value which must be a CSV file in both the CLI and action
 
 ### `metric`
 
@@ -32,7 +34,7 @@ It is likely this will be extended to include other statistics such as mode, int
 
 ### `input`
 
-This can be a list of `.json` files containing results which are all scanned and the required summarisation metrics computed. This kind of input would be typically used in the CLI when initially exploring the functionality of the `summarise` capability. In this case, the output would contain a single summarisation metric for each value in the `metric` parameter.
+In the CLI, this can be a list of `.json` files containing metadata which includes the requested metrics which are all scanned and the required summarisation metrics computed. In this case, the output would contain a single summarisation metric for each value in the `metric` parameter.
 
 In a CausalIQ Workflow the input would typically be one or more workflow caches. The presence of an action with both an `input` and `output` parameter means that a workflow `matrix` definition must be present. The `matrix` definition defines the groups of variable values that a separate sumary statistic will be generated for - similar to the functionality of the "group by" feature in SQL and dataframe processing.
 

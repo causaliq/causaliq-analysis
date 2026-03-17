@@ -7,13 +7,13 @@ sample sizes, or algorithms.
 
 ## Parameters
 
-| Parameter | CLI | Action | Required | Description |
-|-----------|-----|--------|----------|-------------|
-| `input` | `-i`/`--input` | `input` | Yes | Input files (`.graphml` or `.db` cache). Repeatable in CLI. |
-| `output` | `-o`/`--output` | `output` | Yes | Output file path for merged PDG |
-| `filter` | `-f`/`--filter` | `filter` | No | Filter expression for cache entries (Python syntax) |
-| `weights` | `-w`/`--weights` | — | No | JSON file specifying metadata-driven weights (CLI only) |
-| `cpdag` | `--cpdag` | `cpdag` | No | Convert DAGs to CPDAGs before merging |
+| Parameter | CLI | Required | Description |
+|-----------|-----|----------|-------------|
+| `input` | `-i`/`--input` | Yes | Input files (`.graphml` or `.db` cache). |
+| `output` | `-o`/`--output` | Yes | Output destination - path for CLI, `.db` cache for action |
+| `filter` | — | No | Filter expression for cache entries (Python syntax, action only) |
+| `weights` | `-w`/`--weights` | No | JSON file specifying metadata-driven weights |
+| `cpdag` | `--cpdag` | No | Convert DAGs to CPDAGs before merging |
 
 
 **Notes:**

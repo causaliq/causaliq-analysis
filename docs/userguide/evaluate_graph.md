@@ -1,56 +1,84 @@
 # Evaluating Graphs
 
-The `evaluate_graph` capability structurally evaluates a graph - PDAG, CPDAG or DAG - against a reference graph. Note that comparisons between general SDG graphs are not supported.
+The `evaluate_graph` capability structurally evaluates a graph (PDAG, CPDAG, or
+DAG) against a reference graph. Note that comparisons between general SDG
+graphs are not supported.
 
-This is an `update` action (see [workflow patterns](introduction.md#workflow-action-patterns)) and so updates the metadata for an existing graph **in the input cache** with the requested metrics if used within a CausalIQ workflow.
+This is an `update` action (see
+[workflow patterns](introduction.md#workflow-action-patterns)) and so updates
+the metadata for an existing graph **in the input cache** with the requested
+metrics when used within a CausalIQ workflow.
+
+---
 
 ## Parameters
 
-| Parameter   | CLI  | Required | Default | Description |
-|-------------|------|----------|---------|-------------|
-| `input`     | `-i` | Yes      | None      | Input files (`.graphml` or `.db` cache). |
-| `output`    | `-o` | No       | see notes | Output directory - CLI only |
-| `metric`    | `-m` | No       | None      | List of graph structural metrics required |
-| `reference` | `-r` | Yes      | None      | Reference graph for structural comparison<br/>A `.tetrad`, `.csv`, `.graphml`, `.xdsl` or `.dsc` file |
-| `filter`    | `-f` | No       | None      | filter entries in input |
+| Parameter   | CLI Flag           | Required | Description |
+|-------------|--------------------|----------|-------------|
+| `input`     | `-i`/`--input`     | Yes      | Learned graph file (CLI) or workflow cache `.db` (action) |
+| `reference` | `-r`/`--reference` | Yes      | Reference graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`, `.dsc`) |
+| `metric`    | `-m`/`--metric`    | Yes      | Metric(s) to compute (repeatable in CLI) |
+| `output`    | `-o`/`--output`    | CLI only | Output directory for `_meta.json` file |
+| `filter`    | —                  | No       | Filter expression for cache entries (workflow only) |
+
+**Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `equiv.f1`,
+`equiv.shd`
 
 **Notes:**
 
-- Input type is auto-detected by file extension:
-  - `.graphml`: Read as GraphML file. This is only supported within the CLI.
-  - `.db`: Read all entries from WorkflowCache database
-- The `output` parameter can only be used in the CLI. The **updated** metadata
-  containing the requested metrics will be placed in the output directory.
-- In workflows, `evaluate_graph` is an update action: `output` and `matrix` are
-  **prohibited**. The action processes all entries in the input cache.
+- In CLI mode, `input` is a graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`,
+  `.dsc`) and `output` is a directory where `_meta.json` will be written.
+- IN CLI mode you can request multiple metrics by repeating the -m/00metric option e.g. "-m f1 -m shd"
+- In workflows, `input` is a workflow cache (`.db`) and `output` is
+  **prohibited** (UPDATE action pattern). The `filter` parameter can select
+  specific cache entries.
 
-## Supported Metrics
+---
 
-### Metric Naming in CausalIQ
+## CLI Usage
 
-Unfortunately, many different kinds of structural metrics are used to evaluate graphs in causal discovery. Common ones are F1, Precision, Recall and Structural Hamming Distance (SHD), but others which are more specific to causal discovery, for example, Structural Intervention Distance (SID) are also employed.
+### Basic Comparison
 
-Moreover, there are other critical differences in structural evaluation:
+Compare a learned graph against a reference:
 
-- whether the raw graphs (e.g. a learned DAG and a reference DAG) are compared, or whether the equivalence classes (CPDAGS or PAGs) to which they belonf are compared. The former is generally more appropriate in causal discovery where orientation of arcs is critical, and the latter more generally relevant when evaluating the output of statistical structure learning algorithms if only observational data is used (since it is generally impossible to identify the orientation of all edges)
-- many structural metrics are built upon true/false positive/negative counts, and different authors take different approaches to computing these counts for arcs which have an orientation property. See the section of comparison semantics below for further details.
-- Some authors report the raw metric but others normalise it in some way. This mostly applies to the SHD metric which tends to scale with the size of the graph (number of nodes or edges). To facilitate comparison between SHD from graphs of different sizes, some authors normalise SHD by dividing it by the number of variables or edges in the reference graph.
+```bash
+causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
+    -m f1 -m shd -o results/eval
+```
 
-In order to support all these variations we propose the follow naming structure for metrics throughout CausalIQ:
+This creates `results/eval/_meta.json` containing:
 
-  `[<preprocessing>].<metric>.[<semantics>].[<postprocessing>].[<statistic>]`
+```json
+{
+  "f1": 0.7,
+  "shd": 3
+}
+```
 
-where the elements of the name (separated by dots) are:
+### All Metrics
 
-| Element                | Optional | Description | Supported Values |
-|------------------------|----------|-------------|------------------|
-| **`<preprocessing>`**  | Yes      | Preprocessing before comparison | **`equiv`** (convert to CPDAGs first) |
-| **`<metric>`**         | No       | The basic metric                | **`f1`** and **`shd`** |
-| **`<scheme>`**         | Yes      | Alternative computation semantics |  **not currently supported** |
-| **`<postprocessing>`** | Yes      | Postprocessing of the metric, e.g. normalisation |  **not currently supported** |
-| **`<statistic>`**      | Yes      | Statistic over multiple values, e.g. mean | **`summarise` action only** |
+Request all available metrics:
 
-An example specifying metrics in a CausalIQ Workflow `evaluate_graph` step:
+```bash
+causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
+    -m f1 -m shd -m precision -m recall -m equiv.f1 -m equiv.shd \
+    -o results/eval
+```
+
+### Equivalence Class Metrics
+
+Compare equivalence classes (CPDAGs) rather than raw graphs:
+
+```bash
+causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
+    -m equiv.f1 -m equiv.shd -o results/eval
+```
+
+---
+
+## Workflow Usage
+
+In a CausalIQ workflow, `evaluate_graph` operates as an UPDATE action:
 
 ```yaml
 steps:
@@ -62,21 +90,73 @@ steps:
       reference: "reference/asia_true.graphml"
       metric:
         - f1
-        - equiv.shd
+        - shd
+        - precision
+        - recall
 ```
 
-This computes the F1 between the reference and evaluated graph, and the SHD
-between CPDAGs to which the reference and evaluated graphs each belong.
+This computes metrics for each graph entry in the cache and adds them to the
+entry's metadata.
+
+---
+
+## Supported Metrics
+
+### Available Metrics Summary
+
+| Metric | Description |
+|--------|-------------|
+| `f1` | F1 score from direct graph comparison |
+| `shd` | Structural Hamming Distance |
+| `precision` | Precision from direct comparison |
+| `recall` | Recall from direct comparison |
+| `equiv.f1` | F1 comparing equivalence classes (CPDAGs) |
+| `equiv.shd` | SHD comparing equivalence classes (CPDAGs) |
+
+### Metric Naming in CausalIQ
+
+Many different structural metrics are used to evaluate graphs in causal
+discovery. Common ones are F1, Precision, Recall and Structural Hamming
+Distance (SHD), but others specific to causal discovery, such as Structural
+Intervention Distance (SID), are also employed.
+
+Critical differences in structural evaluation include:
+
+- Whether the raw graphs (e.g., a learned DAG and a reference DAG) are
+  compared, or whether the equivalence classes (CPDAGs or PAGs) to which they
+  belong are compared. The former is generally more appropriate in causal
+  discovery where orientation of arcs is critical.
+- Many structural metrics are built upon true/false positive/negative counts,
+  and different authors take different approaches to computing these counts
+  for arcs which have an orientation property.
+- Some authors report the raw metric but others normalise it (e.g., SHD
+  divided by the number of variables or edges).
+
+CausalIQ uses the following naming structure for metrics:
+
+  `[<preprocessing>].<metric>.[<semantics>].[<postprocessing>].[<statistic>]`
+
+| Element | Optional | Description | Supported Values |
+|---------|----------|-------------|------------------|
+| **`<preprocessing>`** | Yes | Preprocessing before comparison | `equiv` (convert to CPDAGs first) |
+| **`<metric>`** | No | The basic metric | `f1`, `shd`, `precision`, `recall` |
+| **`<scheme>`** | Yes | Alternative computation semantics | *not currently supported* |
+| **`<postprocessing>`** | Yes | Postprocessing, e.g., normalisation | *not currently supported* |
+| **`<statistic>`** | Yes | Statistic over multiple values | *see [`summarise`](../summarise.md) action* |
+
+---
 
 ### Legacy Support
 
-The core module which provides structural comparsons between PDAG (mixed directed and undirected edge graphs which is a superset of DAGs and CPDAGs) is `pdag_compare` in module `metrics.py`. It implements the compairson semantics decsribed below and which have been used consistently in CausalIQ papers. It is also used extensively by the legacy code in the `discovery` repo. Therefore, this functionality **must be retained unmodified**.
-
-This CausalIQ Analysis capability will provide a wrapper so that the friendlier metric names discussed above are supported.
+The core module which provides structural comparisons between PDAGs (mixed
+directed and undirected edge graphs, a superset of DAGs and CPDAGs) is
+`pdag_compare` in `metrics.py`. It implements the comparison semantics used
+consistently in CausalIQ papers and the legacy `discovery` repository.
 
 ### Comparison Semantics
 
-To be completed - will describe in detail how the (legacy) CausalIQ code, which this capability will reuse, computes the confusion matrix counts that underly the structural metrics.
+To be completed — will describe in detail how the CausalIQ code computes the
+confusion matrix counts that underlie the structural metrics.
 
 ## See Also
 
