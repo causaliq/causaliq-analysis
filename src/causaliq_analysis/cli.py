@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import click
 
 from . import __version__
-from .validation import parse_sample_size, parse_seed_cli
+from .validation import (
+    parse_sample_size,
+    parse_seed_cli,
+    single_value_callback,
+)
 
 
 @click.group(name="causaliq-analysis")
@@ -19,32 +23,56 @@ def cli() -> None:
 
 
 @cli.command(name="migrate-trace")
-@click.option("--network", required=True, help="Network name to process")
 @click.option(
-    "--series", required=True, help="Series path (e.g., TABU/SAMPLE/BASE)"
+    "-n",
+    "--network",
+    multiple=True,
+    callback=single_value_callback,
+    required=True,
+    help="Network name to process",
 )
 @click.option(
+    "-s",
+    "--series",
+    multiple=True,
+    callback=single_value_callback,
+    required=True,
+    help="Series path (e.g., TABU/SAMPLE/BASE)",
+)
+@click.option(
+    "-r",
     "--root-dir",
     "root_dir",
-    default="experiments",
+    multiple=True,
+    callback=single_value_callback,
+    default=("experiments",),
     type=click.Path(exists=True),
     help="Root directory containing experiment traces",
 )
 @click.option(
-    "--N",
+    "-N",
+    "--sample-size",
     "sample_size",
-    default=None,
+    multiple=True,
+    callback=single_value_callback,
+    default=(),
     help="Filter by sample size (e.g., 10k, 100k, or integer). "
     "Omit to include all sample sizes.",
 )
 @click.option(
+    "-S",
     "--seed",
-    default="",
+    multiple=True,
+    callback=single_value_callback,
+    default=("",),
     help="Seed value or range (e.g., '5' or '0-24'). Empty means all seeds.",
 )
 @click.option(
+    "-o",
     "--output",
-    default=None,
+    multiple=True,
+    callback=single_value_callback,
+    default=(),
     type=click.Path(),
     help="Output directory for GraphML files. "
     "Defaults to migrated/<series>/<network>.",
@@ -64,9 +92,8 @@ def migrate_trace_cmd(
     with accompanying metadata JSON files.
 
     Example:
-        cqalys migrate_trace --network=asia --series=TABU/SAMPLE/BASE
-                             --root-dir=experiments --N=10k --seed=0-1
-                             --output=migrated/asia
+        causaliq-analysis migrate-trace -n asia -s TABU/SAMPLE/BASE
+                            -r experiments -N 10k -S 0-1 -o migrated/asia
     """
     from causaliq_analysis.migrate import (
         run_migrate_trace,

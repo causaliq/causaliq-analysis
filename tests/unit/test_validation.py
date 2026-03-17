@@ -2,6 +2,7 @@
 Tests for shared validation utilities.
 """
 
+import click
 import pytest
 
 from causaliq_analysis.validation import (
@@ -11,6 +12,7 @@ from causaliq_analysis.validation import (
     parse_seed_workflow,
     require_one_of,
     require_param,
+    single_value_callback,
     validate_filter_expression,
     validate_metric_specs,
 )
@@ -334,3 +336,39 @@ def test_require_one_of_all_none():
     params = {"traces": None, "network": None}
     with pytest.raises(ValueError, match="requires one of"):
         require_one_of(params, ["traces", "network"], "migrate")
+
+
+# Test single_value_callback returns None for empty tuple.
+def test_single_value_callback_empty():
+    """single_value_callback returns None for empty tuple."""
+    ctx = click.Context(click.Command("test"))
+    param = click.Option(["--test"])
+    result = single_value_callback(ctx, param, ())
+    assert result is None
+
+
+# Test single_value_callback returns single value.
+def test_single_value_callback_single():
+    """single_value_callback returns the single value from tuple."""
+    ctx = click.Context(click.Command("test"))
+    param = click.Option(["--test"])
+    result = single_value_callback(ctx, param, ("value",))
+    assert result == "value"
+
+
+# Test single_value_callback raises for multiple values.
+def test_single_value_callback_multiple():
+    """single_value_callback raises BadParameter for multiple values."""
+    ctx = click.Context(click.Command("test"))
+    param = click.Option(["--test"])
+    with pytest.raises(click.BadParameter, match="specified multiple times"):
+        single_value_callback(ctx, param, ("val1", "val2"))
+
+
+# Test single_value_callback error message lists all values.
+def test_single_value_callback_error_message():
+    """single_value_callback error message includes all duplicate values."""
+    ctx = click.Context(click.Command("test"))
+    param = click.Option(["--network"])
+    with pytest.raises(click.BadParameter, match="asia.*alarm"):
+        single_value_callback(ctx, param, ("asia", "alarm"))

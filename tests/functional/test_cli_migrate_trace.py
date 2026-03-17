@@ -105,7 +105,7 @@ def test_migrate_trace_with_sample_size(cli_runner, tmp_path, monkeypatch):
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",
-            "--N=1k",  # Use sample_size parameter
+            "--sample-size=1k",  # Use sample_size parameter
         ],
     )
 
@@ -217,3 +217,134 @@ def test_migrate_trace_general_error(cli_runner, tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert "Migration failed" in result.output
+
+
+# Test migrate_trace rejects duplicate --network option.
+def test_migrate_trace_duplicate_network_rejected(cli_runner, tmp_path):
+    """Test migrate_trace raises error if --network specified multiply."""
+    root_dir = tmp_path / "experiments"
+    root_dir.mkdir()
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "migrate-trace",
+            "--network=asia",
+            "--network=alarm",
+            "--series=TABU/STD",
+            f"--root-dir={root_dir}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test migrate_trace rejects duplicate --series option.
+def test_migrate_trace_duplicate_series_rejected(cli_runner, tmp_path):
+    """Test migrate_trace raises error if --series specified multiple times."""
+    root_dir = tmp_path / "experiments"
+    root_dir.mkdir()
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "migrate-trace",
+            "--network=asia",
+            "--series=TABU/STD",
+            "--series=GES/STD",
+            f"--root-dir={root_dir}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test migrate_trace rejects duplicate --sample-size option.
+def test_migrate_trace_duplicate_sample_size_rejected(cli_runner, tmp_path):
+    """Test migrate_trace raises error if --sample-size specified twice."""
+    root_dir = tmp_path / "experiments"
+    root_dir.mkdir()
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "migrate-trace",
+            "--network=asia",
+            "--series=TABU/STD",
+            f"--root-dir={root_dir}",
+            "--sample-size=1k",
+            "--sample-size=10k",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test migrate_trace rejects duplicate --seed option.
+def test_migrate_trace_duplicate_seed_rejected(cli_runner, tmp_path):
+    """Test migrate_trace raises error if --seed specified multiple times."""
+    root_dir = tmp_path / "experiments"
+    root_dir.mkdir()
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "migrate-trace",
+            "--network=asia",
+            "--series=TABU/STD",
+            f"--root-dir={root_dir}",
+            "--seed=0-5",
+            "--seed=10-15",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test migrate_trace rejects duplicate --output option.
+def test_migrate_trace_duplicate_output_rejected(cli_runner, tmp_path):
+    """Test migrate_trace raises error if --output specified multiple times."""
+    root_dir = tmp_path / "experiments"
+    root_dir.mkdir()
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "migrate-trace",
+            "--network=asia",
+            "--series=TABU/STD",
+            f"--root-dir={root_dir}",
+            "--output=out1",
+            "--output=out2",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test migrate_trace rejects duplicate --root-dir option.
+def test_migrate_trace_duplicate_root_dir_rejected(cli_runner, tmp_path):
+    """Test migrate_trace raises error if --root-dir specified twice."""
+    root1 = tmp_path / "exp1"
+    root1.mkdir()
+    root2 = tmp_path / "exp2"
+    root2.mkdir()
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "migrate-trace",
+            "--network=asia",
+            "--series=TABU/STD",
+            f"--root-dir={root1}",
+            f"--root-dir={root2}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output

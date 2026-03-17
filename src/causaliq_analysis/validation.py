@@ -5,10 +5,50 @@ This module contains shared validation functions used across CLI and
 workflow_action modules to avoid code duplication.
 """
 
-from typing import Any, FrozenSet, List, Optional, Tuple, Union
+from typing import Any, FrozenSet, List, Optional, Tuple, TypeVar, Union
+
+import click
+
+T = TypeVar("T")
 
 # Supported summary statistics for metric specifications
 SUPPORTED_STATS: FrozenSet[str] = frozenset({"mean", "sd", "count"})
+
+
+def single_value_callback(
+    ctx: click.Context,
+    param: click.Option,
+    value: Tuple[T, ...],
+) -> Optional[T]:
+    """Click callback to enforce single-value options.
+
+    Use with ``multiple=True`` options to raise an error if the option
+    is specified more than once, preventing silent overwrites.
+
+    Args:
+        ctx: Click context.
+        param: Click parameter.
+        value: Tuple of values (from multiple=True).
+
+    Returns:
+        Single value, or None if not provided.
+
+    Raises:
+        click.BadParameter: If option specified multiple times.
+
+    Example:
+        >>> @click.option("--network", "-n", multiple=True,
+        ...               callback=single_value_callback)
+        ... def cmd(network): ...
+    """
+    if not value:
+        return None
+    if len(value) > 1:
+        raise click.BadParameter(
+            f"specified multiple times: {', '.join(str(v) for v in value)}. "
+            f"Only one value is allowed."
+        )
+    return value[0]
 
 
 def parse_sample_size(size_input: Union[str, int]) -> int:

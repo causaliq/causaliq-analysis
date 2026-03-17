@@ -142,7 +142,7 @@ def test_migrate_trace_with_sample_size(cli_runner, tmp_path, monkeypatch):
             "--network=asia",
             "--series=TABU/STD",
             f"--root-dir={root_dir}",
-            "--N=1k",  # Use sample_size parameter
+            "--sample-size=1k",  # Use sample_size parameter
         ],
     )
 
