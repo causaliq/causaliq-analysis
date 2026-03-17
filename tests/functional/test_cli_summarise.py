@@ -83,6 +83,74 @@ def test_summarise_single_json_object(cli_runner, tmp_path):
         assert float(row["precision.mean"]) == 0.9
 
 
+# Test summarise command with _meta.json format files.
+def test_summarise_meta_json_format(cli_runner, tmp_path):
+    """Test summarise command with _meta.json format files."""
+    import json
+
+    # Create _meta.json format with nested provider/action structure
+    meta1 = {
+        "matrix_values": {"network": "asia", "seed": 0},
+        "metadata": {
+            "causaliq-analysis": {
+                "evaluate_graph": {
+                    "f1": 0.8,
+                    "shd": 2,
+                }
+            }
+        },
+    }
+    meta2 = {
+        "matrix_values": {"network": "asia", "seed": 1},
+        "metadata": {
+            "causaliq-analysis": {
+                "evaluate_graph": {
+                    "f1": 0.9,
+                    "shd": 1,
+                }
+            }
+        },
+    }
+
+    input1 = tmp_path / "_meta1.json"
+    input2 = tmp_path / "_meta2.json"
+    with open(input1, "w") as f:
+        json.dump(meta1, f)
+    with open(input2, "w") as f:
+        json.dump(meta2, f)
+
+    output_path = tmp_path / "summary.csv"
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.mean",
+            "-m",
+            "f1.count",
+            "-m",
+            "shd.mean",
+            "-i",
+            str(input1),
+            "-i",
+            str(input2),
+            "-o",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    import csv
+
+    with open(output_path) as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+        assert abs(float(row["f1.mean"]) - 0.85) < 0.01
+        assert row["f1.count"] == "2"
+        assert abs(float(row["shd.mean"]) - 1.5) < 0.01
+
+
 # Test summarise command with invalid metric spec.
 def test_summarise_invalid_metric_spec(cli_runner, tmp_path):
     """Test summarise command rejects invalid metric specification."""
@@ -930,3 +998,63 @@ def test_print_summary_table_empty_results(capsys):
 
     captured = capsys.readouterr()
     assert "No results to display" in captured.out
+
+
+# Test summarise rejects duplicate --output option.
+def test_summarise_duplicate_output_rejected(cli_runner, tmp_path):
+    """Test summarise raises error if --output specified multiple times."""
+    import json
+
+    input_data = [{"f1": 0.8}]
+    input_path = tmp_path / "data.json"
+    with open(input_path, "w") as f:
+        json.dump(input_data, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.mean",
+            "-i",
+            str(input_path),
+            "-o",
+            "out1.csv",
+            "-o",
+            "out2.csv",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output
+
+
+# Test summarise rejects duplicate --filter option.
+def test_summarise_duplicate_filter_rejected(cli_runner, tmp_path):
+    """Test summarise raises error if --filter specified multiple times."""
+    import json
+
+    input_data = [{"f1": 0.8}]
+    input_path = tmp_path / "data.json"
+    with open(input_path, "w") as f:
+        json.dump(input_data, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.mean",
+            "-i",
+            str(input_path),
+            "-o",
+            "out.csv",
+            "-f",
+            "x > 1",
+            "-f",
+            "y < 5",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "specified multiple times" in result.output

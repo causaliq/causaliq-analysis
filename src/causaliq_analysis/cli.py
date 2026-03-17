@@ -737,6 +737,8 @@ def best_graph_cmd(
 @click.option(
     "--output",
     "-o",
+    multiple=True,
+    callback=single_value_callback,
     required=True,
     help="Output path: CSV file or '-' for terminal output.",
 )
@@ -744,7 +746,9 @@ def best_graph_cmd(
     "--filter",
     "-f",
     "filter_expr",
-    default=None,
+    multiple=True,
+    callback=single_value_callback,
+    default=(),
     help="Filter expression to select entries (e.g., 'status == completed').",
 )
 def summarise_cmd(
@@ -880,19 +884,29 @@ def summarise_cmd(
                     if not isinstance(record, dict):
                         continue
 
+                    # Check if this is a _meta.json format (has metadata key
+                    # with provider/action structure)
+                    if "metadata" in record and isinstance(
+                        record["metadata"], dict
+                    ):
+                        # Flatten metadata like we do for cache entries
+                        search_data = _flatten_metadata(record["metadata"])
+                    else:
+                        search_data = record
+
                     # Apply filter if specified
                     if filter_expr:
                         try:
                             from causaliq_core.utils import evaluate_filter
 
-                            if not evaluate_filter(filter_expr, record):
+                            if not evaluate_filter(filter_expr, search_data):
                                 continue
                         except Exception:
                             continue
 
                     # Extract metric values
                     for field in unique_fields:
-                        value = _get_nested_value(record, field)
+                        value = _get_nested_value(search_data, field)
                         if value is not None and isinstance(
                             value, (int, float)
                         ):
