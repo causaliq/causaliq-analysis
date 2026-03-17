@@ -355,13 +355,16 @@ def merge_graphs_cmd(
 
 
 # Supported metrics for evaluate-graph command
-SUPPORTED_METRICS = frozenset({"f1", "equiv.f1", "shd", "equiv.shd"})
+SUPPORTED_METRICS = frozenset(
+    {"f1", "equiv.f1", "shd", "equiv.shd", "precision", "recall"}
+)
 
 
 @cli.command(name="evaluate-graph")
 @click.option(
-    "--graph",
-    "-g",
+    "--input",
+    "-i",
+    "input_graph",
     required=True,
     type=click.Path(exists=True),
     help="Path to learned graph (.csv, .graphml, .tetrad, .xdsl, .dsc).",
@@ -378,28 +381,25 @@ SUPPORTED_METRICS = frozenset({"f1", "equiv.f1", "shd", "equiv.shd"})
     "-m",
     "metrics_requested",
     multiple=True,
-    default=None,
-    help="Metric to compute. Supported: f1, equiv.f1, shd, equiv.shd. "
-    "Can specify multiple. If omitted, computes all metrics.",
+    required=True,
+    help="Metric to compute. Supported: f1, shd, precision, recall, "
+    "equiv.f1, equiv.shd. Can specify multiple.",
 )
 @click.option(
     "--output",
     "-o",
-    default=None,
     type=click.Path(),
-    help="Output file path for metrics (JSON format). "
-    "If omitted, prints to stdout.",
+    help="Output file path for metrics JSON. If omitted, prints to stdout.",
 )
 @click.option(
     "--format",
-    "-f",
     "output_format",
-    default="json",
     type=click.Choice(["json", "table"]),
-    help="Output format: 'json' (default) or 'table' for human-readable.",
+    default="json",
+    help="Output format: json (default) or table.",
 )
 def evaluate_graph_cmd(
-    graph: str,
+    input_graph: str,
     reference: str,
     metrics_requested: Tuple[str, ...],
     output: Optional[str],
@@ -414,19 +414,21 @@ def evaluate_graph_cmd(
 
     Supported metrics:
     - f1: F1 score from direct graph comparison
-    - equiv.f1: F1 score comparing equivalence classes (CPDAGs)
     - shd: Structural Hamming Distance from direct comparison
+    - precision: Precision from direct comparison
+    - recall: Recall from direct comparison
+    - equiv.f1: F1 score comparing equivalence classes (CPDAGs)
     - equiv.shd: SHD comparing equivalence classes (CPDAGs)
 
     Example:
-        causaliq-analysis evaluate-graph -g learned.graphml \\
-            -r ground_truth.graphml
-
-        causaliq-analysis evaluate-graph -g learned.graphml \\
+        causaliq-analysis evaluate-graph -i learned.graphml \\
             -r ground_truth.graphml -m f1 -m shd
 
-        causaliq-analysis evaluate-graph -g learned.graphml \\
-            -r ground_truth.graphml -m equiv.f1 --format=table
+        causaliq-analysis evaluate-graph -i learned.graphml \\
+            -r ground_truth.graphml -m equiv.f1 -m equiv.shd
+
+        causaliq-analysis evaluate-graph -i learned.graphml \\
+            -r ground_truth.graphml -m f1 --format=table
     """
     import json
     from typing import Any, Dict, Union
@@ -459,21 +461,17 @@ def evaluate_graph_cmd(
             raise TypeError(f"Cannot convert {type(g).__name__} to CPDAG")
 
     # Validate requested metrics
-    if metrics_requested:
-        invalid = set(metrics_requested) - SUPPORTED_METRICS
-        if invalid:
-            raise click.ClickException(
-                f"Invalid metric(s): {', '.join(sorted(invalid))}. "
-                f"Supported: {', '.join(sorted(SUPPORTED_METRICS))}"
-            )
-        metrics_to_compute = set(metrics_requested)
-    else:
-        # Default: compute all metrics
-        metrics_to_compute = set(SUPPORTED_METRICS)
+    invalid = set(metrics_requested) - SUPPORTED_METRICS
+    if invalid:
+        raise click.ClickException(
+            f"Invalid metric(s): {', '.join(sorted(invalid))}. "
+            f"Supported: {', '.join(sorted(SUPPORTED_METRICS))}"
+        )
+    metrics_to_compute = set(metrics_requested)
 
     # Read learned graph
     try:
-        learned_graph = _read_graph_file(graph)
+        learned_graph = _read_graph_file(input_graph)
     except Exception as e:
         raise click.ClickException(f"Failed to read learned graph: {e}")
 
@@ -484,7 +482,9 @@ def evaluate_graph_cmd(
         raise click.ClickException(f"Failed to read reference graph: {e}")
 
     # Determine which comparisons are needed
-    need_direct = bool({"f1", "shd"} & metrics_to_compute)
+    need_direct = bool(
+        {"f1", "shd", "precision", "recall"} & metrics_to_compute
+    )
     need_equiv = bool({"equiv.f1", "equiv.shd"} & metrics_to_compute)
 
     metrics: Dict[str, Union[int, float, None]] = {}
@@ -502,6 +502,10 @@ def evaluate_graph_cmd(
             metrics["f1"] = raw_metrics.get("f1")
         if "shd" in metrics_to_compute:
             metrics["shd"] = raw_metrics.get("shd")
+        if "precision" in metrics_to_compute:
+            metrics["precision"] = raw_metrics.get("p")
+        if "recall" in metrics_to_compute:
+            metrics["recall"] = raw_metrics.get("r")
 
     # Compute equivalence class metrics if needed
     if need_equiv:
@@ -527,24 +531,29 @@ def evaluate_graph_cmd(
 
     # Output results
     if output_format == "table":
-        click.echo("Structural Evaluation Metrics")
-        click.echo("=" * 40)
-        for key, value in metrics.items():
-            if value is not None:
-                if isinstance(value, float):
-                    click.echo(f"{key:15s}: {value:.4f}")
-                else:
-                    click.echo(f"{key:15s}: {value}")
+        # Table format output
+        click.echo("\nStructural Evaluation Metrics")
+        click.echo("-" * 40)
+        for metric_name, value in sorted(metrics.items()):
+            if isinstance(value, float):
+                click.echo(f"{metric_name:<20} {value:.4f}")
+            else:
+                click.echo(f"{metric_name:<20} {value}")
+        click.echo("-" * 40)
     else:
-        # JSON format
-        json_output = json.dumps(metrics, indent=2)
+        # JSON format output
+        json_output = json.dumps(metrics)
         if output:
+            # Write to file
             output_path = Path(output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(json_output)
-            click.echo(f"Metrics written to {output_path}")
+            try:
+                output_path.write_text(json_output, encoding="utf-8")
+                click.echo(f"Metrics written to {output_path}")
+            except Exception as e:
+                raise click.ClickException(f"Failed to write output: {e}")
         else:
+            # Print to stdout
             click.echo(json_output)
 
 

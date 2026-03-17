@@ -810,8 +810,16 @@ def test_evaluate_graph_perfect_match(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
+            "-m",
+            "shd",
+            "-m",
+            "equiv.f1",
+            "-m",
+            "equiv.shd",
         ],
     )
 
@@ -848,8 +856,12 @@ def test_evaluate_graph_different_graphs(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
+            "-m",
+            "shd",
         ],
     )
 
@@ -882,7 +894,7 @@ def test_evaluate_graph_with_specific_metrics(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "f1",
@@ -903,9 +915,9 @@ def test_evaluate_graph_with_specific_metrics(cli_runner, tmp_path):
     assert "equiv.shd" not in metrics
 
 
-# Test evaluate-graph command with table format.
-def test_evaluate_graph_table_format(cli_runner, tmp_path):
-    """Test evaluate-graph command with table output format."""
+# Test evaluate-graph command with precision and recall metrics.
+def test_evaluate_graph_precision_recall(cli_runner, tmp_path):
+    """Test evaluate-graph command with precision and recall metrics."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -923,23 +935,28 @@ def test_evaluate_graph_table_format(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
-            "--format=table",
+            "-m",
+            "precision",
+            "-m",
+            "recall",
         ],
     )
 
     assert result.exit_code == 0
-    assert "Structural Evaluation Metrics" in result.output
-    assert "f1" in result.output
-    assert "shd" in result.output
-    assert "equiv.f1" in result.output
-    assert "equiv.shd" in result.output
+    import json
+
+    metrics = json.loads(result.output)
+    assert "precision" in metrics
+    assert "recall" in metrics
+    assert metrics["precision"] == 1.0
+    assert metrics["recall"] == 1.0
 
 
-# Test evaluate-graph command with output file.
-def test_evaluate_graph_output_file(cli_runner, tmp_path):
-    """Test evaluate-graph command writing to output file."""
+# Test evaluate-graph command output file creation.
+def test_evaluate_graph_output_directory(cli_runner, tmp_path):
+    """Test evaluate-graph command writes to output file."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -958,8 +975,12 @@ def test_evaluate_graph_output_file(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
+            "-m",
+            "shd",
             f"--output={output_path}",
         ],
     )
@@ -996,8 +1017,10 @@ def test_evaluate_graph_invalid_graph(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
         ],
     )
 
@@ -1025,8 +1048,10 @@ def test_evaluate_graph_invalid_reference(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
         ],
     )
 
@@ -1055,8 +1080,10 @@ def test_evaluate_graph_mismatched_nodes(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
         ],
     )
 
@@ -1093,8 +1120,10 @@ def test_evaluate_graph_type_error(cli_runner, tmp_path, monkeypatch):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
+            "-m",
+            "f1",
         ],
     )
 
@@ -1122,7 +1151,7 @@ def test_evaluate_graph_invalid_metric(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "invalid_metric",
@@ -1153,7 +1182,7 @@ def test_evaluate_graph_equiv_metrics_only(cli_runner, tmp_path):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
@@ -1207,7 +1236,13 @@ def test_evaluate_graph_xdsl_reference(cli_runner, tmp_path):
 
     result = cli_runner.invoke(
         cli,
-        ["evaluate-graph", f"--graph={graph_path}", f"--reference={ref_path}"],
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "f1",
+        ],
     )
 
     assert result.exit_code == 0
@@ -1241,7 +1276,7 @@ def test_evaluate_graph_cpdag_conversion_error(
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
@@ -1288,7 +1323,7 @@ def test_evaluate_graph_pdag_not_extendable(cli_runner, tmp_path, monkeypatch):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
@@ -1337,7 +1372,7 @@ def test_evaluate_graph_pdag_input(cli_runner, tmp_path, monkeypatch):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
@@ -1372,7 +1407,7 @@ def test_evaluate_graph_unsupported_type(cli_runner, tmp_path, monkeypatch):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
@@ -1412,7 +1447,7 @@ def test_evaluate_graph_equiv_comparison_error(
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
@@ -1449,7 +1484,7 @@ def test_evaluate_graph_equiv_type_error(cli_runner, tmp_path, monkeypatch):
         cli,
         [
             "evaluate-graph",
-            f"--graph={graph_path}",
+            f"--input={graph_path}",
             f"--reference={ref_path}",
             "-m",
             "equiv.f1",
