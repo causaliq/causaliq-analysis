@@ -428,7 +428,6 @@ def test_merge_graphs_accepts_all_valid_parameters() -> None:
         "merge_graphs",
         {
             "input": "results.db",
-            "aggregate": "network",
             "weights": {"score": {"bayesian_score": 1.0}},
             "cpdag": True,
             "filter": "N >= 1000",

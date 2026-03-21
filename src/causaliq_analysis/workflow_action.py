@@ -206,20 +206,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
             description=(
                 "Input file(s) (.graphml or .db). Can be a single path "
                 "or a list of paths. Type is detected by extension. For "
-                ".db files, all graphml objects from all cache entries "
-                "are read. Not required when using aggregation mode "
-                "(workflow with 'aggregate' parameter)."
-            ),
-            required=False,
-            type_hint="str or list[str]",
-        ),
-        "aggregate": ActionInput(
-            name="aggregate",
-            description=(
-                "Workflow cache path(s) for aggregation mode. When used "
-                "with a workflow matrix, entries are grouped by matrix "
-                "variables and graphs are extracted from matching entries. "
-                "Mutually exclusive with 'input' parameter."
+                ".db files in aggregation mode (AGGREGATE action pattern), "
+                "entries are grouped by matrix variables and graphs are "
+                "extracted from matching entries."
             ),
             required=False,
             type_hint="str or list[str]",
@@ -314,7 +303,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
         },
         "merge_graphs": {
             "input",
-            "aggregate",
             "weights",
             "cpdag",
             "filter",
@@ -714,10 +702,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         Supports two modes of operation:
 
-        1. **Aggregation mode**: When called from a workflow with a matrix
-           definition and 'aggregate' parameter, receives pre-scanned cache
-           entries via '_aggregation_entries'. Extracts graphs from these
-           entries and merges them.
+        1. **Aggregation mode**: When called from a workflow with an
+           AGGREGATE action pattern and .db input, receives pre-scanned
+           cache entries via '_aggregation_entries'. Extracts graphs from
+           these entries and merges them.
 
         2. **Direct mode**: When called from CLI or workflow without
            aggregation, reads graphs from 'inputs' file paths (.graphml or
@@ -751,9 +739,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Validate: must have either aggregation entries or file inputs
             if not is_aggregation_mode and not input_files:  # pragma: no cover
                 raise ActionExecutionError(
-                    "merge_graphs requires either 'aggregate' parameter "
-                    "(workflow aggregation mode) or 'input' (list of "
-                    ".graphml or .db files)"
+                    "merge_graphs requires 'input' (list of .graphml or "
+                    ".db files). For aggregation mode, use AGGREGATE action "
+                    "pattern with .db input."
                 )
 
             # Dry-run mode
@@ -852,8 +840,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     if not graph_metadata:
                         raise ActionExecutionError(
                             "Metadata-driven weights require aggregation "
-                            "mode. Use 'aggregate' parameter or provide "
-                            "explicit weight list."
+                            "mode (AGGREGATE pattern with .db input) or "
+                            "provide explicit weight list."
                         )
                     final_weights = self._compute_weights_from_metadata(
                         graph_metadata, weights, log_fn
@@ -998,13 +986,29 @@ class AnalysisActionProvider(CausalIQActionProvider):
         if entry is None:
             raise ActionExecutionError("No entry object in _update_entry")
 
-        # Find graphml object in entry
+        # Valid graph types for evaluation (exclude pdg)
+        valid_graph_types = ("dag", "pdag", "cpdag")
+
+        def _is_pdg_graphml(content: str) -> bool:
+            """Check if GraphML content is a PDG (has probability keys)."""
+            return '<key id="p_forward"' in content
+
+        # Find graphml object of valid type in entry
         graph = None
         graph_type = None
         for obj_type in entry.object_types():
+            if obj_type not in valid_graph_types:
+                continue
             obj = entry.get_object(obj_type)
             if obj is None or obj.format != "graphml":
                 continue
+            # Validate that graphml is not actually a PDG
+            if _is_pdg_graphml(obj.content):
+                raise ActionExecutionError(
+                    f"Object '{obj_type}' contains PDG data (has p_forward "
+                    "probabilities). evaluate_graph requires a DAG, PDAG, "
+                    "or CPDAG without probability weights."
+                )
             try:
                 graph = graphml.read(StringIO(obj.content))
                 graph_type = obj_type
@@ -1016,7 +1020,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         if graph is None:
             raise ActionExecutionError(
-                "No graphml object found in cache entry"
+                "No evaluable graph object found in cache entry. "
+                "evaluate_graph requires a 'dag', 'pdag', or 'cpdag' object."
             )
 
         # Load reference graph
@@ -1273,10 +1278,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         Supports two modes of operation:
 
-        1. **Aggregation mode**: When called from a workflow with a matrix
-           definition and 'aggregate' parameter, receives pre-scanned cache
-           entries via '_aggregation_entries'. For each matrix combination,
-           computes summary statistics from matching entries.
+        1. **Aggregation mode**: When called from a workflow with an
+           AGGREGATE action pattern and .db input, receives pre-scanned
+           cache entries via '_aggregation_entries'. For each matrix
+           combination, computes summary statistics from matching entries.
 
         2. **Direct mode**: When called from CLI or workflow without
            aggregation, reads entries from 'input' cache file(s) and

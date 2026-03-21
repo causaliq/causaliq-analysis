@@ -447,7 +447,7 @@ def test_merge_graphs_general_exception(
 
 # Test merge_graphs action requires inputs.
 def test_merge_graphs_missing_inputs() -> None:
-    """Test merge_graphs action requires inputs or aggregate parameter."""
+    """Test merge_graphs requires input parameter or aggregation entries."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
