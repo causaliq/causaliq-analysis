@@ -36,6 +36,44 @@ _METADATA_FIELDS = [
     "software_version",
 ]
 
+# Variable name corrections for known typos in source datasets.
+# These corrections are applied during trace migration to ensure
+# consistency across the CausalIQ ecosystem.
+# Note: HTshotOnTarget was misspelt in the original source (Constantinou 2018).
+# Note: DIA_HadDiahorrea was misspelt in the original source.
+_VARIABLE_NAME_CORRECTIONS: Dict[str, str] = {
+    "HTshotOnTarget": "HTshotsOnTarget",
+    "DIA_HadDiahorrea": "DIA_HadDiarrhoea",
+}
+
+
+def _apply_name_corrections(
+    graph: Any,
+    corrections: Dict[str, str] = _VARIABLE_NAME_CORRECTIONS,
+) -> Any:
+    """Apply variable name corrections to a graph.
+
+    Creates a copy of the graph with corrected variable names. Only
+    applies corrections for nodes that exist in the graph and have
+    entries in the corrections mapping.
+
+    Args:
+        graph: DAG or PDAG graph object with a rename() method.
+        corrections: Mapping of incorrect names to corrected names.
+
+    Returns:
+        Graph with corrected names (original if no corrections needed).
+    """
+    # Build full name map (required by SDG.rename)
+    nodes_to_correct = set(graph.nodes) & set(corrections.keys())
+    if not nodes_to_correct:
+        return graph  # No corrections needed
+
+    # Create full map: identity for unchanged nodes, correction for others
+    name_map = {n: corrections.get(n, n) for n in graph.nodes}
+    graph.rename(name_map)
+    return graph
+
 
 def _json_serialise(obj: Any) -> Any:
     """Custom JSON serialiser for metadata objects.
@@ -229,6 +267,7 @@ def trace_to_graphml(trace: Trace, graph_id: Optional[str] = None) -> str:
     Converts the learnt graph from a Trace to GraphML format, suitable
     for storage in workflow caches or interchange with other tools.
     The graph is exported as-is, preserving directed and undirected edges.
+    Known variable name typos are corrected during conversion.
 
     Args:
         trace: The Trace object containing the learnt graph.
@@ -258,9 +297,12 @@ def trace_to_graphml(trace: Trace, graph_id: Optional[str] = None) -> str:
     if graph_id is None:
         graph_id = _get_network_name(trace)
 
+    # Apply variable name corrections (e.g., typos in source datasets)
+    graph = _apply_name_corrections(trace.result)
+
     # Write to StringIO buffer
     buffer = StringIO()
-    graphml.write(trace.result, buffer, graph_id=graph_id)
+    graphml.write(graph, buffer, graph_id=graph_id)
     return buffer.getvalue()
 
 

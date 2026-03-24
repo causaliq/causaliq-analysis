@@ -6,6 +6,7 @@ import pytest
 from causaliq_core.graph import DAG, PDAG
 
 from causaliq_analysis.migrate import (
+    _apply_name_corrections,
     _get_network_name,
     _json_serialise,
     filter_traces,
@@ -13,6 +14,25 @@ from causaliq_analysis.migrate import (
     trace_to_pdag,
 )
 from causaliq_analysis.trace import Trace
+
+
+# Test _apply_name_corrections applies known corrections.
+def test_apply_name_corrections_applies_correction() -> None:
+    dag = DAG(["HTshotOnTarget", "B"], [("HTshotOnTarget", "->", "B")])
+
+    result = _apply_name_corrections(dag)
+
+    assert "HTshotsOnTarget" in result.nodes
+    assert "HTshotOnTarget" not in result.nodes
+
+
+# Test _apply_name_corrections returns unchanged if no corrections needed.
+def test_apply_name_corrections_no_change() -> None:
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    result = _apply_name_corrections(dag)
+
+    assert result.nodes == ["A", "B"]
 
 
 # Test _json_serialise handles Enum types.
