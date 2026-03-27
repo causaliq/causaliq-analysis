@@ -226,15 +226,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="list[float] or dict[str, dict[str, float]]",
         ),
-        "cpdag": ActionInput(
-            name="cpdag",
+        "object_type": ActionInput(
+            name="object_type",
             description=(
-                "Convert DAGs to CPDAGs before merging. "
-                "Averages over equivalence classes."
+                "Select graph object type to extract from cache "
+                "entries. 'dag' extracts DAG objects, 'cpdag' "
+                "extracts DAG objects and converts to CPDAGs "
+                "before merging, 'pdg' extracts PDG objects. "
+                "If not set, all graphml objects are used."
             ),
             required=False,
-            default=False,
-            type_hint="bool",
+            type_hint="str",
         ),
         # evaluate_graph inputs
         "reference": ActionInput(
@@ -304,7 +306,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "merge_graphs": {
             "input",
             "weights",
-            "cpdag",
+            "object_type",
             "filter",
             "output",
             "_aggregation_entries",  # Internal workflow parameter
@@ -730,8 +732,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
             else:
                 input_files = list(input_raw)
             weights = parameters.get("weights")
-            cpdag = parameters.get("cpdag", False)
             filter_expr = parameters.get("filter")
+            object_type = parameters.get("object_type")
+
+            # Derive cpdag flag and object filter from object_type
+            cpdag = object_type == "cpdag"
+            obj_filter = "dag" if object_type == "cpdag" else object_type
 
             # Detect aggregation mode
             is_aggregation_mode = aggregation_entries is not None
@@ -793,7 +799,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     )
                 graphs, graph_metadata, source_info = (
                     self._extract_graphs_from_entries(
-                        aggregation_entries, log_fn
+                        aggregation_entries,
+                        log_fn,
+                        object_type=obj_filter,
                     )
                 )
             else:
@@ -806,7 +814,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     if path_lower.endswith(".db"):
                         # Read from WorkflowCache
                         cache_graphs, entries = self._read_graphs_from_cache(
-                            input_path, log_fn
+                            input_path,
+                            log_fn,
+                            object_type=obj_filter,
                         )
                         graphs.extend(cache_graphs)
                         cache_entries_read += entries
@@ -876,6 +886,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "aggregation_mode": is_aggregation_mode,
                 "output": {"type": "pdg", "format": "graphml"},
             }
+            if object_type is not None:
+                metadata["object_type"] = object_type
             if filter_expr is not None:
                 metadata["filter"] = filter_expr
             if weights_applied:
@@ -1662,6 +1674,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
         self,
         entries: List[Dict[str, Any]],
         log_fn: Optional[Any],
+        *,
+        object_type: Optional[str] = None,
     ) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
         """Extract graphs from aggregation entries.
 
@@ -1673,6 +1687,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 Each entry has: matrix_values, metadata, cache_path,
                 entry_hash, entry (the CacheEntry object).
             log_fn: Optional logging function.
+            object_type: If set, only extract objects with this type
+                name (e.g., 'pdg'). If None, all graphml objects
+                are extracted.
 
         Returns:
             Tuple of:
@@ -1707,8 +1724,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             # Flatten metadata for filter/weight evaluation
             flat_meta = self._flatten_entry_metadata(matrix_values, metadata)
 
-            # Find all graphml objects in this entry
+            # Find graphml objects in this entry
             for obj_type in entry.object_types():
+                if object_type is not None and obj_type != object_type:
+                    continue
                 obj = entry.get_object(obj_type)
                 if obj is None or obj.format != "graphml":
                     continue
@@ -1838,14 +1857,19 @@ class AnalysisActionProvider(CausalIQActionProvider):
         self,
         cache_path: str,
         log_fn: Optional[Any],
+        *,
+        object_type: Optional[str] = None,
     ) -> Tuple[List[Any], int]:
         """Read graphs from a WorkflowCache database.
 
-        Finds all objects with type='graphml' in all cache entries.
+        Finds graphml objects in all cache entries.
 
         Args:
             cache_path: Path to WorkflowCache database file (.db).
             log_fn: Optional logging function.
+            object_type: If set, only extract objects with this type
+                name (e.g., 'pdg'). If None, all graphml objects
+                are extracted.
 
         Returns:
             Tuple of (list of graphs, number of entries with graphs).
@@ -1874,9 +1898,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     if entry is None:
                         continue
 
-                    # Find all graphml objects in this entry
+                    # Find graphml objects in this entry
                     found_in_entry = 0
                     for obj_type in entry.object_types():
+                        if object_type is not None and obj_type != object_type:
+                            continue
                         obj = entry.get_object(obj_type)
                         if obj is None or obj.format != "graphml":
                             continue

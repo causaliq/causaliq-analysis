@@ -181,18 +181,21 @@ def migrate_trace_cmd(
     "Only applies to .db cache inputs.",
 )
 @click.option(
-    "--cpdag",
-    is_flag=True,
-    default=False,
-    help="Convert DAGs to CPDAGs before merging. "
-    "Averages over equivalence classes rather than specific orientations.",
+    "--object-type",
+    "-t",
+    "object_type",
+    default=None,
+    type=click.Choice(["dag", "cpdag", "pdg"]),
+    help="Select graph object type: 'dag' (use DAGs), 'cpdag' "
+    "(use DAGs converted to CPDAGs), 'pdg' (use PDGs). "
+    "If not set, all graphml objects are used.",
 )
 def merge_graphs_cmd(
     inputs: Tuple[str, ...],
     output: str,
     filter_expr: Optional[str],
     weights: Optional[str],
-    cpdag: bool,
+    object_type: Optional[str],
 ) -> None:
     """
     Merge multiple graphs into a single PDG with edge probabilities.
@@ -214,7 +217,7 @@ def merge_graphs_cmd(
             -o merged.graphml
 
         causaliq-analysis merge-graphs -i results.db -w weights.json \\
-            -o merged.graphml --cpdag
+            -o merged.graphml --object-type=cpdag
     """
     import json
     from io import StringIO
@@ -231,6 +234,10 @@ def merge_graphs_cmd(
 
     from causaliq_analysis.merge import merge_graphs
     from causaliq_analysis.validation import validate_filter_expression
+
+    # Derive cpdag flag and object filter from object_type
+    cpdag = object_type == "cpdag"
+    obj_filter = "dag" if object_type == "cpdag" else object_type
 
     # Pre-validate filter expression syntax
     if filter_expr:
@@ -280,9 +287,14 @@ def merge_graphs_cmd(
                                     f"Invalid filter expression: {e}"
                                 )
 
-                        # Find all graphml objects in this entry
+                        # Find graphml objects in this entry
                         found_graphs = 0
                         for obj_type in entry.object_types():
+                            if (
+                                obj_filter is not None
+                                and obj_type != obj_filter
+                            ):
+                                continue
                             obj = entry.get_object(obj_type)
                             if obj is None or obj.format != "graphml":
                                 continue
@@ -392,7 +404,7 @@ def merge_graphs_cmd(
     # Write metadata
     meta_data: Dict[str, Any] = {
         "num_graphs": len(graphs),
-        "cpdag": cpdag,
+        "object_type": object_type,
         "weights_file": weights if weights else None,
         "filter": filter_expr if filter_expr else None,
     }

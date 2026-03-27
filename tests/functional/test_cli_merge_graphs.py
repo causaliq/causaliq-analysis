@@ -189,9 +189,9 @@ def test_merge_graphs_with_weights(cli_runner, tmp_path):
     assert "Applied metadata-driven weights" in result.output
 
 
-# Test merge-graphs with cpdag flag.
+# Test merge-graphs with --object-type=cpdag.
 def test_merge_graphs_with_cpdag(cli_runner, tmp_path):
-    """Test merge-graphs command with --cpdag flag."""
+    """Test merge-graphs command with --object-type=cpdag."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -214,12 +214,50 @@ def test_merge_graphs_with_cpdag(cli_runner, tmp_path):
             f"--input={graph1_path}",
             f"--input={graph2_path}",
             f"--output={output_path}",
-            "--cpdag",
+            "--object-type=cpdag",
         ],
     )
 
     assert result.exit_code == 0
     assert "Merged 2 graphs" in result.output
+
+
+# Test merge-graphs --object-type filters objects in cache entries.
+def test_merge_graphs_object_type_filters_cache(cli_runner, tmp_path):
+    """Test --object-type skips non-matching objects in cache."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    cache_path = tmp_path / "test.db"
+    output_path = tmp_path / "merged.graphml"
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    buf = StringIO()
+    graphml.write(dag, buf)
+    dag_graphml = buf.getvalue()
+
+    with WorkflowCache(str(cache_path)) as cache:
+        entry = CacheEntry()
+        entry.add_object("dag", "graphml", dag_graphml)
+        entry.add_object("pdg", "graphml", dag_graphml)
+        entry.metadata["network"] = "asia"
+        cache.put({"seed": 1}, entry)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={cache_path}",
+            f"--output={output_path}",
+            "--object-type=pdg",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Merged 1 graph" in result.output
 
 
 # Test merge-graphs with invalid filter expression.

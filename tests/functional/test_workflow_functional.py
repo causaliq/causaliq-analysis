@@ -647,7 +647,7 @@ def test_merge_graphs_with_cpdag(
 
     parameters = {
         "input": [str(graph1_path), str(graph2_path)],
-        "cpdag": True,
+        "object_type": "cpdag",
     }
 
     status, metadata, objects = action.run(
@@ -655,7 +655,7 @@ def test_merge_graphs_with_cpdag(
     )
 
     assert status == "success"
-    assert metadata["cpdag"] is True
+    assert metadata["object_type"] == "cpdag"
 
     # Both DAGs convert to equivalent CPDAGs, so should get 1.0 undirected
     pdg = graphml.read_pdg(StringIO(objects[0]["content"]))

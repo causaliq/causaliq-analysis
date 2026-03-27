@@ -168,7 +168,14 @@ def test_merge_graph_with_cpdag(runner, tmp_path):
     output = tmp_path / "merged.graphml"
     result = runner.invoke(
         cli,
-        ["merge-graphs", "-i", str(graphml1), "-o", str(output), "--cpdag"],
+        [
+            "merge-graphs",
+            "-i",
+            str(graphml1),
+            "-o",
+            str(output),
+            "--object-type=cpdag",
+        ],
     )
 
     assert result.exit_code == 0

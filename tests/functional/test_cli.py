@@ -436,9 +436,9 @@ def test_merge_graphs_with_weights(cli_runner, tmp_path):
     assert "Applied metadata-driven weights" in result.output
 
 
-# Test merge-graphs with cpdag flag.
+# Test merge-graphs with --object-type=cpdag.
 def test_merge_graphs_with_cpdag(cli_runner, tmp_path):
-    """Test merge-graphs command with --cpdag flag."""
+    """Test merge-graphs command with --object-type=cpdag."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -461,7 +461,7 @@ def test_merge_graphs_with_cpdag(cli_runner, tmp_path):
             f"--input={graph1_path}",
             f"--input={graph2_path}",
             f"--output={output_path}",
-            "--cpdag",
+            "--object-type=cpdag",
         ],
     )
 

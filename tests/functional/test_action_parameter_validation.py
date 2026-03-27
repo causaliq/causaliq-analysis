@@ -429,7 +429,7 @@ def test_merge_graphs_accepts_all_valid_parameters() -> None:
         {
             "input": "results.db",
             "weights": {"score": {"bayesian_score": 1.0}},
-            "cpdag": True,
+            "object_type": "cpdag",
             "filter": "N >= 1000",
             "output": "pdg.db",
         },
