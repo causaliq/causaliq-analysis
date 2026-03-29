@@ -14,6 +14,7 @@ sample sizes, or algorithms.
 | `filter` | — | No | Filter expression for cache entries (Python syntax, action only) |
 | `weights` | `-w`/`--weights` | No | JSON file specifying metadata-driven weights |
 | `cpdag` | `--cpdag` | No | Convert DAGs to CPDAGs before merging |
+| `strategy` | `-s`/`--strategy` | No | Merge strategy: `average` (default), `noisy_or`, or `max` |
 
 
 **Notes:**
@@ -51,9 +52,15 @@ merging. For each node pair (A, B) where A < B alphabetically:
 
 PDG edge probabilities are used directly as-is.
 
-### Step 2: Combine Probabilities with Weighted Averaging
+### Step 2: Combine Probabilities
 
-For each node pair, the final probabilities are computed as weighted averages:
+The `strategy` parameter controls how edge probabilities from different
+sources are combined. Three strategies are available.
+
+#### Average (default)
+
+Weighted averaging of probability vectors. For each node pair, the final
+probabilities are computed as:
 
 $$P_{merged}(state) = \sum_{i=1}^{n} w_i \cdot P_i(state)$$
 
@@ -62,7 +69,42 @@ Where:
 - $P_i(state)$ is the probability of that edge state in graph $i$
 - $state \in \{forward, backward, undirected, none\}$
 
-### Example
+This strategy treats absence of an edge as positive evidence against
+existence. If only one of two equally-weighted sources reports an edge,
+the merged existence probability is halved.
+
+#### Noisy-OR
+
+Noisy-OR for edge existence combined with weighted orientation averaging.
+An edge exists if **any** source supports it:
+
+$$P(none) = \prod_{i=1}^{n} P_i(none)^{\alpha_i}$$
+
+where $\alpha_i = w_i \cdot n$. Under uniform weights, each
+$\alpha_i = 1$ giving standard noisy-OR.
+
+Edge existence is then $P(exist) = 1 - P(none)$ and the directional
+probabilities are computed as a weighted average of the conditional
+orientations from contributing sources:
+
+$$P(dir) = P(exist) \cdot \frac{\sum_i w_i \cdot P_i(exist) \cdot P_i(dir \mid exist)}{\sum_i w_i \cdot P_i(exist)}$$
+
+This strategy is useful when fusing heterogeneous sources — for example,
+an LLM with good orientation knowledge and a structure-learning algorithm
+with good existence detection. Because absence in one source does not
+cancel presence in another, orientation knowledge is preserved.
+
+#### Max
+
+Selects the single most confident source per edge. For each node pair,
+the source with the highest weighted existence score is chosen:
+
+$$\text{best} = \arg\max_i \; w_i \cdot P_i(exist) \cdot n$$
+
+The complete probability vector from that source is used as-is. This is
+useful as a simple baseline or when one source is expected to dominate.
+
+### Example (Average)
 
 Consider merging three graphs for nodes A and B:
 
@@ -81,6 +123,21 @@ Consider merging three graphs for nodes A and B:
 | P(undirected) | 0.333 × 0.0 + 0.333 × 0.0 + 0.333 × 0.0 | 0.0 |
 | P(none) | 0.333 × 0.0 + 0.333 × 0.0 + 0.333 × 1.0 | 0.333 |
 
+### Example (Noisy-OR)
+
+Same three graphs with uniform weights ($\alpha_i = 1$):
+
+| State | Calculation | Probability |
+|-------|-------------|-------------|
+| P(none) | $0.0^1 \times 0.0^1 \times 1.0^1$ | 0.0 |
+| P(exist) | $1 - 0$ | 1.0 |
+| P(forward) | $1.0 \times \frac{0.333 \times 1.0}{0.333 + 0.333}$ | 0.5 |
+| P(backward) | $1.0 \times \frac{0.333 \times 1.0}{0.333 + 0.333}$ | 0.5 |
+
+Because Graph 1 and Graph 2 both report a definite edge, the noisy-OR
+combination gives P(exist) = 1.0, and orientation is split between
+forward and backward according to the contributing sources.
+
 ---
 
 ## Python API
@@ -95,6 +152,7 @@ def merge_graphs(
     graphs: List[Union[DAG, PDAG, PDG]],
     weights: Optional[List[float]] = None,
     cpdag: bool = False,
+    strategy: str = "average",
 ) -> PDG:
     """Merge multiple graphs into a single PDG with edge probabilities.
 
@@ -104,14 +162,19 @@ def merge_graphs(
             provided. If None, uniform weights (1/n) are used.
         cpdag: If True, convert DAGs to their CPDAG (equivalence class)
             before merging.
+        strategy: Merge strategy. 'average' for weighted averaging
+            (default). 'noisy_or' for noisy-OR existence with
+            weighted orientation. 'max' to select the most
+            confident source per edge.
 
     Returns:
-        PDG with weighted average edge probabilities.
+        PDG with combined edge probabilities.
 
     Raises:
         TypeError: If graphs or weights have invalid types.
         ValueError: If graphs list is empty, nodes differ across graphs,
-            weights don't match graph count, or weights don't sum to 1.0.
+            weights don't match graph count, weights don't sum to 1.0,
+            or strategy is invalid.
     """
 ```
 
@@ -149,6 +212,28 @@ pdg = merge_graphs([dag1, dag2, dag3], weights=[0.5, 0.25, 0.25])
 ```python
 # Convert DAGs to CPDAGs before merging (averages over equivalence classes)
 pdg = merge_graphs([dag1, dag2, dag3], cpdag=True)
+```
+
+### Noisy-OR Strategy
+
+```python
+# Noisy-OR preserves edges reported by any source and
+# blends orientation from contributing sources
+pdg = merge_graphs([dag1, dag2, dag3], strategy="noisy_or")
+
+# Combine with custom weights (e.g., trust LLM orientation more)
+pdg = merge_graphs(
+    [llm_graph, fges_graph],
+    weights=[0.6, 0.4],
+    strategy="noisy_or",
+)
+```
+
+### Max Strategy
+
+```python
+# Select the most confident source per edge
+pdg = merge_graphs([dag1, dag2, dag3], strategy="max")
 ```
 
 ---
@@ -191,6 +276,19 @@ causaliq-analysis merge-graphs `
   -w weights.json `
   -o merged.graphml `
   --cpdag
+
+# Noisy-OR merge strategy
+causaliq-analysis merge-graphs `
+  -i results.db `
+  --strategy noisy_or `
+  -o merged.graphml
+
+# Max strategy with filtering
+causaliq-analysis merge-graphs `
+  -i results.db `
+  -f "network == 'asia'" `
+  --strategy max `
+  -o merged.graphml
 ```
 
 ---
@@ -226,6 +324,24 @@ steps:
 
 If `discovery_results.db` contains entries for multiple sample sizes per
 network, this produces one merged PDG per network in `merged.db`.
+
+```yaml
+# Noisy-OR fusion of LLM and BNSL results
+id: "fuse_noisy_or"
+description: "Fuse LLM and structure learning graphs"
+
+matrix:
+  network: ["asia", "cancer"]
+
+steps:
+  - name: "Fuse Graphs"
+    uses: "causaliq-analysis"
+    with:
+      action: "merge_graphs"
+      input: "results/discovery_results.db"
+      strategy: "noisy_or"
+      output: "results/fused.db"
+```
 
 ```yaml
 # With filtering and CPDAG conversion

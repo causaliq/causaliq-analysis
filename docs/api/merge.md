@@ -27,6 +27,17 @@ uncertainty. This is useful when you have graphs from:
 - Different sample sizes
 - Different algorithms
 - Bootstrap resampling experiments
+- Heterogeneous sources (e.g., LLM priors and structure-learning results)
+
+### Merge Strategies
+
+Three strategies control how edge probabilities are combined:
+
+| Strategy | Description |
+|----------|-------------|
+| **`average`** | Weighted average of probability vectors (default). Treats absence as evidence against existence. |
+| **`noisy_or`** | Noisy-OR for existence + weighted orientation. An edge exists if *any* source supports it. Best for fusing heterogeneous sources. |
+| **`max`** | Picks the most confident source per edge. Simple baseline. |
 
 ### Input Graph Types
 
@@ -104,6 +115,28 @@ from causaliq_core.graph import PDG
 # PDGs can be merged with DAGs/PDAGs
 # Their edge probabilities are used directly
 pdg_combined = merge_graphs([pdg1, dag1, pdag1])
+```
+
+### Noisy-OR Strategy
+
+```python
+# Noisy-OR: edges exist if any source supports them
+# Orientation is a weighted blend from contributing sources
+pdg = merge_graphs([dag1, dag2, dag3], strategy="noisy_or")
+
+# With custom weights
+pdg = merge_graphs(
+    [llm_graph, fges_graph],
+    weights=[0.6, 0.4],
+    strategy="noisy_or",
+)
+```
+
+### Max Strategy
+
+```python
+# Select the most confident source per edge
+pdg = merge_graphs([dag1, dag2, dag3], strategy="max")
 ```
 
 ## See Also
