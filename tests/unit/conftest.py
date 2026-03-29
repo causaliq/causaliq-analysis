@@ -14,6 +14,25 @@ VALID_GRAPHML = """<?xml version="1.0" encoding="UTF-8"?>
   </graph>
 </graphml>"""
 
+# Valid minimal PDG graphml with probability attributes.
+VALID_PDG_GRAPHML = """<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="p_forward" for="edge" attr.type="double"/>
+  <key id="p_backward" for="edge" attr.type="double"/>
+  <key id="p_undirected" for="edge" attr.type="double"/>
+  <key id="p_none" for="edge" attr.type="double"/>
+  <graph edgedefault="undirected">
+    <node id="A"/>
+    <node id="B"/>
+    <edge source="A" target="B">
+      <data key="p_forward">0.8</data>
+      <data key="p_backward">0.1</data>
+      <data key="p_undirected">0.05</data>
+      <data key="p_none">0.05</data>
+    </edge>
+  </graph>
+</graphml>"""
+
 
 def create_mock_graphml_entry() -> MagicMock:
     """Create mock entry with valid graphml object."""

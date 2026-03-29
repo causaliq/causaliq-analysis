@@ -238,6 +238,19 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="str",
         ),
+        "strategy": ActionInput(
+            name="strategy",
+            description=(
+                "Merge strategy for combining graphs. "
+                "'average' for weighted average of "
+                "probability vectors (default). "
+                "'noisy_or' for noisy-OR existence with "
+                "weighted orientation. 'max' to select "
+                "the most confident source per edge."
+            ),
+            required=False,
+            type_hint="str",
+        ),
         # evaluate_graph inputs
         "reference": ActionInput(
             name="reference",
@@ -307,6 +320,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "input",
             "weights",
             "object_type",
+            "strategy",
             "filter",
             "output",
             "_aggregation_entries",  # Internal workflow parameter
@@ -450,6 +464,18 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     "merge_graphs output must be a workflow cache (.db). "
                     f"Got: {output_path}"
                 )
+
+        # Validate strategy if provided
+        strategy = parameters.get("strategy")
+        if strategy is not None and strategy not in {
+            "average",
+            "noisy_or",
+            "max",
+        }:
+            raise ValueError(
+                f"strategy must be 'average', 'noisy_or', "
+                f"or 'max', got '{strategy}'"
+            )
 
     def _validate_evaluate_graph(self, parameters: Dict[str, Any]) -> None:
         """Validate evaluate_graph parameters."""
@@ -867,7 +893,13 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     )
 
             # Merge graphs
-            pdg = merge_graphs(graphs, weights=final_weights, cpdag=cpdag)
+            strategy = parameters.get("strategy", "average")
+            pdg = merge_graphs(
+                graphs,
+                weights=final_weights,
+                cpdag=cpdag,
+                strategy=strategy,
+            )
 
             # Serialise PDG to GraphML
             buffer = StringIO()
@@ -883,6 +915,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "num_graphs": len(graphs),
                 "cpdag": cpdag,
+                "strategy": strategy,
                 "aggregation_mode": is_aggregation_mode,
                 "output": {"type": "pdg", "format": "graphml"},
             }
@@ -1733,7 +1766,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     continue
 
                 try:
-                    graph = graphml.read(StringIO(obj.content))
+                    graph: Any
+                    if obj_type == "pdg":
+                        graph = graphml.read_pdg(StringIO(obj.content))
+                    else:
+                        graph = graphml.read(StringIO(obj.content))
                     graphs.append(graph)
                     graph_metadata.append(flat_meta)
                     found_in_entry += 1
@@ -1908,7 +1945,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
                             continue
 
                         try:
-                            graph = graphml.read(StringIO(obj.content))
+                            graph: Any
+                            if obj_type == "pdg":
+                                graph = graphml.read_pdg(StringIO(obj.content))
+                            else:
+                                graph = graphml.read(StringIO(obj.content))
                             graphs.append(graph)
                             found_in_entry += 1
                             if log_fn:

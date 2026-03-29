@@ -267,6 +267,22 @@ def test_validate_merge_graphs_output_must_be_db() -> None:
         )
 
 
+# Test merge_graphs rejects invalid strategy.
+def test_validate_merge_graphs_invalid_strategy() -> None:
+    """merge_graphs rejects an invalid strategy value."""
+    from causaliq_core import ActionValidationError
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(ActionValidationError, match="strategy must be"):
+        provider.validate_parameters(
+            "merge_graphs",
+            {"input": "cache.db", "strategy": "bayesian"},
+        )
+
+
 # Test summarise validation requires metric.
 def test_validate_summarise_requires_metric() -> None:
     """summarise requires metric parameter."""

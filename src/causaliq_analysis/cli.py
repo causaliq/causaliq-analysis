@@ -190,19 +190,29 @@ def migrate_trace_cmd(
     "(use DAGs converted to CPDAGs), 'pdg' (use PDGs). "
     "If not set, all graphml objects are used.",
 )
+@click.option(
+    "--strategy",
+    "-s",
+    default="average",
+    type=click.Choice(["average", "noisy_or", "max"]),
+    help="Merge strategy: 'average' (weighted averaging, default), "
+    "'noisy_or' (noisy-OR existence + weighted orientation), "
+    "'max' (most confident source per edge).",
+)
 def merge_graphs_cmd(
     inputs: Tuple[str, ...],
     output: str,
     filter_expr: Optional[str],
     weights: Optional[str],
     object_type: Optional[str],
+    strategy: str,
 ) -> None:
     """
     Merge multiple graphs into a single PDG with edge probabilities.
 
     Reads GraphML files (.graphml) and/or WorkflowCache databases (.db)
     and combines them into a Probabilistic Dependency Graph (PDG) using
-    weighted averaging of edge probabilities.
+    the specified merge strategy.
 
     Input type is auto-detected by file extension:
     - .graphml: Read as GraphML file (filter/weights not applicable)
@@ -218,6 +228,9 @@ def merge_graphs_cmd(
 
         causaliq-analysis merge-graphs -i results.db -w weights.json \\
             -o merged.graphml --object-type=cpdag
+
+        causaliq-analysis merge-graphs -i results.db \\
+            --strategy noisy_or -o merged.graphml
     """
     import json
     from io import StringIO
@@ -383,7 +396,12 @@ def merge_graphs_cmd(
 
     # Merge graphs
     try:
-        merged = merge_graphs(graphs, weights=weights_list, cpdag=cpdag)
+        merged = merge_graphs(
+            graphs,
+            weights=weights_list,
+            cpdag=cpdag,
+            strategy=strategy,
+        )
     except (TypeError, ValueError) as e:
         raise click.ClickException(f"Merge failed: {e}")
 

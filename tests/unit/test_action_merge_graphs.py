@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from .conftest import VALID_GRAPHML, create_mock_graphml_entry  # noqa: F401
+from .conftest import (  # noqa: F401
+    VALID_GRAPHML,
+    VALID_PDG_GRAPHML,
+    create_mock_graphml_entry,
+)
 
 
 # Test invalid weights type raises error.
@@ -744,7 +748,7 @@ def test_extract_graphs_object_type_filters_entries() -> None:
     mock_pdg_obj = MagicMock()
     mock_pdg_obj.type = "pdg"
     mock_pdg_obj.format = "graphml"
-    mock_pdg_obj.content = VALID_GRAPHML
+    mock_pdg_obj.content = VALID_PDG_GRAPHML
 
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = ["dag", "pdg"]
@@ -789,7 +793,7 @@ def test_read_graphs_from_cache_object_type_filter() -> None:
     mock_pdg_obj = MagicMock()
     mock_pdg_obj.type = "pdg"
     mock_pdg_obj.format = "graphml"
-    mock_pdg_obj.content = VALID_GRAPHML
+    mock_pdg_obj.content = VALID_PDG_GRAPHML
 
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = ["dag", "pdg"]

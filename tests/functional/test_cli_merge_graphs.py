@@ -737,3 +737,64 @@ def test_merge_graphs_metadata_write_failure(
 
     assert result.exit_code != 0
     assert "Failed to write metadata" in result.output
+
+
+# Test merge-graphs with --strategy option.
+def test_merge_graphs_with_strategy(cli_runner, tmp_path):
+    """Test merge-graphs command with --strategy option."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag1 = DAG(["A", "B"], [("A", "->", "B")])
+    dag2 = DAG(["A", "B"], [("B", "->", "A")])
+
+    graph1_path = tmp_path / "graph1.graphml"
+    graph2_path = tmp_path / "graph2.graphml"
+    output_dir = tmp_path / "merged"
+
+    with open(graph1_path, "w") as f:
+        graphml.write(dag1, f)
+    with open(graph2_path, "w") as f:
+        graphml.write(dag2, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={graph1_path}",
+            f"--input={graph2_path}",
+            "--strategy=noisy_or",
+            f"--output={output_dir}",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Merged 2 graphs" in result.output
+    assert (output_dir / "pdg.graphml").exists()
+
+
+# Test merge-graphs with invalid --strategy value.
+def test_merge_graphs_invalid_strategy(cli_runner, tmp_path):
+    """Test merge-graphs rejects invalid strategy via click.Choice."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+    graph_path = tmp_path / "graph.graphml"
+    output_dir = tmp_path / "merged"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={graph_path}",
+            "--strategy=bayesian",
+            f"--output={output_dir}",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
