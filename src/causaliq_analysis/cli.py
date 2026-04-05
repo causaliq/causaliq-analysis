@@ -278,6 +278,24 @@ def merge_graphs_cmd(
                         f"Reading {len(entries)} entries from {input_path}"
                     )
 
+                    # Pre-resolve random() in filter
+                    resolved_filter = filter_expr
+                    extra_names: Dict[str, Any] = {}
+                    if filter_expr and "random(" in filter_expr:
+                        from causaliq_core.utils import (
+                            resolve_random_calls,
+                        )
+
+                        _meta = []
+                        for _ei in entries:
+                            _mv = _ei.get("matrix_values", {})
+                            _fe = cache.get(_mv)
+                            if _fe is not None:
+                                _meta.append(dict(_fe.metadata))
+                        resolved_filter, extra_names = resolve_random_calls(
+                            filter_expr, _meta
+                        )
+
                     filtered_count = 0
                     for entry_info in entries:
                         matrix_values = entry_info.get("matrix_values", {})
@@ -290,9 +308,12 @@ def merge_graphs_cmd(
                         meta = dict(entry.metadata)
 
                         # Apply filter if specified
-                        if filter_expr:
+                        if resolved_filter:
                             try:
-                                if not evaluate_filter(filter_expr, meta):
+                                if not evaluate_filter(
+                                    resolved_filter,
+                                    {**meta, **extra_names},
+                                ):
                                     filtered_count += 1
                                     continue
                             except FilterExpressionError as e:
@@ -862,6 +883,23 @@ def summarise_cmd(
                 with WorkflowCache(input_path) as cache:
                     entries = cache.list_entries()
 
+                    # Pre-resolve random() in filter
+                    resolved_filter = filter_expr
+                    extra_names: Dict[str, Any] = {}
+                    if filter_expr and "random(" in filter_expr:
+                        from causaliq_core.utils import (
+                            resolve_random_calls,
+                        )
+
+                        _meta = []
+                        for _ei in entries:
+                            _fe = cache.get(_ei["matrix_values"])
+                            if _fe is not None:
+                                _meta.append(_flatten_metadata(_fe.metadata))
+                        resolved_filter, extra_names = resolve_random_calls(
+                            filter_expr, _meta
+                        )
+
                     for entry_info in entries:
                         entry = cache.get(entry_info["matrix_values"])
                         if entry is None:  # pragma: no cover
@@ -871,11 +909,14 @@ def summarise_cmd(
                         flat_meta = _flatten_metadata(entry.metadata)
 
                         # Apply filter if specified
-                        if filter_expr:
+                        if resolved_filter:
                             try:
                                 from causaliq_core.utils import evaluate_filter
 
-                                if not evaluate_filter(filter_expr, flat_meta):
+                                if not evaluate_filter(
+                                    resolved_filter,
+                                    {**flat_meta, **extra_names},
+                                ):
                                     continue
                             except Exception:
                                 continue
@@ -910,6 +951,28 @@ def summarise_cmd(
                         f"JSON file must contain object or array: {input_path}"
                     )
 
+                # Pre-resolve random() in filter for JSON
+                resolved_filter_j = filter_expr
+                extra_names_j: Dict[str, Any] = {}
+                if filter_expr and "random(" in filter_expr:
+                    from causaliq_core.utils import (
+                        resolve_random_calls,
+                    )
+
+                    _all = []
+                    for _r in records:
+                        if not isinstance(_r, dict):
+                            continue
+                        if "metadata" in _r and isinstance(
+                            _r["metadata"], dict
+                        ):
+                            _all.append(_flatten_metadata(_r["metadata"]))
+                        else:
+                            _all.append(_r)
+                    resolved_filter_j, extra_names_j = resolve_random_calls(
+                        filter_expr, _all
+                    )
+
                 for record in records:
                     if not isinstance(record, dict):
                         continue
@@ -925,11 +988,14 @@ def summarise_cmd(
                         search_data = record
 
                     # Apply filter if specified
-                    if filter_expr:
+                    if resolved_filter_j:
                         try:
                             from causaliq_core.utils import evaluate_filter
 
-                            if not evaluate_filter(filter_expr, search_data):
+                            if not evaluate_filter(
+                                resolved_filter_j,
+                                {**search_data, **extra_names_j},
+                            ):
                                 continue
                         except Exception:
                             continue

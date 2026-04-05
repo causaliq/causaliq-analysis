@@ -386,6 +386,43 @@ def test_merge_graphs_with_filter(cli_runner, tmp_path):
     assert "Merged 1 graphs" in result.output
 
 
+# Test merge-graphs with random() filter expression.
+def test_merge_graphs_with_random_filter(cli_runner, tmp_path):
+    """Test merge-graphs resolves random() in filter."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    cache_path = tmp_path / "test.db"
+    output_path = tmp_path / "merged.graphml"
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    with WorkflowCache(str(cache_path)) as cache:
+        for i in range(10):
+            entry = CacheEntry()
+            buf = StringIO()
+            graphml.write(dag, buf)
+            entry.add_object("graph", "graphml", buf.getvalue())
+            entry.metadata["seed"] = i
+            cache.put({"seed": str(i)}, entry)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "merge-graphs",
+            f"--input={cache_path}",
+            f"--output={output_path}",
+            "--filter=seed in random(3, 0)",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Merged 3 graphs" in result.output
+
+
 # Test merge-graphs with weights file.
 def test_merge_graphs_with_weights(cli_runner, tmp_path):
     """Test merge-graphs command with metadata-driven weights."""

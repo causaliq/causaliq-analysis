@@ -1193,7 +1193,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # Extract UPDATE action entry data
         update_entry = parameters.get("_update_entry")
         input_path = parameters.get("input")
-        threshold = parameters.get("threshold", 0.0)
+        threshold = float(parameters.get("threshold", 0.0))
 
         # Detect update mode
         is_update_mode = update_entry is not None
@@ -1430,6 +1430,26 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 # Aggregation mode: extract from pre-scanned entries
                 # Process whatever entries were provided (may be empty if
                 # no entries matched the current matrix values)
+
+                # Pre-resolve random() in filter
+                resolved_filter = filter_expr
+                extra_names: Dict[str, Any] = {}
+                if filter_expr and "random(" in filter_expr:
+                    from causaliq_core.utils import (
+                        resolve_random_calls,
+                    )
+
+                    _agg_meta = [
+                        self._flatten_entry_metadata(
+                            ed.get("matrix_values", {}),
+                            ed.get("metadata", {}),
+                        )
+                        for ed in (aggregation_entries or [])
+                    ]
+                    resolved_filter, extra_names = resolve_random_calls(
+                        filter_expr, _agg_meta
+                    )
+
                 for entry_dict in aggregation_entries or []:
                     matrix_values = entry_dict.get("matrix_values", {})
                     entry_metadata = entry_dict.get("metadata", {})
@@ -1443,11 +1463,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     )
 
                     # Apply filter if specified
-                    if filter_expr:
+                    if resolved_filter:
                         try:
                             from causaliq_core.utils import evaluate_filter
 
-                            if not evaluate_filter(filter_expr, flat_meta):
+                            if not evaluate_filter(
+                                resolved_filter,
+                                {**flat_meta, **extra_names},
+                            ):
                                 continue
                         except Exception:
                             continue
@@ -1552,18 +1575,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             out_file.parent.mkdir(parents=True, exist_ok=True)
 
             try:
-                # If first job in matrix, delete any pre-existing file
-                # to avoid stale data from previous workflow runs
-                is_first_job = (
-                    context
-                    and hasattr(context, "job_index")
-                    and context.job_index == 0
-                )
                 file_exists = out_file.exists()
-
-                if is_first_job and file_exists:
-                    out_file.unlink()
-                    file_exists = False
 
                 with open(
                     out_file,
@@ -1626,6 +1638,28 @@ class AnalysisActionProvider(CausalIQActionProvider):
             with WorkflowCache(cache_path) as cache:
                 entries = cache.list_entries()
 
+                # Pre-resolve random() in filter
+                resolved_filter = filter_expr
+                extra_names: Dict[str, Any] = {}
+                if filter_expr and "random(" in filter_expr:
+                    from causaliq_core.utils import (
+                        resolve_random_calls,
+                    )
+
+                    _meta = []
+                    for _ei in entries:
+                        _fe = cache.get(_ei["matrix_values"])
+                        if _fe is not None:
+                            _meta.append(
+                                self._flatten_entry_metadata(
+                                    _ei["matrix_values"],
+                                    _fe.metadata,
+                                )
+                            )
+                    resolved_filter, extra_names = resolve_random_calls(
+                        filter_expr, _meta
+                    )
+
                 for entry_info in entries:
                     entry = cache.get(entry_info["matrix_values"])
                     if entry is None:  # pragma: no cover
@@ -1646,11 +1680,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     )
 
                     # Apply filter if specified
-                    if filter_expr:
+                    if resolved_filter:
                         try:
                             from causaliq_core.utils import evaluate_filter
 
-                            if not evaluate_filter(filter_expr, flat_meta):
+                            if not evaluate_filter(
+                                resolved_filter,
+                                {**flat_meta, **extra_names},
+                            ):
                                 continue
                         except Exception:
                             continue

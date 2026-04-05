@@ -652,6 +652,104 @@ def test_summarise_workflow_cache_with_filter(cli_runner, tmp_path):
         assert abs(float(row["f1.mean"]) - 0.85) < 0.01
 
 
+# Test summarise .db input with random() filter.
+def test_summarise_cache_with_random_filter(cli_runner, tmp_path):
+    """Test summarise resolves random() in filter for .db."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    cache_path = tmp_path / "results.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        for i in range(10):
+            entry = CacheEntry(
+                metadata={
+                    "causaliq-analysis": {
+                        "evaluate_graph": {
+                            "f1": 0.5 + i * 0.05,
+                            "seed": i,
+                        }
+                    }
+                }
+            )
+            cache.put({"seed": str(i)}, entry)
+
+    output_path = tmp_path / "summary.csv"
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.count",
+            "-i",
+            str(cache_path),
+            "-o",
+            str(output_path),
+            "-f",
+            "seed in random(3, 0)",
+        ],
+    )
+
+    assert result.exit_code == 0
+    import csv
+
+    with open(output_path) as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+        assert row["f1.count"] == "3"
+
+
+# Test summarise JSON input with random() filter.
+def test_summarise_json_with_random_filter(cli_runner, tmp_path):
+    """Test summarise resolves random() in filter for JSON."""
+    import json
+
+    input_data = (
+        [{"f1": 0.5 + i * 0.05, "seed": i} for i in range(5)]
+        + [
+            # Nested _meta.json format records
+            {
+                "metadata": {
+                    "provider": {
+                        "action": {"f1": 0.8 + i * 0.01, "seed": 5 + i}
+                    }
+                }
+            }
+            for i in range(5)
+        ]
+        + [
+            "not a dict",  # non-dict entry to exercise skip branch
+        ]
+    )
+    input_path = tmp_path / "data.json"
+    with open(input_path, "w") as f:
+        json.dump(input_data, f)
+
+    output_path = tmp_path / "summary.csv"
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "summarise",
+            "-m",
+            "f1.count",
+            "-i",
+            str(input_path),
+            "-o",
+            str(output_path),
+            "-f",
+            "seed in random(3, 0)",
+        ],
+    )
+
+    assert result.exit_code == 0
+    import csv
+
+    with open(output_path) as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+        assert row["f1.count"] == "3"
+
+
 # Test summarise command handles invalid filter in JSON.
 def test_summarise_filter_exception_json(cli_runner, tmp_path):
     """Test summarise command handles filter exception in JSON records."""

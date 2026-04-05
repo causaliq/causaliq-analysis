@@ -334,6 +334,47 @@ def test_summarise_with_filter(tmp_path: Any) -> None:
     assert abs(result[1]["f1.mean"] - 0.85) < 0.01
 
 
+# Test summarise applies random() filter in aggregation mode.
+def test_summarise_with_random_filter_aggregation(
+    tmp_path: Any,
+) -> None:
+    """Test that summarise resolves random() in aggregation."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {"seed": str(i)},
+            "metadata": {
+                "provider": {"action": {"f1": 0.5 + i * 0.05}},
+            },
+            "cache_path": "test.db",
+        }
+        for i in range(10)
+    ]
+
+    output_path = tmp_path / "summary.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": ["f1.count"],
+            "output": str(output_path),
+            "filter": "seed in random(3, 0)",
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["f1.count"] == 3
+
+
 # Test summarise skips non-numeric values.
 def test_summarise_skips_non_numeric(tmp_path: Any) -> None:
     """Test that summarise ignores non-numeric field values."""
@@ -838,11 +879,11 @@ def test_summarise_csv_includes_context_matrix_values(tmp_path: Any) -> None:
     assert data[2] == "0.75"  # mean of 0.8 and 0.7
 
 
-# Test CSV clears on first job and appends on subsequent jobs.
-def test_summarise_csv_clears_on_first_job_appends_after(
+# Test CSV always appends, never auto-deletes.
+def test_summarise_csv_always_appends(
     tmp_path: Any,
 ) -> None:
-    """Verify first job clears file, subsequent jobs append rows."""
+    """Verify all jobs append to existing CSV (no auto-deletion)."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -851,10 +892,7 @@ def test_summarise_csv_clears_on_first_job_appends_after(
 
     output_path = tmp_path / "summary.csv"
 
-    # Pre-create a stale file (simulating previous workflow run)
-    output_path.write_text("stale,data\nold,values\n")
-
-    # First job: job_index=0, should clear the stale file
+    # First job: creates the file
     aggregation_entries_1 = [
         {
             "matrix_values": {"seed": 0},
@@ -879,7 +917,7 @@ def test_summarise_csv_clears_on_first_job_appends_after(
         logger=mock_logger,
     )
 
-    # Second job: job_index=1, should append
+    # Second job: appends
     aggregation_entries_2 = [
         {
             "matrix_values": {"seed": 0},
@@ -904,17 +942,16 @@ def test_summarise_csv_clears_on_first_job_appends_after(
         logger=mock_logger,
     )
 
-    # Read CSV - should have both rows and no stale data
+    # Read CSV - should have header + 2 data rows
     with open(output_path, encoding="utf-8") as f:
         lines = f.read().splitlines()
 
-    assert len(lines) == 3  # header + 2 data rows (stale data cleared)
+    assert len(lines) == 3  # header + 2 data rows
     header = lines[0].split(",")
     row1 = lines[1].split(",")
     row2 = lines[2].split(",")
 
-    # Verify no stale data
-    assert header[0] == "network"  # not "stale"
+    assert header[0] == "network"
     assert header[1] == "sample_size"
     assert header[2] == "f1.mean"
 
@@ -1035,6 +1072,55 @@ def test_summarise_direct_mode_with_filter_expression(tmp_path: Any) -> None:
     assert result[1]["f1.count"] == 2
     # Mean of 0.8 and 0.9 = 0.85
     assert abs(result[1]["f1.mean"] - 0.85) < 0.01
+
+
+# Test direct mode with random() filter expression.
+def test_summarise_direct_mode_with_random_filter(
+    tmp_path: Any,
+) -> None:
+    """Verify direct mode resolves random() in filter."""
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "random_filter.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        for i in range(10):
+            cache.put(
+                {"seed": str(i)},
+                CacheEntry(
+                    metadata={
+                        "provider": {
+                            "action": {
+                                "f1": 0.5 + i * 0.05,
+                                "seed": i,
+                            }
+                        }
+                    }
+                ),
+            )
+
+    output_path = tmp_path / "summary.csv"
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "metric": ["f1.count"],
+            "input": str(cache_path),
+            "output": str(output_path),
+            "filter": "seed in random(3, 0)",
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["f1.count"] == 3
 
 
 # Test direct mode skips entries when filter raises exception.
