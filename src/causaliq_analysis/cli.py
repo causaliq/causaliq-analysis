@@ -617,22 +617,19 @@ def evaluate_graph_cmd(
         try:
             learned_cpdag = _to_cpdag(learned_graph)
             reference_cpdag = _to_cpdag(reference_graph)
-        except (ValueError, TypeError) as e:
-            raise click.ClickException(f"CPDAG conversion failed: {e}")
-
-        try:
             equiv_metrics = pdag_compare(learned_cpdag, reference_cpdag)
-        except ValueError as e:
-            raise click.ClickException(
-                f"Equivalence class comparison failed: {e}"
+        except (ValueError, TypeError) as e:
+            click.echo(
+                f"Warning: skipping equiv metrics ({e})",
+                err=True,
             )
-        except TypeError as e:
-            raise click.ClickException(f"Invalid graph type: {e}")
+            need_equiv = False
 
-        if "equiv.f1" in metrics_to_compute:
-            metrics["equiv.f1"] = equiv_metrics.get("f1")
-        if "equiv.shd" in metrics_to_compute:
-            metrics["equiv.shd"] = equiv_metrics.get("shd")
+        if need_equiv:
+            if "equiv.f1" in metrics_to_compute:
+                metrics["equiv.f1"] = equiv_metrics.get("f1")
+            if "equiv.shd" in metrics_to_compute:
+                metrics["equiv.shd"] = equiv_metrics.get("shd")
 
     # Output results
     if output_format == "table":

@@ -676,6 +676,21 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 log_fn=log_fn,
             )
 
+            # No matching traces — skip this matrix entry.
+            if result.num_graphs == 0:
+                return (
+                    "skipped",
+                    {
+                        "message": (
+                            f"No traces for {partial_id} "
+                            f"sample_size={sample_size} "
+                            f"seed={seed_tuple}"
+                        ),
+                        "num_graphs": 0,
+                    },
+                    [],
+                )
+
             # Build objects list for cache storage (GraphML only)
             # Per-graph metadata at top level (flattened)
             objects = []
@@ -1120,10 +1135,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     "equiv.f1": equiv_result["f1"],
                     "equiv.shd": equiv_result["shd"],
                 }
-            except Exception as e:
-                raise ActionExecutionError(
-                    f"Equivalence metric computation failed: {e}"
-                ) from e
+            except (ActionExecutionError, ValueError, TypeError):
+                # PDAG not extendable to CPDAG (e.g. PC output
+                # with conflicting orientations). Skip equiv
+                # metrics and continue with skeleton metrics.
+                if logger and logger.is_terminal_logging:
+                    print(
+                        "Warning: PDAG not extendable to "
+                        "CPDAG, skipping equiv metrics"
+                    )
 
         # Build metadata with standard metric names
         # Note: pdag_compare returns 'p' and 'r' for precision/recall

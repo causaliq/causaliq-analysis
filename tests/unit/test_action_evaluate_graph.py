@@ -1109,15 +1109,12 @@ def test_evaluate_graph_mixed_metrics() -> None:
     assert result[1]["equiv.shd"] == 2
 
 
-# Test evaluate_graph equiv error when PDAG not extendable to CPDAG.
+# Test evaluate_graph skips equiv when PDAG not extendable to CPDAG.
 def test_evaluate_graph_equiv_pdag_not_extendable() -> None:
-    """Test error when PDAG cannot be extended to a CPDAG."""
+    """Test equiv metrics skipped when PDAG not extendable."""
     from causaliq_core.graph import PDAG
 
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
@@ -1146,29 +1143,26 @@ def test_evaluate_graph_equiv_pdag_not_extendable() -> None:
                 "causaliq_core.graph.convert.pdag_to_cpdag",
                 return_value=None,  # PDAG not extendable
             ):
-                with pytest.raises(ActionExecutionError) as exc_info:
-                    provider.run(
-                        action="evaluate_graph",
-                        parameters={
-                            "_update_entry": update_entry,
-                            "reference": "ref.graphml",
-                            "metric": ["equiv.f1"],
-                        },
-                        mode="run",
-                        context=None,
-                        logger=mock_logger,
-                    )
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["equiv.f1"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
 
-    assert "PDAG is not extendable to a CPDAG" in str(exc_info.value)
+    assert result[0] == "success"
+    assert "equiv.f1" not in result[1]
 
 
-# Test evaluate_graph equiv error with unsupported graph type.
+# Test evaluate_graph skips equiv with unsupported graph type.
 def test_evaluate_graph_equiv_unsupported_graph_type() -> None:
-    """Test error when graph is neither DAG nor PDAG."""
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    """Test equiv metrics skipped when graph is neither DAG nor PDAG."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
@@ -1195,8 +1189,62 @@ def test_evaluate_graph_equiv_unsupported_graph_type() -> None:
             "causaliq_core.graph.io.graphml.read",
             return_value=mock_unknown_graph,
         ):
-            with pytest.raises(ActionExecutionError) as exc_info:
-                provider.run(
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "metric": ["equiv.f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert "equiv.f1" not in result[1]
+
+
+# Test evaluate_graph logs warning when equiv skipped with terminal.
+def test_evaluate_graph_equiv_skip_logs_warning(capsys: Any) -> None:
+    """Test terminal warning printed when equiv metrics skipped."""
+    from causaliq_core.graph import PDAG
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_standard_metrics = {
+        "p": 0.8,
+        "r": 0.75,
+        "f1": 0.77,
+        "shd": 5,
+    }
+    mock_pdag = MagicMock(spec=PDAG)
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_standard_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_pdag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.pdag_to_cpdag",
+                return_value=None,
+            ):
+                result = provider.run(
                     action="evaluate_graph",
                     parameters={
                         "_update_entry": update_entry,
@@ -1208,19 +1256,17 @@ def test_evaluate_graph_equiv_unsupported_graph_type() -> None:
                     logger=mock_logger,
                 )
 
-    assert "Cannot convert" in str(exc_info.value)
-    assert "to CPDAG" in str(exc_info.value)
+    assert result[0] == "success"
+    captured = capsys.readouterr()
+    assert "skipping equiv metrics" in captured.out
 
 
-# Test evaluate_graph equiv computation failure.
+# Test evaluate_graph skips equiv on computation failure.
 def test_evaluate_graph_equiv_computation_failure() -> None:
-    """Test error when equivalence metric computation fails."""
+    """Test equiv metrics skipped when computation fails."""
     from causaliq_core.graph import DAG
 
-    from causaliq_analysis.workflow_action import (
-        ActionExecutionError,
-        AnalysisActionProvider,
-    )
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
@@ -1251,17 +1297,17 @@ def test_evaluate_graph_equiv_computation_failure() -> None:
                 "causaliq_core.graph.convert.dag_to_pdag",
                 return_value=mock_cpdag,
             ):
-                with pytest.raises(ActionExecutionError) as exc_info:
-                    provider.run(
-                        action="evaluate_graph",
-                        parameters={
-                            "_update_entry": update_entry,
-                            "reference": "ref.graphml",
-                            "metric": ["equiv.f1"],
-                        },
-                        mode="run",
-                        context=None,
-                        logger=mock_logger,
-                    )
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["equiv.f1"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
 
-    assert "Equivalence metric computation failed" in str(exc_info.value)
+    assert result[0] == "success"
+    assert "equiv.f1" not in result[1]

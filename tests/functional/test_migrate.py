@@ -354,14 +354,14 @@ def test_run_migrate_trace_no_traces_error() -> None:
         )
 
 
-# Test run_migrate_trace raises ValueError when no matching traces.
+# Test run_migrate_trace returns empty result when no matching traces.
 def test_run_migrate_trace_no_matching_error() -> None:
-    with pytest.raises(ValueError, match="No traces match filters"):
-        run_migrate_trace(
-            partial_id="TABU/STD/asia",
-            root_dir=TESTDATA_DIR + "trace",
-            sample_size=99999,  # No trace has this sample size
-        )
+    result = run_migrate_trace(
+        partial_id="TABU/STD/asia",
+        root_dir=TESTDATA_DIR + "trace",
+        sample_size=99999,  # No trace has this sample size
+    )
+    assert result.num_graphs == 0
 
 
 # Test run_migrate_trace logs messages via callback.

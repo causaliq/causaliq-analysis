@@ -484,10 +484,12 @@ def run_migrate_trace(
     filtered_traces = filter_traces(traces, sample_size, seed)
 
     if not filtered_traces:
-        raise ValueError(
-            f"No traces match filters: sample_size={sample_size}, "
-            f"seed={seed}"
+        _log(
+            f"No traces match filters: "
+            f"sample_size={sample_size}, seed={seed} "
+            f"- skipping"
         )
+        return MigrateTraceResult(graphs=[], skipped=0)
 
     _log(f"Found {len(filtered_traces)} matching traces")
 

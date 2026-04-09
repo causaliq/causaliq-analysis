@@ -506,11 +506,11 @@ def test_evaluate_graph_xdsl_reference(cli_runner, tmp_path):
     assert result.exit_code == 0
 
 
-# Test evaluate-graph CPDAG conversion failure.
+# Test evaluate-graph CPDAG conversion warning when skipping.
 def test_evaluate_graph_cpdag_conversion_error(
     cli_runner, tmp_path, monkeypatch
 ):
-    """Test evaluate-graph handles CPDAG conversion errors."""
+    """Test evaluate-graph skips equiv metrics on CPDAG conversion error."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -541,13 +541,12 @@ def test_evaluate_graph_cpdag_conversion_error(
         ],
     )
 
-    assert result.exit_code != 0
-    assert "CPDAG conversion failed" in result.output
+    assert result.exit_code == 0
 
 
-# Test evaluate-graph with PDAG input that is not extendable.
+# Test evaluate-graph skips equiv when PDAG not extendable.
 def test_evaluate_graph_pdag_not_extendable(cli_runner, tmp_path, monkeypatch):
-    """Test evaluate-graph fails when PDAG cannot be converted to CPDAG."""
+    """Test evaluate-graph skips equiv metrics when PDAG not extendable."""
     from causaliq_core.graph import DAG, PDAG
     from causaliq_core.graph.io import graphml
 
@@ -588,9 +587,7 @@ def test_evaluate_graph_pdag_not_extendable(cli_runner, tmp_path, monkeypatch):
         ],
     )
 
-    assert result.exit_code != 0
-    assert "CPDAG conversion failed" in result.output
-    assert "not extendable" in result.output
+    assert result.exit_code == 0
 
 
 # Test evaluate-graph with valid PDAG input.
@@ -640,9 +637,9 @@ def test_evaluate_graph_pdag_input(cli_runner, tmp_path, monkeypatch):
     assert result.exit_code == 0
 
 
-# Test evaluate-graph with unsupported graph type.
+# Test evaluate-graph skips equiv with unsupported graph type.
 def test_evaluate_graph_unsupported_type(cli_runner, tmp_path, monkeypatch):
-    """Test evaluate-graph fails with unsupported graph type."""
+    """Test evaluate-graph skips equiv metrics with unsupported type."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -672,16 +669,14 @@ def test_evaluate_graph_unsupported_type(cli_runner, tmp_path, monkeypatch):
         ],
     )
 
-    assert result.exit_code != 0
-    assert "CPDAG conversion failed" in result.output
-    assert "Cannot convert" in result.output
+    assert result.exit_code == 0
 
 
-# Test evaluate-graph equivalence comparison failure.
+# Test evaluate-graph skips equiv on comparison failure.
 def test_evaluate_graph_equiv_comparison_error(
     cli_runner, tmp_path, monkeypatch
 ):
-    """Test evaluate-graph handles equivalence comparison errors."""
+    """Test evaluate-graph skips equiv metrics on comparison error."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -712,13 +707,12 @@ def test_evaluate_graph_equiv_comparison_error(
         ],
     )
 
-    assert result.exit_code != 0
-    assert "Equivalence class comparison failed" in result.output
+    assert result.exit_code == 0
 
 
-# Test evaluate-graph equivalence comparison type error.
+# Test evaluate-graph skips equiv on type error.
 def test_evaluate_graph_equiv_type_error(cli_runner, tmp_path, monkeypatch):
-    """Test evaluate-graph handles type errors in equivalence comparison."""
+    """Test evaluate-graph skips equiv metrics on type error."""
     from causaliq_core.graph import DAG
     from causaliq_core.graph.io import graphml
 
@@ -749,5 +743,4 @@ def test_evaluate_graph_equiv_type_error(cli_runner, tmp_path, monkeypatch):
         ],
     )
 
-    assert result.exit_code != 0
-    assert "Invalid graph type" in result.output
+    assert result.exit_code == 0
