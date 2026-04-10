@@ -20,11 +20,12 @@ def test_workflow_action_import():
     # Skip if workflow package not available
     pytest.importorskip("causaliq_workflow")
 
+    from causaliq_analysis import __version__
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     action = AnalysisActionProvider()
     assert action.name == "causaliq-analysis"
-    assert action.version == "0.4.0"
+    assert action.version == __version__
     assert "causal graph" in action.description
 
 

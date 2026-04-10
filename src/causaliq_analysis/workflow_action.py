@@ -100,9 +100,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
     # Provider metadata
     name = "causaliq-analysis"
-    version = "0.4.0"
+    version: str = ""  # Set dynamically from __version__
     description = "Migration and analysis of causal graph trace files"
     author = "CausalIQ"
+
+    def __init__(self) -> None:
+        """Initialise provider with version from package metadata."""
+        import causaliq_analysis
+
+        self.version = causaliq_analysis.__version__
 
     # Supported actions
     supported_actions = {
