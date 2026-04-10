@@ -2,7 +2,7 @@
 
 The `summarise` capability statistically summarise numerical results across experiments into publication-ready metrics such as means, standard deviations etc.
 
-This is an `aggregate` action (see [workflow patterns](introduction.md#workflow-action-patterns)) and so aggregates results in the `input` cache and produces a single tabular output.
+This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/)) and so aggregates results in the `input` cache and produces a single tabular output.
 
 ## Parameters
 

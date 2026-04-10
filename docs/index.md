@@ -38,6 +38,9 @@ For a quickstart guide and installation instructions, see the [README on GitHub]
     - [Introduction](userguide/introduction.md): Overview and graph averaging
     - [Graph Merging](userguide/merge_graphs.md): Combining multiple graphs into PDGs
     - [Trace Migration](userguide/migrate_trace.md): Converting legacy traces
+    - [Graph Evaluation](userguide/evaluate_graph.md): Structural metrics vs ground truth
+    - [Best Graph](userguide/best_graph.md): Optimal DAG extraction from PDGs
+    - [Summarise](userguide/summarise.md): Aggregating metrics into statistics
 - **Architecture**:
     - [Overview](architecture/overview.md): Package structure and design
     - [Summarisation Paradigm](architecture/summarisation_paradigm.md): Aggregation architecture

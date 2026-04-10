@@ -300,7 +300,7 @@ The `merge_graphs` action is an **aggregation action** — it requires `input`,
 entries from the input cache are grouped by matrix variable values and merged
 into new entries in the output cache.
 
-See [Workflow Action Patterns](introduction.md#workflow-action-patterns) for
+See [Workflow Action Patterns](https://workflow.causaliq.org/userguide/action_patterns/) for
 details on action patterns.
 
 ### Example Workflow

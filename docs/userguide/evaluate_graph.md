@@ -5,9 +5,9 @@ DAG) against a reference graph. Note that comparisons between general SDG
 graphs are not supported.
 
 This is an `update` action (see
-[workflow patterns](introduction.md#workflow-action-patterns)) and so updates
-the metadata for an existing graph **in the input cache** with the requested
-metrics when used within a CausalIQ workflow.
+[workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
+and so updates the metadata for an existing graph **in the input cache** with
+the requested metrics when used within a CausalIQ workflow.
 
 ---
 
@@ -142,7 +142,7 @@ CausalIQ uses the following naming structure for metrics:
 | **`<metric>`** | No | The basic metric | `f1`, `shd`, `precision`, `recall` |
 | **`<scheme>`** | Yes | Alternative computation semantics | *not currently supported* |
 | **`<postprocessing>`** | Yes | Postprocessing, e.g., normalisation | *not currently supported* |
-| **`<statistic>`** | Yes | Statistic over multiple values | *see [`summarise`](../summarise.md) action* |
+| **`<statistic>`** | Yes | Statistic over multiple values | *see [`summarise`](summarise.md) action* |
 
 ---
 

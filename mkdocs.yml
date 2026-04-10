@@ -46,6 +46,7 @@ nav:
   - Roadmap: roadmap.md
   - User Guide:
     - User Guide Introduction: userguide/introduction.md
+    - Best Graph: userguide/best_graph.md
     - Evaluating Graphs: userguide/evaluate_graph.md
     - Graph Merging: userguide/merge_graphs.md
     - Summarise: userguide/summarise.md

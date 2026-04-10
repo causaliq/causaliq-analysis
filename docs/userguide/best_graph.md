@@ -6,8 +6,9 @@ a PDG representing structural uncertainty (e.g., from merged graphs) and need
 to select a single best DAG for downstream analysis or inference.
 
 This is an `update` action (see
-[workflow patterns](introduction.md#workflow-action-patterns)) and so updates
-entries **in the input cache** by adding a DAG object to each matched entry.
+[workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
+and so updates entries **in the input cache** by adding a DAG object to each
+matched entry.
 
 ## Parameters
 

@@ -52,7 +52,7 @@ The package works with graph types from causaliq-core:
 src/causaliq_analysis/
 ├── __init__.py         # Package exports
 ├── cli.py              # Command-line interface
-├── graph.py            # Legacy graph averaging
+├── graph.py            # Graph action enumerations
 ├── merge.py            # Graph merging to PDG
 ├── metrics.py          # Structural comparison metrics
 ├── migrate.py          # Trace migration utilities
