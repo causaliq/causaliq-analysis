@@ -9,26 +9,28 @@
       
       
       
+        <link rel="prev" href="../merge_graphs/">
       
-        <link rel="next" href="roadmap/">
+      
+        <link rel="next" href="../migrate_trace/">
       
       
         
       
       
-      <link rel="icon" href="assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
-        <title>causaliq-analysis</title>
+        <title>Summarise - causaliq-analysis</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,11 +49,11 @@
       
     
     
-      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="http://causaliq.org/css/mkdocs.css">
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -76,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#causaliq-analysis" class="md-skip">
+        <a href="#summarising-results" class="md-skip">
           Skip to content
         </a>
       
@@ -92,7 +94,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="causaliq-analysis" class="md-header__button md-logo" aria-label="causaliq-analysis" data-md-component="logo">
+    <a href="../.." title="causaliq-analysis" class="md-header__button md-logo" aria-label="causaliq-analysis" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -112,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Summarise
             
           </span>
         </div>
@@ -208,11 +210,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="." class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -231,7 +231,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="roadmap/" class="md-tabs__link">
+      <a href="../../roadmap/" class="md-tabs__link">
         
   
   
@@ -248,11 +248,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="userguide/introduction/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../introduction/" class="md-tabs__link">
           
   
   
@@ -272,7 +274,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="architecture/overview/" class="md-tabs__link">
+        <a href="../../architecture/overview/" class="md-tabs__link">
           
   
   
@@ -292,7 +294,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="api/overview/" class="md-tabs__link">
+        <a href="../../api/overview/" class="md-tabs__link">
           
   
   
@@ -332,7 +334,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="causaliq-analysis" class="md-nav__button md-logo" aria-label="causaliq-analysis" data-md-component="logo">
+    <a href="../.." title="causaliq-analysis" class="md-nav__button md-logo" aria-label="causaliq-analysis" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -347,37 +349,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Home
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -393,83 +368,6 @@
   
 
       </a>
-      
-        
-
-  
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#welcome" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Welcome
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quickstart-installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quickstart &amp; Installation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation-contents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation Contents
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#support-community" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Support &amp; Community
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -481,7 +379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="roadmap/" class="md-nav__link">
+      <a href="../../roadmap/" class="md-nav__link">
         
   
   
@@ -505,28 +403,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -544,7 +445,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -562,7 +463,7 @@
   
   
     <li class="md-nav__item">
-      <a href="userguide/introduction/" class="md-nav__link">
+      <a href="../introduction/" class="md-nav__link">
         
   
   
@@ -590,7 +491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="userguide/best_graph/" class="md-nav__link">
+      <a href="../best_graph/" class="md-nav__link">
         
   
   
@@ -618,7 +519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="userguide/evaluate_graph/" class="md-nav__link">
+      <a href="../evaluate_graph/" class="md-nav__link">
         
   
   
@@ -646,7 +547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="userguide/merge_graphs/" class="md-nav__link">
+      <a href="../merge_graphs/" class="md-nav__link">
         
   
   
@@ -671,10 +572,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="userguide/summarise/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -690,6 +618,89 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -702,7 +713,7 @@
   
   
     <li class="md-nav__item">
-      <a href="userguide/migrate_trace/" class="md-nav__link">
+      <a href="../migrate_trace/" class="md-nav__link">
         
   
   
@@ -791,7 +802,7 @@
   
   
     <li class="md-nav__item">
-      <a href="architecture/overview/" class="md-nav__link">
+      <a href="../../architecture/overview/" class="md-nav__link">
         
   
   
@@ -819,7 +830,7 @@
   
   
     <li class="md-nav__item">
-      <a href="architecture/summarisation_paradigm/" class="md-nav__link">
+      <a href="../../architecture/summarisation_paradigm/" class="md-nav__link">
         
   
   
@@ -908,7 +919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/overview/" class="md-nav__link">
+      <a href="../../api/overview/" class="md-nav__link">
         
   
   
@@ -936,7 +947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/merge/" class="md-nav__link">
+      <a href="../../api/merge/" class="md-nav__link">
         
   
   
@@ -964,7 +975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/metrics/" class="md-nav__link">
+      <a href="../../api/metrics/" class="md-nav__link">
         
   
   
@@ -992,7 +1003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/graph/" class="md-nav__link">
+      <a href="../../api/graph/" class="md-nav__link">
         
   
   
@@ -1020,7 +1031,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/trace/" class="md-nav__link">
+      <a href="../../api/trace/" class="md-nav__link">
         
   
   
@@ -1048,7 +1059,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/cli/" class="md-nav__link">
+      <a href="../../api/cli/" class="md-nav__link">
         
   
   
@@ -1105,57 +1116,63 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#welcome" class="md-nav__link">
+  <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Welcome
+        Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metric
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#input" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        input
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#quickstart-installation" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quickstart &amp; Installation
+        output
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation-contents" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#filter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation Contents
+        filter
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#support-community" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Support &amp; Community
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1176,64 +1193,117 @@
 
 
 
-<h1 id="causaliq-analysis">CausalIQ Analysis<a class="headerlink" href="#causaliq-analysis" title="Permanent link">&para;</a></h1>
-<!-- add in coverage and CI badges when repo is public -->
-
-<p><img alt="Python Versions" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue" />
-<a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
-<img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25-brightgreen" /></p>
-<h2 id="welcome">Welcome<a class="headerlink" href="#welcome" title="Permanent link">&para;</a></h2>
-<p>Welcome to the documentation for CausalIQ Analysis — part of the <a href="https://causaliq.org">CausalIQ ecosystem</a> for intelligent causal discovery. CausalIQ Analysis provides features for analysing and visualising learned causal graphs, including structural metrics, stability assessment, significance tests, and publication-ready tables and charts.</p>
-<hr />
-<hr />
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>This site provides detailed documentation, including:</p>
+<h1 id="summarising-results">Summarising Results<a class="headerlink" href="#summarising-results" title="Permanent link">&para;</a></h1>
+<p>The <code>summarise</code> capability statistically summarise numerical results across experiments into publication-ready metrics such as means, standard deviations etc.</p>
+<p>This is an <code>aggregate</code> action (see <a href="https://workflow.causaliq.org/userguide/action_patterns/">workflow patterns</a>) and so aggregates results in the <code>input</code> cache and produces a single tabular output.</p>
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>CLI</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>metric</code></td>
+<td><code>-m</code>/<code>--metric</code></td>
+<td>Yes</td>
+<td>List of summary metrics required, e.g. mean, standard deviation etc.</td>
+</tr>
+<tr>
+<td><code>input</code></td>
+<td><code>-i</code>/<code>--input</code></td>
+<td>Yes</td>
+<td>List of files containing raw results (<code>.json</code> or <code>.db</code> cache).</td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td><code>-o</code>/<code>--output</code></td>
+<td>Yes</td>
+<td>Tabular summary in .csv format (see below)</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>—</td>
+<td>No</td>
+<td>filter entries in input</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Notes:</strong></p>
 <ul>
-<li>Development roadmap</li>
-<li>User guide</li>
-<li>Architectural vision</li>
-<li>Design notes</li>
-<li>API reference for users and contributors</li>
+<li>In workflows, <code>summarise</code> is an aggregation action: <code>input</code>, <code>output</code>, and
+  <code>matrix</code> are all <strong>required</strong>. The matrix controls output dimensionality.</li>
+<li><code>-metric</code> and <code>-input</code> can be repeated in CLI for multiple metrics and inputs, and can use YAML list syntax in actions</li>
+<li><code>-output</code> can only have a single value which must be a CSV file in both the CLI and action</li>
 </ul>
-<hr />
-<h2 id="quickstart-installation">Quickstart &amp; Installation<a class="headerlink" href="#quickstart-installation" title="Permanent link">&para;</a></h2>
-<p>For a quickstart guide and installation instructions, see the <a href="https://github.com/causaliq/causaliq-analysis#readme">README on GitHub</a>.</p>
-<hr />
-<h2 id="documentation-contents">Documentation Contents<a class="headerlink" href="#documentation-contents" title="Permanent link">&para;</a></h2>
+<h3 id="metric"><code>metric</code><a class="headerlink" href="#metric" title="Permanent link">&para;</a></h3>
+<p>This specifies a list of metrics that are to be summarised. The values specifed follow the metadata variable naming convention and so define both the variable to be summarised and the summary statistic to be computed. So, for example, specifying <code>equiv.shd.mean</code> indicates that the capability should compute the mean of the <code>equiv.shd</code> variables in the input.</p>
+<p>The following summary statistics will be supported initially:</p>
 <ul>
-<li><a href="roadmap/">Development Roadmap</a>: Release history and upcoming features</li>
-<li><strong>User Guide</strong>:<ul>
-<li><a href="userguide/introduction/">Introduction</a>: Overview and graph averaging</li>
-<li><a href="userguide/merge_graphs/">Graph Merging</a>: Combining multiple graphs into PDGs</li>
-<li><a href="userguide/migrate_trace/">Trace Migration</a>: Converting legacy traces</li>
-<li><a href="userguide/evaluate_graph/">Graph Evaluation</a>: Structural metrics vs ground truth</li>
-<li><a href="userguide/best_graph/">Best Graph</a>: Optimal DAG extraction from PDGs</li>
-<li><a href="userguide/summarise/">Summarise</a>: Aggregating metrics into statistics</li>
+<li><code>mean</code> - the mean value</li>
+<li><code>sd</code> - the standard deviation</li>
+<li><code>count</code> - the number of non-null values used to compute the other statistics</li>
 </ul>
-</li>
-<li><strong>Architecture</strong>:<ul>
-<li><a href="architecture/overview/">Overview</a>: Package structure and design</li>
-<li><a href="architecture/summarisation_paradigm/">Summarisation Paradigm</a>: Aggregation architecture</li>
-</ul>
-</li>
-<li><a href="api/overview/">API Reference</a>: Complete reference for Python code</li>
-<li><a href="https://github.com/causaliq/causaliq/blob/main/CONTRIBUTING.md">Development Guidelines</a>: CausalIQ guidelines for developers</li>
-<li><a href="https://github.com/causaliq/causaliq-analysis/blob/main/CHANGELOG.md">Changelog</a></li>
-<li><a href="https://github.com/causaliq/causaliq-analysis/blob/main/LICENSE">License</a></li>
-</ul>
-<hr />
-<h2 id="support-community">Support &amp; Community<a class="headerlink" href="#support-community" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="https://github.com/causaliq/causaliq-analysis/issues">GitHub Issues</a>: Report bugs or request features.</li>
-<li><a href="https://github.com/causaliq/causaliq-analysis/discussions">GitHub Discussions</a>: Ask questions and join the community.</li>
-</ul>
-<hr />
-<p><strong>Tip:</strong><br />
-Use the navigation sidebar to explore the documentation.<br />
-For the latest code and releases, visit the <a href="https://github.com/causaliq/causaliq-analysis">causaliq-analysis GitHub repository</a>.</p>
-<hr />
-<p><strong>Supported Python Versions</strong>: 3.9, 3.10, 3.11, 3.12, 3.13<br />
-<strong>Default Python Version</strong>: 3.11</p>
+<p>It is likely this will be extended to include other statistics such as mode, interquartile range, max etc. as well as significance statistics.</p>
+<h3 id="input"><code>input</code><a class="headerlink" href="#input" title="Permanent link">&para;</a></h3>
+<p>In the CLI, this can be a list of <code>.json</code> files containing metadata which includes the requested metrics which are all scanned and the required summarisation metrics computed. In this case, the output would contain a single summarisation metric for each value in the <code>metric</code> parameter.</p>
+<p>In a CausalIQ Workflow the input would typically be one or more workflow caches. The presence of an action with both an <code>input</code> and <code>output</code> parameter means that a workflow <code>matrix</code> definition must be present. The <code>matrix</code> definition defines the groups of variable values that a separate sumary statistic will be generated for - similar to the functionality of the "group by" feature in SQL and dataframe processing.</p>
+<p>So for example, this workflow will create the mean and standard deviation of the F1 for each combination of <code>network</code> and <code>sample_size</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">matrix</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">asia</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">cancer</span><span class="p p-Indicator">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">sample_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1K</span><span class="p p-Indicator">]</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">steps</span><span class="p">:</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Summarise</span><span class="nv"> </span><span class="s">metrics&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;causaliq-analysis&quot;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;summarise&quot;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.sd</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;results/graphs.db&quot;</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;results/graph_accuracy.csv&quot;</span>
+</span></code></pre></div>
+<h3 id="output"><code>output</code><a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
+<p><code>summarise</code> will produce tabular output with the requested summary statistics for
+each combination of matrix variable values. The above workflow wil produce tabular output like this:</p>
+<table>
+<thead>
+<tr>
+<th>network</th>
+<th>sample_size</th>
+<th>f1.mean</th>
+<th>f1.sd</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>asia</td>
+<td>100</td>
+<td>0.55</td>
+<td>0.16</td>
+</tr>
+<tr>
+<td>asia</td>
+<td>1K</td>
+<td>0.65</td>
+<td>0.07</td>
+</tr>
+<tr>
+<td>cancer</td>
+<td>100 ..........</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Summary output like this is quite small and human-readable so it would be output as a CSV file. Values which cannot be computed, for example a SD based on just two values, will be displayed as None. This output file would often be used as input for a CausalIQ Analysis <code>table</code> or <code>plot</code> capability which will produce publication-ready LaTeX tables or charts respectively.</p>
+<h3 id="filter"><code>filter</code><a class="headerlink" href="#filter" title="Permanent link">&para;</a></h3>
+<p><code>filter</code> can be used to filter out some input entries on the basis of metadata values. For example, one may wish to exclude results with long execution times.</p>
 
 
 
@@ -1270,15 +1340,31 @@ For the latest code and releases, visit the <a href="https://github.com/causaliq
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
+          
+          <a href="../merge_graphs/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Graph Merging">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Graph Merging
+              </div>
+            </div>
+          </a>
+        
         
           
-          <a href="roadmap/" class="md-footer__link md-footer__link--next" aria-label="Next: Roadmap">
+          <a href="../migrate_trace/" class="md-footer__link md-footer__link--next" aria-label="Next: Trace Migration">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Roadmap
+                Trace Migration
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1320,10 +1406,10 @@ For the latest code and releases, visit the <a href="https://github.com/causaliq
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

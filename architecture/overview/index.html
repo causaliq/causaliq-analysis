@@ -9,21 +9,21 @@
       
       
       
-        <link rel="prev" href="../../userguide/introduction/">
+        <link rel="prev" href="../../userguide/migrate_trace/">
       
       
-        <link rel="next" href="../example_design_note/">
+        <link rel="next" href="../summarisation_paradigm/">
       
       
         
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
-        <title>Architectural Overview - causaliq-analysis</title>
+        <title>Overview - causaliq-analysis</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-vision-for-causaliq-analysis" class="md-skip">
+        <a href="#architecture-overview" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Architectural Overview
+              Overview
             
           </span>
         </div>
@@ -481,6 +481,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/best_graph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best Graph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/evaluate_graph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluating Graphs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/merge_graphs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Merging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/summarise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/migrate_trace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trace Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -568,7 +708,7 @@
   <span class="md-ellipsis">
     
   
-    Architectural Overview
+    Overview
   
 
     
@@ -586,7 +726,7 @@
   <span class="md-ellipsis">
     
   
-    Architectural Overview
+    Overview
   
 
     
@@ -625,10 +765,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#architectural-principles" class="md-nav__link">
+  <a href="#package-purpose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architectural Principles
+        Package Purpose
       
     </span>
   </a>
@@ -636,21 +776,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#architecture-components" class="md-nav__link">
+  <a href="#key-architectural-concepts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture Components
+        Key Architectural Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Architectural Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#summarisation-paradigm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summarisation Paradigm
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#other-sections" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#graph-types" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Other Sections
+        Graph Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Points
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Structure
       
     </span>
   </a>
@@ -672,72 +851,15 @@
   
   
   
-    
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Design Notes
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Design Notes
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../example_design_note/" class="md-nav__link">
+      <a href="../summarisation_paradigm/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Example
+    Summarisation Paradigm
   
 
     
@@ -746,14 +868,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -835,6 +949,34 @@
     
   
     API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/merge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Merge
   
 
     
@@ -1007,10 +1149,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#architectural-principles" class="md-nav__link">
+  <a href="#package-purpose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architectural Principles
+        Package Purpose
       
     </span>
   </a>
@@ -1018,21 +1160,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#architecture-components" class="md-nav__link">
+  <a href="#key-architectural-concepts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture Components
+        Key Architectural Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Architectural Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#summarisation-paradigm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summarisation Paradigm
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#other-sections" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#graph-types" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Other Sections
+        Graph Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Points
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Structure
       
     </span>
   </a>
@@ -1056,12 +1237,89 @@
 
 
 
-<h1 id="architecture-vision-for-causaliq-analysis">Architecture Vision for causaliq-analysis<a class="headerlink" href="#architecture-vision-for-causaliq-analysis" title="Permanent link">&para;</a></h1>
+<h1 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h1>
 <h2 id="causaliq-ecosystem">CausalIQ Ecosystem<a class="headerlink" href="#causaliq-ecosystem" title="Permanent link">&para;</a></h2>
-<p>causaliq-analysis is a component of the overall <a href="https://causaliq.org/projects/ecosystem_architecture/">CausalIQ ecosystem architecture</a>.</p>
-<h2 id="architectural-principles">Architectural Principles<a class="headerlink" href="#architectural-principles" title="Permanent link">&para;</a></h2>
-<h2 id="architecture-components">Architecture Components<a class="headerlink" href="#architecture-components" title="Permanent link">&para;</a></h2>
-<h2 id="other-sections">Other Sections<a class="headerlink" href="#other-sections" title="Permanent link">&para;</a></h2>
+<p>causaliq-analysis is a component of the overall
+<a href="https://causaliq.org/projects/ecosystem_architecture/">CausalIQ ecosystem architecture</a>.</p>
+<h2 id="package-purpose">Package Purpose<a class="headerlink" href="#package-purpose" title="Permanent link">&para;</a></h2>
+<p>causaliq-analysis provides tools for analysing and summarising results from
+causal discovery experiments:</p>
+<ul>
+<li><strong>Graph merging</strong> — Combine multiple learned graphs into probabilistic
+  dependency graphs (PDGs)</li>
+<li><strong>Structural evaluation</strong> — Compute accuracy metrics against ground truth</li>
+<li><strong>Trace migration</strong> — Convert legacy experiment traces to modern formats</li>
+</ul>
+<h2 id="key-architectural-concepts">Key Architectural Concepts<a class="headerlink" href="#key-architectural-concepts" title="Permanent link">&para;</a></h2>
+<h3 id="summarisation-paradigm">Summarisation Paradigm<a class="headerlink" href="#summarisation-paradigm" title="Permanent link">&para;</a></h3>
+<p>The <a href="../summarisation_paradigm/">summarisation paradigm</a> provides a consistent
+pattern for aggregating experimental results across different dimensions.
+This enables workflows that:</p>
+<ul>
+<li>Group results by network, sample size, algorithm, etc.</li>
+<li>Filter inputs by metadata criteria</li>
+<li>Apply metadata-driven weighting</li>
+<li>Produce outputs with full provenance tracking</li>
+</ul>
+<h3 id="graph-types">Graph Types<a class="headerlink" href="#graph-types" title="Permanent link">&para;</a></h3>
+<p>The package works with graph types from causaliq-core:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DAG</strong></td>
+<td>Directed acyclic graph with fully oriented edges</td>
+</tr>
+<tr>
+<td><strong>CPDAG</strong></td>
+<td>Completed partially directed acyclic graph (Markov equivalence class)</td>
+</tr>
+<tr>
+<td><strong>PDG</strong></td>
+<td>Probabilistic dependency graph with edge probabilities</td>
+</tr>
+</tbody>
+</table>
+<h3 id="integration-points">Integration Points<a class="headerlink" href="#integration-points" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Integration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>causaliq-core</strong></td>
+<td>Graph types, filter evaluation, weight computation</td>
+</tr>
+<tr>
+<td><strong>causaliq-workflow</strong></td>
+<td>Workflow actions, cache storage, matrix execution</td>
+</tr>
+<tr>
+<td><strong>causaliq-data</strong></td>
+<td>Dataset loading for evaluation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="module-structure">Module Structure<a class="headerlink" href="#module-structure" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>src/causaliq_analysis/
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── __init__.py         # Package exports
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── cli.py              # Command-line interface
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── graph.py            # Graph action enumerations
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── merge.py            # Graph merging to PDG
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── metrics.py          # Structural comparison metrics
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── migrate.py          # Trace migration utilities
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── trace.py            # Legacy Trace format support
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── validation.py       # Input validation
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>└── workflow_action.py  # Workflow action interface
+</span></code></pre></div>
 
 
 
@@ -1099,7 +1357,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../userguide/introduction/" class="md-footer__link md-footer__link--prev" aria-label="Previous: User Guide Introduction">
+          <a href="../../userguide/migrate_trace/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Trace Migration">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1109,20 +1367,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                User Guide Introduction
+                Trace Migration
               </div>
             </div>
           </a>
         
         
           
-          <a href="../example_design_note/" class="md-footer__link md-footer__link--next" aria-label="Next: Example">
+          <a href="../summarisation_paradigm/" class="md-footer__link md-footer__link--next" aria-label="Next: Summarisation Paradigm">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Example
+                Summarisation Paradigm
               </div>
             </div>
             <div class="md-footer__button md-icon">
