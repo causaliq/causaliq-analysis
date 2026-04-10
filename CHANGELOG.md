@@ -26,7 +26,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 
-## [0.3.0] - 2026-03-02
+## Evaluation & Summarisation [0.4.0] - 2026-04-10
+
+### Added
+- **Graph Evaluation**: `evaluate_graph` CLI command and workflow action
+  (UPDATE pattern) to compute structural metrics vs ground truth
+  - Standard metrics: F1, precision, recall, SHD
+  - Equivalence class metrics: equiv.f1, equiv.shd (CPDAG comparison)
+  - Support for multiple graph formats (GraphML, CSV, TETRAD, .xdsl, .dsc)
+- **Optimal DAG Extraction**: `best_graph` CLI command and workflow action
+  (UPDATE pattern) to extract optimal DAG from PDGs
+  - Greedy algorithm with cycle avoidance
+  - Configurable edge probability threshold
+  - Alphabetical tie-breaking for direction ambiguities
+- **Metric Summarisation**: `summarise` CLI command and workflow action
+  (AGGREGATE pattern) to aggregate metrics across experiments
+  - Summary statistics: mean, standard deviation, count
+  - Metric specification format: `<field>.<stat>` (e.g., f1.mean, shd.sd)
+  - Filter expressions for selective aggregation
+  - CSV output format
+- **Merge Strategies**: `noisy_or` and `max` merge strategies for graph
+  merging in addition to the existing `average` strategy
+- **Validation Module**: Shared validation utilities including
+  `parse_sample_size()`, `parse_seed_cli()`, `validate_filter_expression()`,
+  and `validate_metric_specs()`
+- **Variable Name Corrections**: Automatic correction of known typos during
+  trace migration (e.g., `HTshotOnTarget` → `HTshotsOnTarget`)
+
+### Changed
+- `merge-graphs` CLI enhanced with filter expressions (`--filter`),
+  `random()` support, object type and strategy selection
+- Template method pattern adopted for all workflow actions via
+  `CausalIQActionProvider` base class
+- Seed range support in CLI and workflow (e.g., `0-24`)
+
+### Fixed
+- Correct handling of PDAG extendability to CPDAG
+- Division by zero handling in Bayesys metric computation
+- Proper p_none computation in noisy-OR strategy
+
+
+## Graph Merging [0.3.0] - 2026-03-02
 
 ### Added
 - **Graph Merging**: `merge_graphs` function to combine multiple DAGs/PDAGs/PDGs
@@ -51,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - API overview reorganised with merge module as primary entry
 
 
-## [0.2.0] - 2025-12-30
+## Legacy Trace [0.2.0] - 2025-12-30
 
 ### Added
 - **Graph Module**: Enumerations for describing changes made to causal graphs during structure learning
@@ -72,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Module Organization**: Better separation of concerns between graph actions and trace functionality
 
 
-## [0.1.0] - 2025-12-27
+## Foundation Metrics [0.1.0] - 2025-12-27
 
 ### Added
 - **PDAG Comparison**: Complete structural graph comparison with precision, recall, F1, SHD metrics

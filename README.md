@@ -11,18 +11,21 @@ publication-ready tables and charts. It is part of the
 
 ## Status
 
-**Current Version**: v0.3.0
+**Current Version**: v0.4.0
 
 This repository is part of the [CausalIQ ecosystem](https://causaliq.org/) and
-is in active development. Recent work has focused on graph merging
-functionality and migration from the legacy
-[discovery repo](https://github.com/causaliq/discovery).
+is in active development. Recent work has focused on graph evaluation,
+optimal DAG extraction, and metric summarisation.
 
 
 ## Features
 
 ✅ **Implemented Releases**
 
+- **Release v0.4.0 - Evaluation & Summarisation**: Structural evaluation
+  metrics (F1, precision, recall, SHD) vs ground truth, optimal DAG
+  extraction from PDGs, metric summarisation, noisy-OR and max merge
+  strategies.
 - **Release v0.3.0 - Graph Merging**: Merge multiple DAGs/PDAGs/PDGs into
   probabilistic dependency graphs (PDGs) with weighted edge probabilities.
   Trace migration to convert legacy traces to modern GraphML format.
@@ -33,9 +36,7 @@ functionality and migration from the legacy
 
 🛣️ **Upcoming Releases**
 
-- **Release v0.4.0 - Optimal Extraction & Evaluation**: Extract best DAG/CPDAG
-  from PDGs, structural evaluation metrics (F1, precision, recall) vs ground
-  truth.
+- **Release v0.5.0 - Publication Assets**: publication-ready charts and tables
 
 
 ## Upcoming Key Innovations
@@ -48,7 +49,7 @@ functionality and migration from the legacy
 
 ### ▦ Publication-ready table generation
 - **LaTeX tables** - converts tabular analysis data into publication-ready LaTeX tables
-
+ 
 ## Integration with CausalIQ Ecosystem
 
 - 🔍 **CausalIQ Discovery** generates causal graphs which this package evaluates and visualises.
