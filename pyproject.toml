@@ -10,10 +10,10 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
-    {name = "CausalIQ", email = "info@causaliq.com"},
+    {name = "CausalIQ", email = "info@causaliq.org"},
 ]
 maintainers = [
-    {name = "CausalIQ", email = "info@causaliq.com"},
+    {name = "CausalIQ", email = "info@causaliq.org"},
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",

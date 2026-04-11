@@ -4,7 +4,7 @@ causaliq-analysis: Tools for analysing and visualising causal graphs
 
 __version__ = "0.4.0"
 __author__ = "CausalIQ"
-__email__ = "info@causaliq.com"
+__email__ = "info@causaliq.org"
 
 # Package metadata
 __title__ = "causaliq-analysis"
