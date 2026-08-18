@@ -1311,3 +1311,337 @@ def test_evaluate_graph_equiv_computation_failure() -> None:
 
     assert result[0] == "success"
     assert "equiv.f1" not in result[1]
+
+
+# Test evaluate_graph resolves reference graph from a workflow cache.
+def test_evaluate_graph_cache_reference_returns_metrics() -> None:
+    """Test metrics computed against reference graph from a cache."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"network": "asia", "sample_size": 100},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {
+        "p": 1.0,
+        "r": 1.0,
+        "f1": 1.0,
+        "shd": 0,
+    }
+
+    # Reference cache with identical key structure and a graph entry
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [
+        {"matrix_values": {"network": "asia", "sample_size": 100}}
+    ]
+    mock_cache.get.return_value = create_mock_graphml_entry()
+    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
+    mock_cache.__exit__ = MagicMock(return_value=False)
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            with patch(
+                "causaliq_workflow.cache.WorkflowCache",
+                return_value=mock_cache,
+            ) as mock_workflow_cache:
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "results/legacy.db",
+                        "metric": ["f1", "shd"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+
+    assert result[0] == "success"
+    assert result[1]["f1"] == 1.0
+    assert result[1]["shd"] == 0
+    assert result[1]["reference"] == "results/legacy.db"
+    assert result[1]["evaluated_graph"] == "dag"
+    mock_workflow_cache.assert_called_once_with("results/legacy.db")
+    mock_cache.get.assert_called_once_with(
+        {"network": "asia", "sample_size": 100}
+    )
+
+
+# Test evaluate_graph rejects mismatched reference cache key names.
+def test_evaluate_graph_cache_reference_key_structure_mismatch() -> None:
+    """Test error when reference cache uses different matrix key names."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Reference cache uses 'network' instead of 'seed'
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [
+        {"matrix_values": {"network": "asia"}}
+    ]
+    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
+    mock_cache.__exit__ = MagicMock(return_value=False)
+
+    with patch(
+        "causaliq_workflow.cache.WorkflowCache",
+        return_value=mock_cache,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "legacy.db",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "key structure does not match" in str(exc_info.value)
+    assert "seed" in str(exc_info.value)
+    assert "network" in str(exc_info.value)
+
+
+# Test evaluate_graph rejects empty reference cache.
+def test_evaluate_graph_cache_reference_empty() -> None:
+    """Test error when reference cache contains no entries."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = []
+    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
+    mock_cache.__exit__ = MagicMock(return_value=False)
+
+    with patch(
+        "causaliq_workflow.cache.WorkflowCache",
+        return_value=mock_cache,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "legacy.db",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "Reference cache is empty" in str(exc_info.value)
+
+
+# Test evaluate_graph rejects reference cache without matching values.
+def test_evaluate_graph_cache_reference_no_matching_entry() -> None:
+    """Test error when no reference entry matches the input matrix values."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Key names match but the value differs from the current input entry
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [{"matrix_values": {"seed": 43}}]
+    mock_cache.get.return_value = None
+    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
+    mock_cache.__exit__ = MagicMock(return_value=False)
+
+    with patch(
+        "causaliq_workflow.cache.WorkflowCache",
+        return_value=mock_cache,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "legacy.db",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "No entry in reference cache" in str(exc_info.value)
+    assert "42" in str(exc_info.value)
+
+
+# Test evaluate_graph reports missing graph in a reference cache entry.
+def test_evaluate_graph_cache_reference_no_graph() -> None:
+    """Test error when reference cache entry contains no graph."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Matching entry exists but contains no evaluable graph
+    empty_ref_entry = MagicMock()
+    empty_ref_entry.object_types.return_value = []
+
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [{"matrix_values": {"seed": 42}}]
+    mock_cache.get.return_value = empty_ref_entry
+    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
+    mock_cache.__exit__ = MagicMock(return_value=False)
+
+    with patch(
+        "causaliq_workflow.cache.WorkflowCache",
+        return_value=mock_cache,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "legacy.db",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "No evaluable graph object found" in str(exc_info.value)
+    assert "reference cache entry" in str(exc_info.value)
+
+
+# Test evaluate_graph rejects a PDG inside a reference cache entry.
+def test_evaluate_graph_cache_reference_pdg() -> None:
+    """Test error when reference cache entry contains a PDG object."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_pdg_obj = MagicMock()
+    mock_pdg_obj.type = "dag"
+    mock_pdg_obj.format = "graphml"
+    mock_pdg_obj.content = PDG_GRAPHML
+
+    pdg_entry = MagicMock()
+    pdg_entry.object_types.return_value = ["dag"]
+    pdg_entry.get_object.return_value = mock_pdg_obj
+
+    mock_cache = MagicMock()
+    mock_cache.list_entries.return_value = [{"matrix_values": {"seed": 42}}]
+    mock_cache.get.return_value = pdg_entry
+    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
+    mock_cache.__exit__ = MagicMock(return_value=False)
+
+    with patch(
+        "causaliq_workflow.cache.WorkflowCache",
+        return_value=mock_cache,
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "legacy.db",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "PDG data" in str(exc_info.value)
+    assert "p_forward" in str(exc_info.value)
+
+
+# Test evaluate_graph handles reference cache read failures.
+def test_evaluate_graph_cache_reference_read_error() -> None:
+    """Test error when the reference cache cannot be opened."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    with patch(
+        "causaliq_workflow.cache.WorkflowCache",
+        side_effect=RuntimeError("not a database"),
+    ):
+        with pytest.raises(Exception) as exc_info:
+            provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "legacy.db",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+    assert "Failed to read reference cache" in str(exc_info.value)

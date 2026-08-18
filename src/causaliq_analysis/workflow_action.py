@@ -260,7 +260,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # evaluate_graph inputs
         "reference": ActionInput(
             name="reference",
-            description="Path to ground truth graph file (.graphml)",
+            description=(
+                "Ground truth reference: path to a graph file "
+                "(.graphml, .csv, .tetrad, .xdsl, .dsc) or a workflow "
+                "cache (.db) containing reference graphs with the same "
+                "key structure as the input cache."
+            ),
             required=False,
             type_hint="str",
         ),
@@ -973,6 +978,165 @@ class AnalysisActionProvider(CausalIQActionProvider):
         except Exception as e:
             raise ActionExecutionError(f"Graph merge failed: {e}") from e
 
+    def _extract_graph_from_entry(
+        self,
+        entry: Any,
+        source_label: str,
+    ) -> Tuple[Any, str]:
+        """Extract an evaluable graph (DAG, PDAG, CPDAG) from a cache entry.
+
+        Locates a GraphML object of type 'dag', 'pdag', or 'cpdag' within
+        the entry, rejecting PDG objects which carry edge probabilities
+        and so cannot be evaluated by evaluate_graph.
+
+        Args:
+            entry: Cache entry containing typed objects.
+            source_label: Human-readable description of the entry source,
+                used in error messages.
+
+        Returns:
+            Tuple of (parsed graph, object type).
+
+        Raises:
+            ActionExecutionError: If no evaluable graph is found, the
+                graph cannot be parsed, or the object is a PDG.
+        """
+        from io import StringIO
+
+        from causaliq_core.graph.io import graphml
+
+        # Valid graph types for evaluation (exclude pdg)
+        valid_graph_types = ("dag", "pdag", "cpdag")
+
+        def _is_pdg_graphml(content: str) -> bool:
+            """Check if GraphML content is a PDG (has probability keys)."""
+            return '<key id="p_forward"' in content
+
+        # Find graphml object of valid type in entry
+        for obj_type in entry.object_types():
+            if obj_type not in valid_graph_types:
+                continue
+            obj = entry.get_object(obj_type)
+            if obj is None or obj.format != "graphml":
+                continue
+            # Validate that graphml is not actually a PDG
+            if _is_pdg_graphml(obj.content):
+                raise ActionExecutionError(
+                    f"Object '{obj_type}' in {source_label} contains PDG "
+                    "data (has p_forward probabilities). evaluate_graph "
+                    "requires a DAG, PDAG, or CPDAG without probability "
+                    "weights."
+                )
+            try:
+                graph = graphml.read(StringIO(obj.content))
+                return graph, obj_type
+            except Exception as e:
+                raise ActionExecutionError(
+                    f"Failed to parse graph '{obj_type}' from "
+                    f"{source_label}: {e}"
+                ) from e
+
+        raise ActionExecutionError(
+            f"No evaluable graph object found in {source_label}. "
+            "evaluate_graph requires a 'dag', 'pdag', or 'cpdag' object."
+        )
+
+    def _resolve_reference_graph(
+        self,
+        reference_path: str,
+        update_entry: Dict[str, Any],
+    ) -> Any:
+        """Resolve the reference graph from a file or workflow cache.
+
+        When reference_path points to a workflow cache (.db), the
+        reference graph is resolved from the reference cache entry whose
+        matrix variable values match the current input entry. The
+        reference cache must use the same key structure (matrix variable
+        names) as the input cache.
+
+        Args:
+            reference_path: Path to a reference graph file or a workflow
+                cache (.db) containing reference graphs.
+            update_entry: UPDATE action entry data containing the
+                'matrix_values' for the current input entry.
+
+        Returns:
+            The parsed reference graph.
+
+        Raises:
+            ActionExecutionError: If the reference cannot be resolved.
+        """
+        from typing import Any as TypingAny
+
+        from causaliq_core.bn.io import read_bn
+        from causaliq_core.graph.io import read_graph
+
+        def _read_graph_file(path: str) -> TypingAny:
+            """Read graph from file, auto-detecting format from suffix."""
+            suffix = path.lower().split(".")[-1]
+            if suffix in ("xdsl", "dsc"):
+                return read_bn(path).dag
+            return read_graph(path)
+
+        # Single ground-truth reference graph file
+        if not str(reference_path).lower().endswith(".db"):
+            try:
+                return _read_graph_file(reference_path)
+            except FileNotFoundError:
+                raise ActionExecutionError(
+                    f"Reference graph not found: {reference_path}"
+                )
+            except Exception as e:
+                raise ActionExecutionError(
+                    f"Failed to read reference graph: {e}"
+                ) from e
+
+        # Workflow cache reference: compare graphs in another cache
+        from causaliq_workflow.cache import WorkflowCache
+
+        matrix_values = update_entry.get("matrix_values", {})
+        input_keys = set(matrix_values.keys())
+
+        try:
+            with WorkflowCache(reference_path) as ref_cache:
+                ref_entries = ref_cache.list_entries()
+                if not ref_entries:
+                    raise ActionExecutionError(
+                        f"Reference cache is empty: {reference_path}"
+                    )
+
+                # Reference cache must use the same key structure as the
+                # input cache so matrix values resolve to matching entries.
+                for ref_info in ref_entries:
+                    ref_keys = set(ref_info.get("matrix_values", {}).keys())
+                    if ref_keys != input_keys:
+                        raise ActionExecutionError(
+                            "Reference cache key structure does not match "
+                            "input cache. Input keys: "
+                            f"{sorted(input_keys)}, reference keys: "
+                            f"{sorted(ref_keys)}"
+                        )
+
+                # Resolve the reference entry with identical matrix values
+                ref_entry = ref_cache.get(matrix_values)
+                if ref_entry is None:
+                    raise ActionExecutionError(
+                        "No entry in reference cache for matrix values "
+                        f"{dict(matrix_values)}"
+                    )
+
+                source_label = f"reference cache entry {dict(matrix_values)}"
+                graph, _ = self._extract_graph_from_entry(
+                    ref_entry, source_label
+                )
+                return graph
+        except ActionExecutionError:
+            raise
+        except Exception as e:
+            raise ActionExecutionError(
+                f"Failed to read reference cache: {e}"
+            ) from e
+
     def _run_evaluate_graph(
         self,
         parameters: Dict[str, Any],
@@ -983,7 +1147,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
         """Evaluate graph against ground truth reference.
 
         UPDATE pattern action: receives entry data via _update_entry,
-        computes structural metrics, returns them as metadata.
+        computes structural metrics, returns them as metadata. The
+        reference may be a single ground-truth graph file or a workflow
+        cache (.db) with entries sharing the input cache's key structure.
 
         Args:
             parameters: Action parameters including _update_entry
@@ -994,21 +1160,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         Returns:
             ActionResult with structural metrics as metadata
         """
-        from io import StringIO
-        from typing import Any as TypingAny
-
-        from causaliq_core.bn.io import read_bn
-        from causaliq_core.graph.io import graphml, read_graph
-
         from causaliq_analysis.metrics import pdag_compare
-
-        def _read_graph_file(path: str) -> TypingAny:
-            """Read graph from file, auto-detecting format from suffix."""
-            suffix = path.lower().split(".")[-1]
-            if suffix in ("xdsl", "dsc"):
-                return read_bn(path).dag
-            else:
-                return read_graph(path)
 
         # Extract UPDATE action entry data
         update_entry = parameters.get("_update_entry")
@@ -1052,55 +1204,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
         if entry is None:
             raise ActionExecutionError("No entry object in _update_entry")
 
-        # Valid graph types for evaluation (exclude pdg)
-        valid_graph_types = ("dag", "pdag", "cpdag")
+        graph, graph_type = self._extract_graph_from_entry(
+            entry, "cache entry"
+        )
 
-        def _is_pdg_graphml(content: str) -> bool:
-            """Check if GraphML content is a PDG (has probability keys)."""
-            return '<key id="p_forward"' in content
-
-        # Find graphml object of valid type in entry
-        graph = None
-        graph_type = None
-        for obj_type in entry.object_types():
-            if obj_type not in valid_graph_types:
-                continue
-            obj = entry.get_object(obj_type)
-            if obj is None or obj.format != "graphml":
-                continue
-            # Validate that graphml is not actually a PDG
-            if _is_pdg_graphml(obj.content):
-                raise ActionExecutionError(
-                    f"Object '{obj_type}' contains PDG data (has p_forward "
-                    "probabilities). evaluate_graph requires a DAG, PDAG, "
-                    "or CPDAG without probability weights."
-                )
-            try:
-                graph = graphml.read(StringIO(obj.content))
-                graph_type = obj_type
-                break
-            except Exception as e:
-                raise ActionExecutionError(
-                    f"Failed to parse graph '{obj_type}': {e}"
-                ) from e
-
-        if graph is None:
-            raise ActionExecutionError(
-                "No evaluable graph object found in cache entry. "
-                "evaluate_graph requires a 'dag', 'pdag', or 'cpdag' object."
-            )
-
-        # Load reference graph
-        try:
-            reference = _read_graph_file(reference_path)
-        except FileNotFoundError:
-            raise ActionExecutionError(
-                f"Reference graph not found: {reference_path}"
-            )
-        except Exception as e:
-            raise ActionExecutionError(
-                f"Failed to read reference graph: {e}"
-            ) from e
+        # Load reference graph (file or workflow cache)
+        reference = self._resolve_reference_graph(reference_path, update_entry)
 
         # Compute metrics
         try:

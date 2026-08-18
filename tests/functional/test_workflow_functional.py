@@ -1061,3 +1061,192 @@ def test_summarise_direct_mode_logs_progress(
     assert "Processed:" in captured.out
     assert "Collected values from" in captured.out
     assert "Summary written to" in captured.out
+
+
+# Test evaluate_graph with reference as a workflow cache (end-to-end).
+def test_evaluate_graph_cache_reference_end_to_end(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test evaluate_graph compares against a reference workflow cache."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    input_path = tmp_path / "input.db"
+    ref_path = tmp_path / "legacy_bnsl.db"
+
+    dag = DAG(["A", "B", "C"], [("A", "->", "B"), ("B", "->", "C")])
+
+    # Input cache: learned graphs keyed by network and sample size
+    with WorkflowCache(input_path) as cache:
+        buffer = StringIO()
+        graphml.write(dag, buffer)
+        entry = CacheEntry()
+        entry.add_object("dag", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "sample_size": 100}, entry)
+
+    # Reference cache with identical key structure
+    with WorkflowCache(ref_path) as cache:
+        buffer = StringIO()
+        graphml.write(dag, buffer)
+        ref_entry = CacheEntry()
+        ref_entry.add_object("dag", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "sample_size": 100}, ref_entry)
+
+    # Build the update entry exactly as the workflow engine would
+    with WorkflowCache(input_path) as cache:
+        entry_info = cache.list_entries()[0]
+        matrix_values = entry_info["matrix_values"]
+        full_entry = cache.get(matrix_values)
+        update_entry = {
+            "matrix_values": matrix_values,
+            "metadata": dict(full_entry.metadata),
+            "entry": full_entry,
+        }
+
+    action = AnalysisActionProvider()
+    status, metadata, objects = action.run(
+        "evaluate_graph",
+        parameters={
+            "_update_entry": update_entry,
+            "reference": str(ref_path),
+            "metric": ["f1", "shd"],
+        },
+        mode="run",
+    )
+
+    assert status == "success"
+    assert metadata["f1"] == 1.0
+    assert metadata["shd"] == 0
+    assert metadata["reference"] == str(ref_path)
+    assert metadata["evaluated_graph"] == "dag"
+    assert objects == []
+
+    # Simulate the workflow engine persisting metrics into the input cache
+    with WorkflowCache(input_path) as cache:
+        cache.update_entry(
+            matrix_values,
+            {"causaliq-analysis": {"evaluate_graph": metadata}},
+            objects,
+        )
+
+    with WorkflowCache(input_path) as cache:
+        updated = cache.get(matrix_values)
+        persisted = updated.metadata["causaliq-analysis"]["evaluate_graph"]
+        assert persisted["f1"] == 1.0
+        assert persisted["shd"] == 0
+
+
+# Test evaluate_graph rejects reference cache with different keys.
+def test_evaluate_graph_cache_reference_key_mismatch_functional(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test evaluate_graph errors when reference cache keys differ."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    input_path = tmp_path / "input.db"
+    ref_path = tmp_path / "legacy.db"
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    with WorkflowCache(input_path) as cache:
+        buffer = StringIO()
+        graphml.write(dag, buffer)
+        entry = CacheEntry()
+        entry.add_object("dag", "graphml", buffer.getvalue())
+        cache.put({"network": "asia", "sample_size": 100}, entry)
+
+    # Reference cache uses a different key name
+    with WorkflowCache(ref_path) as cache:
+        buffer = StringIO()
+        graphml.write(dag, buffer)
+        ref_entry = CacheEntry()
+        ref_entry.add_object("dag", "graphml", buffer.getvalue())
+        cache.put({"network": "asia"}, ref_entry)
+
+    with WorkflowCache(input_path) as cache:
+        entry_info = cache.list_entries()[0]
+        matrix_values = entry_info["matrix_values"]
+        full_entry = cache.get(matrix_values)
+        update_entry = {
+            "matrix_values": matrix_values,
+            "metadata": dict(full_entry.metadata),
+            "entry": full_entry,
+        }
+
+    action = AnalysisActionProvider()
+    with pytest.raises(Exception) as exc_info:
+        action.run(
+            "evaluate_graph",
+            parameters={
+                "_update_entry": update_entry,
+                "reference": str(ref_path),
+                "metric": ["f1"],
+            },
+            mode="run",
+        )
+    assert "key structure does not match" in str(exc_info.value)
+
+
+# Test evaluate_graph rejects reference entry without a graph.
+def test_evaluate_graph_cache_reference_no_graph_functional(
+    tmp_path: "pytest.TempPathFactory",
+) -> None:
+    """Test evaluate_graph errors when reference entry has no graph."""
+    from io import StringIO
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    input_path = tmp_path / "input.db"
+    ref_path = tmp_path / "legacy.db"
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    with WorkflowCache(input_path) as cache:
+        buffer = StringIO()
+        graphml.write(dag, buffer)
+        entry = CacheEntry()
+        entry.add_object("dag", "graphml", buffer.getvalue())
+        cache.put({"network": "asia"}, entry)
+
+    # Reference entry has matching key but no graph object
+    with WorkflowCache(ref_path) as cache:
+        cache.put({"network": "asia"}, CacheEntry())
+
+    with WorkflowCache(input_path) as cache:
+        entry_info = cache.list_entries()[0]
+        matrix_values = entry_info["matrix_values"]
+        full_entry = cache.get(matrix_values)
+        update_entry = {
+            "matrix_values": matrix_values,
+            "metadata": dict(full_entry.metadata),
+            "entry": full_entry,
+        }
+
+    action = AnalysisActionProvider()
+    with pytest.raises(Exception) as exc_info:
+        action.run(
+            "evaluate_graph",
+            parameters={
+                "_update_entry": update_entry,
+                "reference": str(ref_path),
+                "metric": ["f1"],
+            },
+            mode="run",
+        )
+    assert "No evaluable graph object found" in str(exc_info.value)
+    assert "reference cache entry" in str(exc_info.value)
