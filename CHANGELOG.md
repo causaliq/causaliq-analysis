@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- **Graph Evaluation vs Workflow Cache**: `evaluate_graph` now accepts a
+  workflow cache (`.db`) as its `reference` so graphs can be compared across
+  caches with identical key structures (e.g. network and sample size)
+  - Validates the reference cache key structure matches the input cache
+  - Reports errors when reference entries do not contain graphs
 
 ### Changed
 - Nothing yet

@@ -16,7 +16,7 @@ the requested metrics when used within a CausalIQ workflow.
 | Parameter   | CLI Flag           | Required | Description |
 |-------------|--------------------|----------|-------------|
 | `input`     | `-i`/`--input`     | Yes      | Learned graph file (CLI) or workflow cache `.db` (action) |
-| `reference` | `-r`/`--reference` | Yes      | Reference graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`, `.dsc`) |
+| `reference` | `-r`/`--reference` | Yes      | Reference graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`, `.dsc`) or workflow cache (`.db`) |
 | `metric`    | `-m`/`--metric`    | Yes      | Metric(s) to compute (repeatable in CLI) |
 | `output`    | `-o`/`--output`    | CLI only | Output directory for `_meta.json` file |
 | `filter`    | —                  | No       | Filter expression for cache entries (workflow only) |
@@ -32,6 +32,10 @@ the requested metrics when used within a CausalIQ workflow.
 - In workflows, `input` is a workflow cache (`.db`) and `output` is
   **prohibited** (UPDATE action pattern). The `filter` parameter can select
   specific cache entries.
+- In workflows, `reference` can be another workflow cache (`.db`) whose
+  entries contain reference graphs with the same key structure as the
+  input cache. Each input entry is compared against the reference entry
+  with identical matrix variable values.
 
 ---
 
@@ -97,6 +101,32 @@ steps:
 
 This computes metrics for each graph entry in the cache and adds them to the
 entry's metadata.
+
+### Workflow Cache Reference
+
+Instead of a single ground-truth graph file, `reference` can point to another
+workflow cache (`.db`) containing reference graphs. This enables comparing
+graphs across caches that share identical cache keys, for example when
+checking that causal discovery produces the same graphs as legacy BNSL code:
+
+```yaml
+steps:
+  - name: "Compare against legacy BNSL graphs"
+    uses: "causaliq-analysis"
+    with:
+      action: "evaluate_graph"
+      input: "results/causaliq_graphs.db"
+      reference: "results/legacy_bnsl_graphs.db"
+      metric:
+        - f1
+        - shd
+```
+
+The reference cache must use the same key structure (matrix variable names) as
+the input cache. Each input entry is evaluated against the reference entry
+with identical matrix variable values (e.g. `network='asia', sample_size=100`).
+If the key structures differ, no matching reference entry exists, or a
+reference entry does not contain a graph, an error is reported.
 
 ---
 

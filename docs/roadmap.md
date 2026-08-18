@@ -5,11 +5,14 @@
 This project roadmap fits into the
 [overall ecosystem roadmap](https://causaliq.org/projects/ecosystem_roadmap/).
 
-## 🛣️ Upcoming Releases
+## 🎯 Under Development
 
-### v0.5.0 — Publication Assets
+### v0.5.0 — Reproducibility
 
-- **Publication Assets** - publication-ready charts and tables
+Assuring reproducibility of results and assets for published papers.
+
+ * ✅ [Task 1 - workflow cache can be used as reference for `evaluate_graph`](current_task.md)
+
 
 ## ✅ Implemented Releases
 
