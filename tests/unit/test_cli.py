@@ -556,3 +556,32 @@ def test_merge_graph_weights_generic_error(runner, tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert "Failed to load weights file" in result.output
+
+
+# Help shows plot command.
+def test_cli_help_shows_plot(runner):
+    """Main CLI help lists the plot command."""
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert "plot" in result.output
+
+
+# plot command help displays correct usage and options.
+def test_plot_help(runner):
+    """The plot command help shows usage and options."""
+    result = runner.invoke(cli, ["plot", "--help"])
+    assert result.exit_code == 0
+    assert "Plot charts from a summarise CSV output" in result.output
+    assert "--input" in result.output
+    assert "--output" in result.output
+    assert "--subplot" in result.output
+    assert "--group" in result.output
+    assert "--property" in result.output
+
+
+# plot command fails when required options are missing.
+def test_plot_missing_options(runner):
+    """The plot command fails without required options."""
+    result = runner.invoke(cli, ["plot"])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output

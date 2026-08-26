@@ -2,7 +2,7 @@
 causaliq-analysis: Tools for analysing and visualising causal graphs
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0.dev1"
 __author__ = "CausalIQ"
 __email__ = "info@causaliq.org"
 
@@ -42,6 +42,7 @@ VERSION = _parse_version(__version__)
 
 # Import main functions
 from causaliq_analysis.merge import merge_graphs  # noqa: E402, F401
+from causaliq_analysis.plot import run_plot  # noqa: E402, F401
 
 # Import workflow action for auto-discovery (if causaliq-workflow is installed)
 try:
@@ -56,6 +57,7 @@ try:
         "__email__",
         "VERSION",
         "merge_graphs",
+        "run_plot",
         "ActionProvider",
         "AnalysisActionProvider",
     ]
@@ -67,4 +69,5 @@ except ImportError:
         "__email__",
         "VERSION",
         "merge_graphs",
+        "run_plot",
     ]

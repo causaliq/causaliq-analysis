@@ -534,6 +534,65 @@ def test_summarise_metric_spec_format() -> None:
 
 
 # =============================================================================
+# plot parameter name validation
+# =============================================================================
+
+
+def _valid_plot_parameters() -> dict:
+    """Return valid plot parameters for validation tests."""
+    return {
+        "input": "results.csv",
+        "output": "chart.png",
+        "type": "line",
+        "subplot": "network",
+        "group": "series",
+        "x": "sample_size",
+        "y": "f1.mean",
+        "properties": ["xaxis.label:Sample size"],
+    }
+
+
+# Test plot rejects unknown parameter names.
+def test_plot_rejects_unknown_parameter() -> None:
+    """plot rejects unknown parameter names."""
+    provider = AnalysisActionProvider()
+
+    parameters = _valid_plot_parameters()
+    parameters["unknown_param"] = "value"
+
+    with pytest.raises(ActionValidationError) as exc_info:
+        provider.validate_parameters("plot", parameters)
+
+    assert "Unknown parameter" in str(exc_info.value)
+
+
+# Test plot accepts all valid parameters.
+def test_plot_accepts_all_valid_parameters() -> None:
+    """plot accepts all valid parameter names."""
+    provider = AnalysisActionProvider()
+
+    provider.validate_parameters("plot", _valid_plot_parameters())
+
+
+# Test plot requires input parameter.
+def test_plot_requires_input() -> None:
+    """plot requires the input parameter."""
+    provider = AnalysisActionProvider()
+
+    parameters = _valid_plot_parameters()
+    del parameters["input"]
+
+    with pytest.raises(ActionValidationError) as exc_info:
+        provider.validate_parameters("plot", parameters)
+
+    assert "requires 'input'" in str(exc_info.value)
+
+
+# =============================================================================
+# Cross-action validation
+# =============================================================================
+
+# =============================================================================
 # Cross-action validation
 # =============================================================================
 
