@@ -50,6 +50,7 @@ nav:
     - Evaluating Graphs: userguide/evaluate_graph.md
     - Graph Merging: userguide/merge_graphs.md
     - Summarise: userguide/summarise.md
+    - Plot: userguide/plot.md
     - Trace Migration: userguide/migrate_trace.md
   - Architecture: 
     - Overview: architecture/overview.md
@@ -60,6 +61,7 @@ nav:
     - Metrics: api/metrics.md
     - Graph: api/graph.md
     - Trace: api/trace.md
+    - Plot: api/plot.md
     - CLI: api/cli.md
 
 plugins:

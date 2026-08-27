@@ -28,6 +28,12 @@ Detailed tracing of structure learning processes, enabling researchers to
 record, analyse, and compare the step-by-step evolution of causal graphs
 during algorithm execution.
 
+### [Plot](plot.md)
+
+Functions for drawing charts using matplotlib and Seaborn from a
+`summarise` CSV output, migrated from the legacy `experiments/plot.py`
+module.
+
 ### [CLI](cli.md)
 
 Command-line interface for causaliq-analysis operations.

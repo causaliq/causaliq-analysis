@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Plot Capability**: new `plot` CLI command and workflow action (NOCACHES
+  pattern) which draws charts using matplotlib and Seaborn from a `summarise`
+  CSV output
+  - Migrated from the legacy `experiments/plot.py` module so figures such as
+    the `ord_hc_f1` chart can be replicated exactly
+  - Supports `line`, `regression`, `histogram`, `box`, `violin`, `bar` and
+    `scatter` plot types
+  - Chart properties specified as `name:value` strings (e.g.
+    `legend.title_fontsize:12`)
+  - Operates on plain files without workflow caches or the matrix, running
+    once per workflow
+  - Tests verify the output image exactly replicates a reference image
+- **NOCACHES Action Pattern**: new `ActionPattern.NOCACHES` value (in
+  `causaliq-core`) for actions that read/write plain files without workflow
+  caches or the matrix; `causaliq-workflow` runs such steps once and skips
+  the cache/matrix pattern validation
 - **Graph Evaluation vs Workflow Cache**: `evaluate_graph` now accepts a
   workflow cache (`.db`) as its `reference` so graphs can be compared across
   caches with identical key structures (e.g. network and sample size)
@@ -24,7 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- **Cross-platform plot replication test**: `test_plot_exact_replication`
+  now compares the plot CLI's SVG output with the `ord_hc_f1.svg`
+  reference, which is byte-identical across platforms for a given
+  matplotlib version, unlike rasterised PNG output.
 
 ### Security
 - Nothing yet

@@ -1,18 +1,22 @@
 # CausalIQ Analysis - Development Roadmap
 
-**Last updated**: April 10, 2026
+**Last updated**: August 25, 2026
 
 This project roadmap fits into the
 [overall ecosystem roadmap](https://causaliq.org/projects/ecosystem_roadmap/).
 
-## 🎯 Under Development
+## 🚧 Under Development [October 2026]
 
-### v0.5.0 — Reproducibility
+### v0.5.0 — Reproduce variable-ordering paper
 
 Assuring reproducibility of results and assets for published papers.
 
- * ✅ [Task 1 - workflow cache can be used as reference for `evaluate_graph`](current_task.md)
-
+1. ✅ workflow cache can be used as reference for `evaluate_graph`
+1. ✅ [new `plot` action works in GitHub CI with no warnings](current_task.md)
+1. 📊 Ensure plot action can replicate legacy hc_f1 plot for sports and asia
+1. 📊 [Refactor code to make modules smaller and clearer](refactor.md)
+1. 📊 Support Python 3.10-14, with 3.12 as default, and badge as [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
+1. 🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster
 
 ## ✅ Implemented Releases
 
