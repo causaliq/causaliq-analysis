@@ -1111,8 +1111,9 @@ def summarise_cmd(
     "-p",
     "properties",
     multiple=True,
-    help="Chart property in '<name>:<value>' format (e.g. "
-    "legend.title_fontsize:12). Can specify multiple.",
+    help="Chart property in '<name>=<value>' format with a Python "
+    "literal value (e.g. 'int.property=22', "
+    "'dict.property={\"a\": 1}'). Can specify multiple.",
 )
 def plot_cmd(
     input: str,
@@ -1136,8 +1137,8 @@ def plot_cmd(
         causaliq-analysis plot -i summary.csv -o chart.png \\
             --type line --subplot network --group series \\
             --x sample_size --y f1.mean \\
-            -p "xaxis.label:Sample size" \\
-            -p "yaxis.label:F1"
+            -p "xaxis.label=Sample size" \\
+            -p "yaxis.label=F1"
     """
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 

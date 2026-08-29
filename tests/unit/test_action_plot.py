@@ -25,7 +25,7 @@ def _valid_parameters() -> Dict[str, Any]:
         "group": "series",
         "x": "sample_size",
         "y": "f1.mean",
-        "properties": ["xaxis.label:Sample size"],
+        "properties": ["xaxis.label=Sample size"],
     }
 
 
@@ -151,7 +151,7 @@ def test_plot_rejects_invalid_properties() -> None:
 
     provider = AnalysisActionProvider()
     parameters = _valid_parameters()
-    parameters["properties"] = [":bad"]
+    parameters["properties"] = ["=bad"]
 
     with pytest.raises(ActionValidationError, match="Invalid plot properties"):
         provider.run(
@@ -161,6 +161,51 @@ def test_plot_rejects_invalid_properties() -> None:
             context=None,
             logger=_make_logger(),
         )
+
+
+# Plot action rejects legacy colon-separated properties.
+def test_plot_rejects_legacy_properties() -> None:
+    """Test plot raises error for legacy colon property strings."""
+    from causaliq_core import ActionValidationError
+
+    provider = AnalysisActionProvider()
+    parameters = _valid_parameters()
+    parameters["properties"] = ["xaxis.label:Sample size"]
+
+    with pytest.raises(ActionValidationError, match="Invalid plot properties"):
+        provider.run(
+            action="plot",
+            parameters=parameters,
+            mode="run",
+            context=None,
+            logger=_make_logger(),
+        )
+
+
+# Plot action accepts equals-separated Python literal properties.
+def test_plot_accepts_equals_properties() -> None:
+    """Test plot validation passes for Python literal properties."""
+    provider = AnalysisActionProvider()
+    parameters = _valid_parameters()
+    parameters["properties"] = [
+        "int.property=22",
+        "dict.property={'key1': 1}",
+        "list.property=['a', 1]",
+    ]
+
+    with patch(
+        "causaliq_analysis.workflow_action.run_plot",
+        return_value={"output": "chart.png", "type": "line"},
+    ):
+        status, _, _ = provider.run(
+            action="plot",
+            parameters=parameters,
+            mode="run",
+            context=None,
+            logger=_make_logger(),
+        )
+
+    assert status == "success"
 
 
 # Plot action supports dry-run mode.

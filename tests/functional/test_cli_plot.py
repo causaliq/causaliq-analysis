@@ -19,35 +19,35 @@ REFERENCE_DIR = Path(__file__).parent.parent / "data" / "functional"
 def _ord_hc_f1_properties() -> list:
     """Return the properties which replicate the ord_hc_f1 figure."""
     return [
-        "figure.subplots_top:0.98",
-        "figure.subplots_left:0.04",
-        "figure.subplots_right:0.86",
-        "figure.subplots_hspace:0.22",
-        "figure.subplots_wspace:0.2",
-        "figure.per_row:2",
-        "figure.title:",
-        "subplot.aspect:1.05",
-        "subplot.grid:True",
-        "subplot.grid_colour:lightgray",
-        "subplot.background:white",
-        "subplot.axes_fontsize:22",
-        "subplot.title_fontsize:22",
-        "xaxis.ticks_fontsize:22",
-        "yaxis.ticks_fontsize:22",
-        "xaxis.scale:log",
-        "xaxis.ticks:[10,100,1000,10000,100000,1000000,10000000]",
-        "xaxis.range:(10,10000000)",
-        "xaxis.label:Sample size",
-        "yaxis.range:(0,1.05)",
-        "yaxis.label:F1 (CPDAG)",
-        "yaxis.shared:True",
-        "legend.outside:True",
-        "legend.fontsize:22",
-        "legend.title_fontsize:22",
-        "legend.title:variable ordering",
-        "legend.labels:{BNLEARN/HC_OPT,optimal,BNLEARN/HC_BAD,worst,"
-        "BNLEARN/HC_STD,alphabetic}",
-        "palette:[#66bd63,#d73027,#000000]",
+        "figure.subplots_top=0.98",
+        "figure.subplots_left=0.04",
+        "figure.subplots_right=0.86",
+        "figure.subplots_hspace=0.22",
+        "figure.subplots_wspace=0.2",
+        "figure.per_row=2",
+        "figure.title=",
+        "subplot.aspect=1.05",
+        "subplot.grid=True",
+        "subplot.grid_colour=lightgray",
+        "subplot.background=white",
+        "subplot.axes_fontsize=22",
+        "subplot.title_fontsize=22",
+        "xaxis.ticks_fontsize=22",
+        "yaxis.ticks_fontsize=22",
+        "xaxis.scale=log",
+        "xaxis.ticks=[10,100,1000,10000,100000,1000000,10000000]",
+        "xaxis.range=(10,10000000)",
+        "xaxis.label=Sample size",
+        "yaxis.range=(0,1.05)",
+        "yaxis.label=F1 (CPDAG)",
+        "yaxis.shared=True",
+        "legend.outside=True",
+        "legend.fontsize=22",
+        "legend.title_fontsize=22",
+        "legend.title=variable ordering",
+        "legend.labels={'BNLEARN/HC_OPT': 'optimal', 'BNLEARN/HC_BAD': "
+        "'worst', 'BNLEARN/HC_STD': 'alphabetic'}",
+        "palette=['#66bd63','#d73027','#000000']",
     ]
 
 
@@ -156,6 +156,44 @@ def test_plot_exact_replication(cli_runner, tmp_path):
     assert _svg_replication_bytes(output_path) == _svg_replication_bytes(
         reference_path
     )
+
+
+# Plot command accepts equals-separated Python literal properties.
+def test_plot_accepts_equals_properties(cli_runner, tmp_path):
+    """Test the plot command accepts Python-typed property values."""
+    input_path = tmp_path / "data.csv"
+    input_path.write_text(
+        "network,series,sample_size,f1.mean\nasia,s1,100,0.5\n"
+    )
+    output_path = tmp_path / "chart.png"
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "plot",
+            "-i",
+            str(input_path),
+            "-o",
+            str(output_path),
+            "--type",
+            "line",
+            "--subplot",
+            "network",
+            "--group",
+            "series",
+            "-x",
+            "sample_size",
+            "-y",
+            "f1.mean",
+            "-p",
+            "figure.title='Test chart'",
+            "-p",
+            "yaxis.range=(0,1)",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert output_path.exists()
 
 
 # Plot command converts action failures to click errors.

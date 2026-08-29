@@ -7,13 +7,15 @@ the variable-ordering CPDAG F1 chart can be replicated exactly from a
 ``summarise`` CSV output.
 """
 
+import ast
 import re
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.patches import Patch
+from matplotlib.ticker import FixedLocator
 from pandas import DataFrame, read_csv, to_numeric
 
 # Matplotlib/Seaborn properties which can be modified in format
@@ -71,7 +73,7 @@ FACET_PROPS = {
 }
 
 VIOLIN_PROPS = {
-    "violin.scale": "scale",  # scale: area, count or width
+    "violin.scale": "density_norm",  # density_norm: area, count or width
     "violin.width": "width",  # absolute width of violin
 }
 
@@ -84,12 +86,20 @@ SUPPORTED_KINDS = frozenset(
 SubplotInfo = Dict[str, Any]
 
 
+# Sentinel returned when a property value is not a Python literal.
+_NOT_A_LITERAL = object()
+
+
 def _convert_value(value: Optional[str]) -> Any:
     """Convert a string property value to its correct type.
 
-    Supports blank values, ``True``/``False``, integers, floats, tuples
-    ``(a, b)``, lists ``[a, b]`` and dictionaries ``{k, v, ...}``. The
-    ``¬`` character converts to ``None`` (used to blank a property).
+    The value is parsed as a Python literal first, so ``22`` becomes an
+    integer, ``0.23`` a float, ``'string value'`` a string, ``(2, 'dad')``
+    a tuple, ``['a', 1, 2.3]`` a list, ``{'key1': 1, 'key2': 'me'}`` a
+    dict and ``{1, 'two'}`` a set. Values which are not valid Python
+    literals (e.g. ``lightgray``) fall back to legacy conversions:
+    integers and floats are converted, blank values become ``""`` and
+    the ``¬`` character converts to ``None`` (used to blank a property).
 
     Args:
         value: string value to convert, or None for a blank value.
@@ -101,10 +111,12 @@ def _convert_value(value: Optional[str]) -> Any:
         return ""
     if value == "¬":
         return None
-    if value == "False":
-        return False
-    if value == "True":
-        return True
+    try:
+        converted = ast.literal_eval(value)
+    except (ValueError, SyntaxError, TypeError):
+        converted = _NOT_A_LITERAL
+    if converted is not _NOT_A_LITERAL and not isinstance(converted, bytes):
+        return converted
     if value.startswith("(") and value.endswith(")"):
         return tuple(_convert_value(v) for v in value[1:-1].split(","))
     if value.startswith("[") and value.endswith("]"):
@@ -122,14 +134,41 @@ def _convert_value(value: Optional[str]) -> Any:
         return value
 
 
+def _split_property(item: str) -> Tuple[str, Optional[str]]:
+    """Split a property string into its name and value parts.
+
+    The ``=`` character separates the property name from its value, which
+    is written in Python literal syntax (e.g. ``"int.property=22"``).
+
+    Args:
+        item: property string to split.
+
+    Returns:
+        Tuple of (name, value); value is None for a blank value.
+
+    Raises:
+        ValueError: If the legacy ``:`` separator is used.
+    """
+    name, _, value = item.strip().partition("=")
+    name = name.strip()
+    value = value.strip()
+    if ":" in name:
+        raise ValueError(
+            f"Plot property '{item}' uses the legacy ':' separator; "
+            "use '=' instead (e.g. 'xaxis.label=Sample size')."
+        )
+    return name, value or None
+
+
 def parse_properties(
     properties: Optional[Union[str, List[str]]],
 ) -> Dict[str, Any]:
     """Parse chart property strings into a typed dictionary.
 
-    Each property is a string of the form ``<name>:<value>`` (e.g.
-    ``"legend.title_fontsize:12"``). Values are converted to their correct
-    types so ``"0.05"`` becomes a float and ``"True"`` becomes a boolean.
+    Each property is a string of the form ``<name>=<value>`` (e.g.
+    ``"int.property=22"``). Values are parsed as Python literals so
+    ``"0.05"`` becomes a float, ``"[1, 2]"`` a list, ``"{'a': 1}"`` a
+    dict and ``"True"`` a boolean.
 
     Args:
         properties: list of property strings, a single string, or None.
@@ -146,11 +185,10 @@ def parse_properties(
     if isinstance(properties, str):
         properties = [properties]
     for item in properties:
-        name, _, value = item.partition(":")
-        name = name.strip()
+        name, value = _split_property(item)
         if not name:
             raise ValueError(f"Malformed plot property: '{item}'")
-        parsed[name] = _convert_value(value.strip() if value else None)
+        parsed[name] = _convert_value(value)
     return parsed
 
 
@@ -181,18 +219,23 @@ def _set_axes_props(
 
     # Set some properties not supported by the axes.set function.
 
-    # Set custom x-axis tick labels.
+    # Set custom x-axis tick labels. The tick positions are fixed first
+    # as set_xticklabels warns without a fixed locator.
+
     if "xaxis.tick_labels" in properties:
+        axes.xaxis.set_major_locator(FixedLocator(axes.get_xticks()))
         axes.set_xticklabels(properties["xaxis.tick_labels"])
 
     # Rotation of x-axis tick labels.
     if "xaxis.ticks_rotation" in properties:
+        axes.xaxis.set_major_locator(FixedLocator(axes.get_xticks()))
         axes.set_xticklabels(
             axes.get_xticklabels(), rotation=properties["xaxis.ticks_rotation"]
         )
 
     # Horizontal alignment of x-axis tick labels.
     if "xaxis.ticks_halign" in properties:
+        axes.xaxis.set_major_locator(FixedLocator(axes.get_xticks()))
         axes.set_xticklabels(
             axes.get_xticklabels(),
             horizontalalignment=properties["xaxis.ticks_" + "halign"],
@@ -385,7 +428,7 @@ def relplot(
                 palette=palette,
                 dashes=dashes,
                 aspect=aspect,
-                ci="sd",
+                errorbar="sd",
             )
         elif kind == "regression":
             g = sns.lmplot(
@@ -633,7 +676,7 @@ def run_plot(
         x: column name providing the x-axis values.
         y: column name providing the y-axis values.
         properties: list of chart property strings in
-            ``<name>:<value>`` format.
+            ``<name>=<value>`` format with Python literal values.
         log_fn: optional callback used to log progress messages.
 
     Returns:

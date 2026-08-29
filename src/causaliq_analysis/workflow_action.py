@@ -348,8 +348,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "properties": ActionInput(
             name="properties",
             description=(
-                "List of chart properties in '<name>:<value>' format "
-                "(e.g. 'legend.title_fontsize:12')."
+                "List of chart properties in '<name>=<value>' format "
+                "with Python literal values (e.g. "
+                "'dict.property={\"a\": 1}')."
             ),
             required=False,
             type_hint="list[str]",

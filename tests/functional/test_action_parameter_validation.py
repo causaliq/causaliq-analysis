@@ -548,7 +548,7 @@ def _valid_plot_parameters() -> dict:
         "group": "series",
         "x": "sample_size",
         "y": "f1.mean",
-        "properties": ["xaxis.label:Sample size"],
+        "properties": ["xaxis.label=Sample size"],
     }
 
 
