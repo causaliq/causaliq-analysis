@@ -22,7 +22,7 @@ variable-ordering CPDAG F1 chart can be replicated exactly.
 | `group`      | `--group` | Yes | Column name which defines the legend groups, e.g. `series` |
 | `x`          | `-x`/`--x` | Yes | Column name which provides the x-axis values, e.g. `sample_size` |
 | `y`          | `-y`/`--y` | Yes | Column name which provides the y-axis values, e.g. `f1.mean` |
-| `property`   | `-p`/`--property` | No | Chart property in `name:value` format, repeatable |
+| `property`   | `-p`/`--property` | No | Chart property in `name=value` format with a Python literal value, repeatable |
 
 ## Input
 
@@ -45,20 +45,20 @@ network, a line per series, a log-scale x-axis and the publication fonts:
 causaliq-analysis plot -i results/summary.csv -o figures/ord_hc_f1.png \
     --type line --subplot network --group series \
     --x sample_size --y f1.mean \
-    -p "figure.title:" \
-    -p "subplot.aspect:1.05" \
-    -p "figure.subplots_left:0.04" \
-    -p "figure.subplots_right:0.86" \
-    -p "figure.subplots_top:0.98" \
-    -p "figure.subplots_hspace:0.22" \
-    -p "subplot.grid:True" \
-    -p "subplot.grid_colour:lightgray" \
-    -p "subplot.background:white" \
-    -p "xaxis.scale:log" \
-    -p "xaxis.label:Sample size" \
-    -p "yaxis.label:F1 (CPDAG)" \
-    -p "legend.title:variable ordering" \
-    -p "palette:[#66bd63,#d73027,#000000]"
+    -p "figure.title=" \
+    -p "subplot.aspect=1.05" \
+    -p "figure.subplots_left=0.04" \
+    -p "figure.subplots_right=0.86" \
+    -p "figure.subplots_top=0.98" \
+    -p "figure.subplots_hspace=0.22" \
+    -p "subplot.grid=True" \
+    -p "subplot.grid_colour=lightgray" \
+    -p "subplot.background=white" \
+    -p "xaxis.scale=log" \
+    -p "xaxis.label=Sample size" \
+    -p "yaxis.label=F1 (CPDAG)" \
+    -p "legend.title=variable ordering" \
+    -p "palette=['#66bd63','#d73027','#000000']"
 ```
 
 ## Workflow Example
@@ -77,17 +77,36 @@ steps:
       x: "sample_size"
       y: "f1.mean"
       properties:
-        - "xaxis.label:Sample size"
-        - "yaxis.label:F1 (CPDAG)"
+        - "xaxis.label=Sample size"
+        - "yaxis.label=F1 (CPDAG)"
 ```
 
 ## Properties
 
-Properties use the names from the legacy plotting module. Values are
-converted to their correct types, so `0.05` becomes a float, `True` a
-boolean, `(0, 1.05)` a tuple, `[10, 100, 1000]` a list and
-`{a,1,b,2}` a dictionary. A blank value (e.g. `figure.title:`) sets an
-empty string, and `¬` sets `None`.
+Properties use the names from the legacy plotting module. Each property
+is a string of the form `<name>=<value>` where `<value>` is written in
+Python literal syntax, so the full range of Python types can be
+specified:
+
+- `int.property=22` sets the integer `22`
+- `float.property=0.23` sets the float `0.23`
+- `string.property='string value'` sets the string `string value`
+- `tuple.property=(2, 'dad')` sets the tuple `(2, 'dad')`
+- `list.property=['a', 1, 2.3]` sets the list `['a', 1, 2.3]`
+- `dict.property={'key1': 1, 'key2': 'me'}` sets a dict
+- `set.property={1, 'two'}` sets the set `{1, 'two'}`
+- `bool.property=True` sets `True`, and `none.property=None` sets
+  `None`
+
+Values which are not valid Python literals (e.g. `lightgray` or
+`Sample size`) are treated as plain strings, and a blank value (e.g.
+`figure.title=`) sets an empty string. The `¬` character sets `None`.
+Strings may also be quoted: `figure.title='Test Figure'` is equivalent
+to `figure.title=Test Figure`.
+
+> **YAML note**: a dict value contains `: ` (colon-space), which ends a
+> YAML plain scalar, so dict properties must be double-quoted in the
+> workflow file, e.g. `- "dict.property={'key1': 1, 'key2': 'me'}"`.
 
 Supported property names include:
 

@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     the `ord_hc_f1` chart can be replicated exactly
   - Supports `line`, `regression`, `histogram`, `box`, `violin`, `bar` and
     `scatter` plot types
-  - Chart properties specified as `name:value` strings (e.g.
-    `legend.title_fontsize:12`)
+  - Chart properties specified as `name=value` strings with Python
+    literal values (e.g. `legend.labels={'a': 1, 'b': 2}`)
   - Operates on plain files without workflow caches or the matrix, running
     once per workflow
   - Tests verify the output image exactly replicates a reference image
@@ -31,7 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reports errors when reference entries do not contain graphs
 
 ### Changed
-- Nothing yet
+- **Python-typed plot properties**: `plot` property strings now use the
+  `<name>=<value>` format where `<value>` is Python literal syntax, so
+  integers, floats, quoted strings, tuples, lists, dicts and sets can
+  be specified directly (e.g. `dict.property={'key1': 1, 'key2': 'me'}`).
+  The legacy `<name>:<value>` format is no longer accepted and raises a
+  clear error directing users to `=`.
 
 ### Deprecated
 - Nothing yet
