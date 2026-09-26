@@ -29,6 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caches with identical key structures (e.g. network and sample size)
   - Validates the reference cache key structure matches the input cache
   - Reports errors when reference entries do not contain graphs
+- **Edge Comparison Metrics**: new `edge` and `equiv.edge` values for the
+  `metric` parameter of `evaluate_graph`, returning the ten low-level counts
+  computed by `pdag_compare` (`arc_matched`, `arc_reversed`, `edge_not_arc`,
+  `arc_not_edge`, `edge_matched`, `arc_extra`, `edge_extra`, `arc_missing`,
+  `edge_missing` and `missing_matched`)
+  - `edge` reports the direct graph comparison, while `equiv.edge` converts
+    both graphs to CPDAGs first, mirroring `equiv.f1` and `equiv.shd`
+  - Counts are written as flat metadata keys so they can be aggregated with
+    `summarise` (e.g. `arc_matched.mean`, `equiv.missing_matched.sd`)
+  - New `EDGE_METRICS` constant in `causaliq_analysis.metrics` names the ten
+    counts
 
 ### Changed
 - **Python-typed plot properties**: `plot` property strings now use the

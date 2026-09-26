@@ -21,8 +21,8 @@ the requested metrics when used within a CausalIQ workflow.
 | `output`    | `-o`/`--output`    | CLI only | Output directory for `_meta.json` file |
 | `filter`    | —                  | No       | Filter expression for cache entries (workflow only) |
 
-**Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `equiv.f1`,
-`equiv.shd`
+**Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `edge`, `equiv.f1`,
+`equiv.shd`, `equiv.edge`
 
 **Notes:**
 
@@ -65,8 +65,8 @@ Request all available metrics:
 
 ```bash
 causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
-    -m f1 -m shd -m precision -m recall -m equiv.f1 -m equiv.shd \
-    -o results/eval
+    -m f1 -m shd -m precision -m recall -m edge \
+    -m equiv.f1 -m equiv.shd -m equiv.edge -o results/eval
 ```
 
 ### Equivalence Class Metrics
@@ -76,6 +76,83 @@ Compare equivalence classes (CPDAGs) rather than raw graphs:
 ```bash
 causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
     -m equiv.f1 -m equiv.shd -o results/eval
+```
+
+### Low-level Edge Counts
+
+The `edge` metric expands to the nine low-level edge categories reported by
+`pdag_compare`, plus `missing_matched` which completes the 2x2 confusion
+matrix:
+
+| Count | Meaning |
+|-------|---------|
+| `arc_matched` | Arc present with the same orientation in both graphs |
+| `arc_reversed` | Arc present in both graphs but oppositely orientated |
+| `edge_not_arc` | Undirected edge in the graph, arc in the reference |
+| `arc_not_edge` | Arc in the graph, undirected edge in the reference |
+| `edge_matched` | Undirected edge present in both graphs |
+| `arc_extra` | Arc in the graph with no counterpart in the reference |
+| `edge_extra` | Undirected edge in the graph with no counterpart |
+| `arc_missing` | Arc in the reference with no counterpart in the graph |
+| `edge_missing` | Undirected edge in the reference with no counterpart |
+| `missing_matched` | Edges absent from both graphs (correctly rejected) |
+
+```bash
+causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
+    -m edge -o results/eval
+```
+
+This writes `results/eval/_meta.json` containing the counts:
+
+```json
+{
+  "arc_matched": 2,
+  "arc_reversed": 0,
+  "edge_not_arc": 0,
+  "arc_not_edge": 0,
+  "edge_matched": 0,
+  "arc_extra": 0,
+  "edge_extra": 0,
+  "arc_missing": 0,
+  "edge_missing": 0,
+  "missing_matched": 4
+}
+```
+
+`missing_matched` is the number of edges absent from both graphs. It is derived
+as the maximum possible number of edges minus the sum of the other counts, so
+it is usually the largest of the counts.
+
+`equiv.edge` reports the same counts computed after converting both graphs to
+CPDAGs, exactly as `equiv.f1` and `equiv.shd` do. Its keys are prefixed with
+`equiv.`:
+
+```bash
+causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
+    -m equiv.edge -o results/eval
+```
+
+```json
+{
+  "equiv.arc_matched": 0,
+  "equiv.arc_reversed": 0,
+  "equiv.edge_not_arc": 0,
+  "equiv.arc_not_edge": 0,
+  "equiv.edge_matched": 2,
+  "equiv.arc_extra": 0,
+  "equiv.edge_extra": 0,
+  "equiv.arc_missing": 0,
+  "equiv.edge_missing": 0,
+  "equiv.missing_matched": 1
+}
+```
+
+Because the counts are stored as flat metadata keys, they can be aggregated
+directly with the [`summarise`](summarise.md) action:
+
+```bash
+causaliq-analysis summarise -i results/eval/_meta.json \
+    -m arc_matched.mean -m equiv.missing_matched.sd -o results/summary.csv
 ```
 
 ---
@@ -142,6 +219,8 @@ reference entry does not contain a graph, an error is reported.
 | `recall` | Recall from direct comparison |
 | `equiv.f1` | F1 comparing equivalence classes (CPDAGs) |
 | `equiv.shd` | SHD comparing equivalence classes (CPDAGs) |
+| `edge` | Low-level edge comparison counts (see above) |
+| `equiv.edge` | Low-level edge counts from CPDAG comparison |
 
 ### Metric Naming in CausalIQ
 
@@ -169,7 +248,7 @@ CausalIQ uses the following naming structure for metrics:
 | Element | Optional | Description | Supported Values |
 |---------|----------|-------------|------------------|
 | **`<preprocessing>`** | Yes | Preprocessing before comparison | `equiv` (convert to CPDAGs first) |
-| **`<metric>`** | No | The basic metric | `f1`, `shd`, `precision`, `recall` |
+| **`<metric>`** | No | The basic metric | `f1`, `shd`, `precision`, `recall`, and the low-level edge counts (`arc_matched`, `arc_reversed`, `edge_not_arc`, `arc_not_edge`, `edge_matched`, `arc_extra`, `edge_extra`, `arc_missing`, `edge_missing`, `missing_matched`) |
 | **`<scheme>`** | Yes | Alternative computation semantics | *not currently supported* |
 | **`<postprocessing>`** | Yes | Postprocessing, e.g., normalisation | *not currently supported* |
 | **`<statistic>`** | Yes | Statistic over multiple values | *see [`summarise`](summarise.md) action* |

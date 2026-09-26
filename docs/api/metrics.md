@@ -34,10 +34,18 @@ Compute Bayesys-compatible metrics from structural comparison results, including
 
 The `pdag_compare` function provides comprehensive structural comparison between two Partially Directed Acyclic Graphs (PDAGs). It computes detailed edge-level metrics including:
 
-- **Arc metrics**: matched, reversed, missing, extra
-- **Edge metrics**: matched, missing, extra, not-arc conversions  
-- **Summary metrics**: precision, recall, F1 score, Structural Hamming Distance (SHD)
+- **Arc metrics**: `arc_matched`, `arc_reversed`, `arc_missing`, `arc_extra`
+- **Edge metrics**: `edge_matched`, `edge_missing`, `edge_extra`,
+  `edge_not_arc`, `arc_not_edge`
+- **Confusion matrix**: `missing_matched` counts the edges absent from both
+  graphs, completing the 2x2 confusion matrix
+- **Summary metrics**: precision, recall, F1 score, Structural Hamming
+  Distance (SHD)
 - **Bayesys compatibility**: Optional Bayesys v1.3-v1.6 metrics
+
+The constant `EDGE_METRICS` lists all ten low-level count names and is used by
+the `evaluate_graph` CLI command and workflow action to expand the `edge` and
+`equiv.edge` metric requests.
 
 The function includes built-in sanity checks to ensure metric consistency and can optionally identify specific edges in each category for detailed analysis.
 

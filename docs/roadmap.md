@@ -13,7 +13,9 @@ Assuring reproducibility of results and assets for published papers.
 
 1. ✅ workflow cache can be used as reference for `evaluate_graph`
 1. ✅ new `plot` action works in GitHub CI with no warnings
-1. ✅ [Support tuples, lists and dicts as property values](current_task.md)
+1. ✅ Support tuples, lists and dicts as property values
+1. ✅ new `edge` and `equiv.edge` metrics for `evaluate_graph` return the ten edge comparison counts
+1. 📊 develop pdg_compare based on 9 edge comparison counts
 1. 📊 [Refactor code to make modules smaller and clearer](refactor.md)
 1. 📊 Support Python 3.10-14, with 3.12 as default, and badge as [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
 1. 🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster
