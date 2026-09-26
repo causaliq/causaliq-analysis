@@ -461,7 +461,16 @@ def merge_graphs_cmd(
 
 # Supported metrics for evaluate-graph command
 SUPPORTED_METRICS = frozenset(
-    {"f1", "equiv.f1", "shd", "equiv.shd", "precision", "recall"}
+    {
+        "f1",
+        "shd",
+        "precision",
+        "recall",
+        "edge",
+        "equiv.f1",
+        "equiv.shd",
+        "equiv.edge",
+    }
 )
 
 
@@ -488,7 +497,7 @@ SUPPORTED_METRICS = frozenset(
     multiple=True,
     required=True,
     help="Metric to compute. Supported: f1, shd, precision, recall, "
-    "equiv.f1, equiv.shd. Can specify multiple.",
+    "edge, equiv.f1, equiv.shd, equiv.edge. Can specify multiple.",
 )
 @click.option(
     "--output",
@@ -522,8 +531,13 @@ def evaluate_graph_cmd(
     - shd: Structural Hamming Distance from direct comparison
     - precision: Precision from direct comparison
     - recall: Recall from direct comparison
+    - edge: Low-level edge counts from direct comparison (arc_matched,
+      arc_reversed, edge_not_arc, arc_not_edge, edge_matched, arc_extra,
+      edge_extra, arc_missing, edge_missing, missing_matched)
     - equiv.f1: F1 score comparing equivalence classes (CPDAGs)
     - equiv.shd: SHD comparing equivalence classes (CPDAGs)
+    - equiv.edge: Low-level edge counts comparing equivalence classes
+      (CPDAGs)
 
     Example:
         causaliq-analysis evaluate-graph -i learned.graphml \\
@@ -531,6 +545,9 @@ def evaluate_graph_cmd(
 
         causaliq-analysis evaluate-graph -i learned.graphml \\
             -r ground_truth.graphml -m equiv.f1 -m equiv.shd
+
+        causaliq-analysis evaluate-graph -i learned.graphml \\
+            -r ground_truth.graphml -m edge -m equiv.edge
 
         causaliq-analysis evaluate-graph -i learned.graphml \\
             -r ground_truth.graphml -m f1 --format=table
@@ -543,7 +560,7 @@ def evaluate_graph_cmd(
     from causaliq_core.graph.convert import dag_to_pdag, pdag_to_cpdag
     from causaliq_core.graph.io import read_graph
 
-    from causaliq_analysis.metrics import pdag_compare
+    from causaliq_analysis.metrics import EDGE_METRICS, pdag_compare
 
     def _read_graph_file(path: str) -> Any:
         """Read graph from file, auto-detecting format from suffix."""
@@ -588,9 +605,11 @@ def evaluate_graph_cmd(
 
     # Determine which comparisons are needed
     need_direct = bool(
-        {"f1", "shd", "precision", "recall"} & metrics_to_compute
+        {"f1", "shd", "precision", "recall", "edge"} & metrics_to_compute
     )
-    need_equiv = bool({"equiv.f1", "equiv.shd"} & metrics_to_compute)
+    need_equiv = bool(
+        {"equiv.f1", "equiv.shd", "equiv.edge"} & metrics_to_compute
+    )
 
     metrics: Dict[str, Union[int, float, None]] = {}
 
@@ -611,6 +630,9 @@ def evaluate_graph_cmd(
             metrics["precision"] = raw_metrics.get("p")
         if "recall" in metrics_to_compute:
             metrics["recall"] = raw_metrics.get("r")
+        if "edge" in metrics_to_compute:
+            for name in EDGE_METRICS:
+                metrics[name] = raw_metrics.get(name)
 
     # Compute equivalence class metrics if needed
     if need_equiv:
@@ -630,6 +652,9 @@ def evaluate_graph_cmd(
                 metrics["equiv.f1"] = equiv_metrics.get("f1")
             if "equiv.shd" in metrics_to_compute:
                 metrics["equiv.shd"] = equiv_metrics.get("shd")
+            if "equiv.edge" in metrics_to_compute:
+                for name in EDGE_METRICS:
+                    metrics[f"equiv.{name}"] = equiv_metrics.get(name)
 
     # Output results
     if output_format == "table":
@@ -638,9 +663,9 @@ def evaluate_graph_cmd(
         click.echo("-" * 40)
         for metric_name, value in sorted(metrics.items()):
             if isinstance(value, float):
-                click.echo(f"{metric_name:<20} {value:.4f}")
+                click.echo(f"{metric_name:<22} {value:.4f}")
             else:
-                click.echo(f"{metric_name:<20} {value}")
+                click.echo(f"{metric_name:<22} {value}")
         click.echo("-" * 40)
     else:
         # JSON format output

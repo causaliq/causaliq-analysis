@@ -1645,3 +1645,234 @@ def test_evaluate_graph_cache_reference_read_error() -> None:
                 logger=mock_logger,
             )
     assert "Failed to read reference cache" in str(exc_info.value)
+
+
+# Test evaluate_graph expands 'edge' to the low-level count metrics.
+def test_evaluate_graph_edge_metrics() -> None:
+    """Test that 'edge' expands to the low-level comparison counts."""
+    from causaliq_analysis.metrics import EDGE_METRICS
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    # Counts are numbered so each key can be checked independently
+    mock_metrics: dict = {
+        "p": 0.8,
+        "r": 0.75,
+        "f1": 0.77,
+        "shd": 5,
+        **{name: index for index, name in enumerate(EDGE_METRICS)},
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "metric": ["edge"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    for index, name in enumerate(EDGE_METRICS):
+        assert result[1][name] == index
+    # Derived aggregates are not part of an 'edge' request
+    assert "f1" not in result[1]
+    assert "shd" not in result[1]
+    assert "precision" not in result[1]
+
+
+# Test evaluate_graph expands 'equiv.edge' after CPDAG conversion.
+def test_evaluate_graph_equiv_edge_metrics() -> None:
+    """Test that 'equiv.edge' counts come from the CPDAG comparison."""
+    from causaliq_core.graph import DAG
+
+    from causaliq_analysis.metrics import EDGE_METRICS
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    direct_metrics: dict = {"p": 0.8, "r": 0.75, "f1": 0.77, "shd": 5}
+    equiv_metrics: dict = {
+        "p": 0.9,
+        "r": 0.85,
+        "f1": 0.87,
+        "shd": 2,
+        **{name: index for index, name in enumerate(EDGE_METRICS)},
+    }
+
+    mock_dag = MagicMock(spec=DAG)
+    mock_cpdag = MagicMock()
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        side_effect=[direct_metrics, equiv_metrics],
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=mock_dag,
+        ):
+            with patch(
+                "causaliq_core.graph.convert.dag_to_pdag",
+                return_value=mock_cpdag,
+            ) as mock_to_cpdag:
+                result = provider.run(
+                    action="evaluate_graph",
+                    parameters={
+                        "_update_entry": update_entry,
+                        "reference": "ref.graphml",
+                        "metric": ["equiv.edge"],
+                    },
+                    mode="run",
+                    context=None,
+                    logger=mock_logger,
+                )
+
+    assert result[0] == "success"
+    for index, name in enumerate(EDGE_METRICS):
+        assert result[1][f"equiv.{name}"] == index
+    assert "equiv.f1" not in result[1]
+    assert "equiv.shd" not in result[1]
+    assert "arc_matched" not in result[1]
+    # Both graphs must be converted to CPDAGs
+    assert mock_to_cpdag.call_count == 2
+
+
+# Test evaluate_graph combines 'edge' counts with standard metrics.
+def test_evaluate_graph_edge_with_standard_metric() -> None:
+    """Test that 'edge' counts can be combined with standard metrics."""
+    from causaliq_analysis.metrics import EDGE_METRICS
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics: dict = {
+        "p": 0.8,
+        "r": 0.75,
+        "f1": 0.77,
+        "shd": 5,
+        **{name: index for index, name in enumerate(EDGE_METRICS)},
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "metric": ["f1", "edge"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["f1"] == 0.77
+    for index, name in enumerate(EDGE_METRICS):
+        assert result[1][name] == index
+    assert "shd" not in result[1]
+    assert "precision" not in result[1]
+
+
+# Test evaluate_graph omits edge counts when 'edge' is not requested.
+def test_evaluate_graph_edge_metrics_not_leaked() -> None:
+    """Test that low-level counts require an explicit 'edge' request."""
+    from causaliq_analysis.metrics import EDGE_METRICS
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics: dict = {
+        "p": 0.8,
+        "r": 0.75,
+        "f1": 0.77,
+        "shd": 5,
+        **{name: index for index, name in enumerate(EDGE_METRICS)},
+    }
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "metric": ["precision"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["precision"] == 0.8
+    assert set(result[1]) == {
+        "precision",
+        "reference",
+        "evaluated_graph",
+    }

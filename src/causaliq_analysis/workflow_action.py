@@ -140,8 +140,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "shd",
             "precision",
             "recall",
+            "edge",
             "equiv.f1",
             "equiv.shd",
+            "equiv.edge",
         }
     )
 
@@ -279,7 +281,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
             name="metric",
             description=(
                 "For evaluate_graph: List of metrics to include in output "
-                "(e.g., ['f1', 'shd', 'precision', 'recall']). Required. "
+                "(e.g., ['f1', 'shd', 'precision', 'recall', 'edge', "
+                "'equiv.f1', 'equiv.shd', 'equiv.edge']). Required. "
+                "The 'edge' and 'equiv.edge' values expand to the "
+                "low-level edge counts returned by pdag_compare. "
                 "For summarise: List of metric specs in <field>.<stat> format "
                 "(e.g., ['f1.mean', 'shd.sd'])."
             ),
@@ -368,6 +373,16 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "recall": "Structural recall score",
         "f1": "Structural F1 score",
         "shd": "Structural Hamming Distance",
+        "edge": (
+            "Low-level edge counts from direct comparison (arc_matched, "
+            "arc_reversed, edge_not_arc, arc_not_edge, edge_matched, "
+            "arc_extra, edge_extra, arc_missing, edge_missing, "
+            "missing_matched)"
+        ),
+        "equiv.edge": (
+            "Low-level edge counts from CPDAG comparison, prefixed with "
+            "'equiv.'"
+        ),
         # summarise outputs
         "source_count": "Number of input entries summarised",
         "csv_output": "CSV file with summary statistics",
@@ -1291,7 +1306,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         Returns:
             ActionResult with structural metrics as metadata
         """
-        from causaliq_analysis.metrics import pdag_compare
+        from causaliq_analysis.metrics import EDGE_METRICS, pdag_compare
 
         # Extract UPDATE action entry data
         update_entry = parameters.get("_update_entry")
@@ -1381,6 +1396,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     "equiv.f1": equiv_result["f1"],
                     "equiv.shd": equiv_result["shd"],
                 }
+                if "equiv.edge" in requested_metrics:
+                    for name in EDGE_METRICS:
+                        equiv_metrics_computed[f"equiv.{name}"] = equiv_result[
+                            name
+                        ]
             except (ActionExecutionError, ValueError, TypeError):
                 # PDAG not extendable to CPDAG (e.g. PC output
                 # with conflicting orientations). Skip equiv
@@ -1390,6 +1410,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
                         "Warning: PDAG not extendable to "
                         "CPDAG, skipping equiv metrics"
                     )
+
+        # 'edge' and 'equiv.edge' are group requests which expand to the
+        # individual low-level comparison count metric names
+        wanted = set(requested_metrics)
+        if "edge" in wanted:
+            wanted.update(EDGE_METRICS)
+        if "equiv.edge" in wanted:
+            wanted.update(f"equiv.{name}" for name in EDGE_METRICS)
 
         # Build metadata with standard metric names
         # Note: pdag_compare returns 'p' and 'r' for precision/recall
@@ -1401,9 +1429,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
             **equiv_metrics_computed,
         }
 
+        # Add low-level edge counts when explicitly requested
+        if "edge" in wanted:
+            for name in EDGE_METRICS:
+                all_metrics[name] = metrics[name]
+
         # Filter to requested metrics (metric is mandatory)
         filtered_metrics = {
-            k: v for k, v in all_metrics.items() if k in requested_metrics
+            k: v for k, v in all_metrics.items() if k in wanted
         }
 
         # Build final metadata (always include reference info)

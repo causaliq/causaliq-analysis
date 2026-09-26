@@ -349,8 +349,10 @@ def test_evaluate_graph_accepts_all_valid_metrics() -> None:
         "shd",
         "precision",
         "recall",
+        "edge",
         "equiv.f1",
         "equiv.shd",
+        "equiv.edge",
     ]
 
     # Test each individually

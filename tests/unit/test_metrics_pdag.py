@@ -5,7 +5,7 @@ import pytest
 import tests.fixtures.example_dags as ex_dag
 import tests.fixtures.example_pdags as ex_pdag
 import tests.fixtures.example_sdgs as ex_sdg
-from causaliq_analysis.metrics import pdag_compare
+from causaliq_analysis.metrics import EDGE_METRICS, pdag_compare
 
 
 @pytest.fixture
@@ -428,3 +428,12 @@ def test_metrics_pdag_shd_sanity_check_error(monkeypatch):
         # This should trigger the sanity check failure on line 145
         with pytest.raises(RuntimeError, match="SHD sanity check"):
             pdag_compare(ex_pdag.ab(), ex_pdag.ab())
+
+
+# Test EDGE_METRICS lists exactly the counts pdag_compare returns.
+def test_metrics_pdag_edge_metrics_constant_matches_output():
+    """EDGE_METRICS must match the edge count keys in the output."""
+    metrics = pdag_compare(ex_pdag.ab(), ex_pdag.ab())
+    derived = {"shd", "p", "r", "f1"}
+    assert set(metrics) - derived == set(EDGE_METRICS)
+    assert len(EDGE_METRICS) == len(set(EDGE_METRICS))

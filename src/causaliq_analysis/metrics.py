@@ -3,11 +3,28 @@
 #   and networks
 #
 
-from typing import Any, Dict, Optional, Set, Union
+from typing import Any, Dict, Optional, Set, Tuple, Union
 
 from causaliq_core.graph import BAYESYS_VERSIONS, EdgeType
 from causaliq_core.utils import ln
 from pandas import Series
+
+# Low-level edge comparison counts returned by pdag_compare.
+# The first nine are per-edge categories; missing_matched completes the
+# 2x2 confusion matrix and is derived separately, so it is not part of
+# the counter dictionary but is included here as a public metric name.
+EDGE_METRICS: Tuple[str, ...] = (
+    "arc_matched",
+    "arc_reversed",
+    "edge_not_arc",
+    "arc_not_edge",
+    "edge_matched",
+    "arc_extra",
+    "edge_extra",
+    "arc_missing",
+    "edge_missing",
+    "missing_matched",
+)
 
 
 def pdag_compare(
@@ -67,17 +84,7 @@ def pdag_compare(
     edges = graph.edges
     ref_edges = reference.edges
 
-    metrics = {
-        "arc_matched": 0,
-        "arc_reversed": 0,
-        "edge_not_arc": 0,
-        "arc_not_edge": 0,
-        "edge_matched": 0,
-        "arc_extra": 0,
-        "edge_extra": 0,
-        "arc_missing": 0,
-        "edge_missing": 0,
-    }
+    metrics = {name: 0 for name in EDGE_METRICS if name != "missing_matched"}
     metric_edges: Optional[Dict[str, Set[Any]]] = (
         {m: set() for m in metrics} if identify_edges else None
     )

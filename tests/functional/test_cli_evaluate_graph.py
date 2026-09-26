@@ -744,3 +744,120 @@ def test_evaluate_graph_equiv_type_error(cli_runner, tmp_path, monkeypatch):
     )
 
     assert result.exit_code == 0
+
+
+# Test evaluate-graph expands 'edge' to the low-level count metrics.
+def test_evaluate_graph_edge_metric(cli_runner, tmp_path):
+    """Test evaluate-graph 'edge' metric returns low-level counts."""
+    import json
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B", "C"], [("A", "->", "B"), ("B", "->", "C")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "edge",
+        ],
+    )
+
+    assert result.exit_code == 0
+    metrics = json.loads(result.output)
+    assert metrics["arc_matched"] == 2
+    assert metrics["edge_matched"] == 0
+    assert metrics["arc_extra"] == 0
+    # Two of three possible edges matched, one absent in both graphs
+    assert metrics["missing_matched"] == 1
+    # Derived aggregates are not part of an 'edge' request
+    assert "f1" not in metrics
+    assert "shd" not in metrics
+
+
+# Test evaluate-graph 'equiv.edge' counts come from the CPDAGs.
+def test_evaluate_graph_equiv_edge_metric(cli_runner, tmp_path):
+    """Test evaluate-graph 'equiv.edge' uses the CPDAG comparison."""
+    import json
+
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    # The CPDAG of the chain A->B->C has two undirected edges
+    dag = DAG(["A", "B", "C"], [("A", "->", "B"), ("B", "->", "C")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "edge",
+            "-m",
+            "equiv.edge",
+        ],
+    )
+
+    assert result.exit_code == 0
+    metrics = json.loads(result.output)
+    # The direct comparison matches two arcs ...
+    assert metrics["arc_matched"] == 2
+    # ... whereas the CPDAG comparison matches two edges
+    assert metrics["equiv.arc_matched"] == 0
+    assert metrics["equiv.edge_matched"] == 2
+    assert metrics["equiv.missing_matched"] == 1
+    assert "equiv.f1" not in metrics
+
+
+# Test evaluate-graph prints 'edge' counts in table format.
+def test_evaluate_graph_edge_table_format(cli_runner, tmp_path):
+    """Test evaluate-graph prints low-level counts in table format."""
+    from causaliq_core.graph import DAG
+    from causaliq_core.graph.io import graphml
+
+    dag = DAG(["A", "B"], [("A", "->", "B")])
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write(dag, f)
+    with open(ref_path, "w") as f:
+        graphml.write(dag, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "edge",
+            "--format=table",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "arc_matched" in result.output
+    assert "missing_matched" in result.output
