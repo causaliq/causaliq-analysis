@@ -1,11 +1,15 @@
 """Unit tests for evaluate_graph action with mocked dependencies."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from .conftest import VALID_GRAPHML, create_mock_graphml_entry
+from .conftest import (
+    VALID_GRAPHML,
+    VALID_PDG_GRAPHML,
+    create_mock_graphml_entry,
+)
 
 
 def test_evaluate_graph_returns_metrics() -> None:
@@ -276,25 +280,11 @@ def test_evaluate_graph_rejects_pdg_only() -> None:
     assert "cpdag" in str(exc_info.value)
 
 
-# PDG GraphML content for testing (has p_forward key).
-PDG_GRAPHML = """<?xml version="1.0" encoding="UTF-8"?>
-<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
-  <key id="p_forward" for="edge" attr.name="p_forward" attr.type="double"/>
-  <key id="p_reverse" for="edge" attr.name="p_reverse" attr.type="double"/>
-  <graph id="G" edgedefault="directed">
-    <node id="A"/>
-    <node id="B"/>
-    <edge source="A" target="B">
-      <data key="p_forward">0.8</data>
-      <data key="p_reverse">0.2</data>
-    </edge>
-  </graph>
-</graphml>"""
+# Test evaluate_graph evaluates PDG content as a PDG.
+def test_evaluate_graph_accepts_pdg_content() -> None:
+    """Test PDG content (with p_forward) is evaluated as a PDG."""
+    from causaliq_core.graph import PDG
 
-
-# Test evaluate_graph rejects PDG content even if typed as dag.
-def test_evaluate_graph_rejects_pdg_content() -> None:
-    """Test error when object content is actually PDG (has p_forward)."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -305,7 +295,7 @@ def test_evaluate_graph_rejects_pdg_content() -> None:
     mock_obj = MagicMock()
     mock_obj.type = "dag"
     mock_obj.format = "graphml"
-    mock_obj.content = PDG_GRAPHML
+    mock_obj.content = VALID_PDG_GRAPHML
 
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = ["dag"]
@@ -317,20 +307,31 @@ def test_evaluate_graph_rejects_pdg_content() -> None:
         "entry": mock_entry,
     }
 
-    with pytest.raises(Exception) as exc_info:
-        provider.run(
-            action="evaluate_graph",
-            parameters={
-                "_update_entry": update_entry,
-                "reference": "ref.graphml",
-                "metric": ["f1"],
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
-    assert "PDG data" in str(exc_info.value)
-    assert "p_forward" in str(exc_info.value)
+    mock_metrics = {"p": 0.5, "r": 0.5, "f1": 0.5, "shd": 0.5}
+
+    with patch(
+        "causaliq_analysis.workflow_action.read_graph_or_pdg_file",
+        return_value=MagicMock(spec=PDG),
+    ):
+        with patch(
+            "causaliq_analysis.metrics.pdg_compare",
+            return_value=mock_metrics,
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["evaluated_graph"] == "pdg"
+    assert result[1]["f1"] == 0.5
 
 
 # Test evaluate_graph handles invalid graphml in entry.
@@ -665,6 +666,58 @@ def test_evaluate_graph_uses_dag_not_pdg() -> None:
     assert result[1]["evaluated_graph"] == "dag"
     # Verify get_object was only called for dag, not pdg
     mock_entry.get_object.assert_called_with("dag")
+
+
+# Test evaluate_graph skips object types outside the evaluable set.
+def test_evaluate_graph_skips_unknown_object_types() -> None:
+    """Test that unsupported object types in an entry are skipped."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    # Entry has an unsupported type before a valid dag object
+    mock_obj = MagicMock()
+    mock_obj.type = "dag"
+    mock_obj.format = "graphml"
+    mock_obj.content = VALID_GRAPHML
+
+    mock_entry = MagicMock()
+    mock_entry.object_types.return_value = ["bn", "dag"]
+    mock_entry.get_object.return_value = mock_obj
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {"p": 1.0, "r": 1.0, "f1": 1.0, "shd": 0}
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch("causaliq_core.graph.io.graphml.read") as mock_read:
+            mock_read.return_value = MagicMock()
+
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_update_entry": update_entry,
+                    "reference": "ref.graphml",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert result[1]["evaluated_graph"] == "dag"
+    # The unsupported 'bn' type was skipped, never requested
+    assert mock_entry.get_object.call_args_list == [call("dag")]
 
 
 # Test evaluate_graph handles None object in entry.
@@ -1559,9 +1612,9 @@ def test_evaluate_graph_cache_reference_no_graph() -> None:
     assert "reference cache entry" in str(exc_info.value)
 
 
-# Test evaluate_graph rejects a PDG inside a reference cache entry.
+# Test evaluate_graph evaluates a PDG inside a reference cache entry.
 def test_evaluate_graph_cache_reference_pdg() -> None:
-    """Test error when reference cache entry contains a PDG object."""
+    """Test PDG inside a reference cache entry is evaluated."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -1577,12 +1630,12 @@ def test_evaluate_graph_cache_reference_pdg() -> None:
     }
 
     mock_pdg_obj = MagicMock()
-    mock_pdg_obj.type = "dag"
+    mock_pdg_obj.type = "pdg"
     mock_pdg_obj.format = "graphml"
-    mock_pdg_obj.content = PDG_GRAPHML
+    mock_pdg_obj.content = VALID_PDG_GRAPHML
 
     pdg_entry = MagicMock()
-    pdg_entry.object_types.return_value = ["dag"]
+    pdg_entry.object_types.return_value = ["pdg"]
     pdg_entry.get_object.return_value = mock_pdg_obj
 
     mock_cache = MagicMock()
@@ -1591,12 +1644,17 @@ def test_evaluate_graph_cache_reference_pdg() -> None:
     mock_cache.__enter__ = MagicMock(return_value=mock_cache)
     mock_cache.__exit__ = MagicMock(return_value=False)
 
+    mock_metrics = {"p": 0.5, "r": 0.5, "f1": 0.5, "shd": 0.5}
+
     with patch(
         "causaliq_workflow.cache.WorkflowCache",
         return_value=mock_cache,
     ):
-        with pytest.raises(Exception) as exc_info:
-            provider.run(
+        with patch(
+            "causaliq_analysis.metrics.pdg_compare",
+            return_value=mock_metrics,
+        ):
+            result = provider.run(
                 action="evaluate_graph",
                 parameters={
                     "_update_entry": update_entry,
@@ -1607,8 +1665,9 @@ def test_evaluate_graph_cache_reference_pdg() -> None:
                 context=None,
                 logger=mock_logger,
             )
-    assert "PDG data" in str(exc_info.value)
-    assert "p_forward" in str(exc_info.value)
+
+    assert result[0] == "success"
+    assert result[1]["f1"] == 0.5
 
 
 # Test evaluate_graph handles reference cache read failures.

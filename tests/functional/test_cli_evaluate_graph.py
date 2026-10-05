@@ -1,5 +1,7 @@
 """Functional tests for evaluate-graph CLI command."""
 
+import pytest
+
 from causaliq_analysis.cli import cli
 
 
@@ -861,3 +863,145 @@ def test_evaluate_graph_edge_table_format(cli_runner, tmp_path):
     assert result.exit_code == 0
     assert "arc_matched" in result.output
     assert "missing_matched" in result.output
+
+
+# Test evaluate-graph with PDG inputs compares probabilities.
+def test_evaluate_graph_pdg_input(cli_runner, tmp_path):
+    """Test evaluate-graph compares PDG edge probabilities."""
+    import json
+
+    from causaliq_core.graph import PDG, EdgeProbabilities
+    from causaliq_core.graph.io import graphml
+
+    learned = PDG(
+        ["A", "B"],
+        {
+            ("A", "B"): EdgeProbabilities(
+                forward=0.4, backward=0.3, undirected=0.1, none=0.2
+            )
+        },
+    )
+    reference = PDG(
+        ["A", "B"],
+        {
+            ("A", "B"): EdgeProbabilities(
+                forward=0.6, backward=0.1, undirected=0.0, none=0.3
+            )
+        },
+    )
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+
+    with open(graph_path, "w") as f:
+        graphml.write_pdg(learned, f)
+    with open(ref_path, "w") as f:
+        graphml.write_pdg(reference, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "f1",
+            "-m",
+            "shd",
+            "-m",
+            "edge",
+        ],
+    )
+
+    assert result.exit_code == 0
+    metrics = json.loads(result.output)
+    assert metrics["arc_matched"] == pytest.approx(0.27)
+    assert metrics["arc_reversed"] == pytest.approx(0.22)
+    assert metrics["missing_matched"] == pytest.approx(0.06)
+    assert metrics["f1"] == pytest.approx(0.36)
+    assert metrics["shd"] == pytest.approx(0.67)
+
+
+# Test evaluate-graph with a DAG input and a PDG reference.
+def test_evaluate_graph_dag_vs_pdg(cli_runner, tmp_path):
+    """Test evaluate-graph converts a deterministic graph to a PDG."""
+    import json
+
+    from causaliq_core.graph import DAG, PDG, EdgeProbabilities
+    from causaliq_core.graph.io import graphml
+
+    learned = DAG(["A", "B"], [("A", "->", "B")])
+    reference = PDG(
+        ["A", "B"],
+        {("A", "B"): EdgeProbabilities(forward=0.7, none=0.3)},
+    )
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write(learned, f)
+    with open(ref_path, "w") as f:
+        graphml.write_pdg(reference, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "f1",
+            "-m",
+            "shd",
+            "-m",
+            "edge",
+        ],
+    )
+
+    assert result.exit_code == 0
+    metrics = json.loads(result.output)
+    assert metrics["arc_matched"] == pytest.approx(0.7)
+    assert metrics["arc_extra"] == pytest.approx(0.3)
+    assert metrics["f1"] == pytest.approx(1.4 / 1.7)
+    assert metrics["shd"] == pytest.approx(0.3)
+
+
+# Test evaluate-graph skips equiv metrics for PDG inputs.
+def test_evaluate_graph_pdg_equiv_skipped(cli_runner, tmp_path):
+    """Test equiv metrics are omitted for PDG inputs."""
+    import json
+
+    from causaliq_core.graph import PDG, EdgeProbabilities
+    from causaliq_core.graph.io import graphml
+
+    pdg = PDG(
+        ["A", "B"],
+        {("A", "B"): EdgeProbabilities(forward=0.7, none=0.3)},
+    )
+
+    graph_path = tmp_path / "learned.graphml"
+    ref_path = tmp_path / "reference.graphml"
+    with open(graph_path, "w") as f:
+        graphml.write_pdg(pdg, f)
+    with open(ref_path, "w") as f:
+        graphml.write_pdg(pdg, f)
+
+    result = cli_runner.invoke(
+        cli,
+        [
+            "evaluate-graph",
+            f"--input={graph_path}",
+            f"--reference={ref_path}",
+            "-m",
+            "f1",
+            "-m",
+            "equiv.f1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "skipping equiv metrics" in result.output
+    json_line = result.output.strip().splitlines()[-1]
+    metrics = json.loads(json_line)
+    assert "f1" in metrics
+    assert "equiv.f1" not in metrics

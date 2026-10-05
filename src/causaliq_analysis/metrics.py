@@ -5,11 +5,18 @@
 
 from typing import Any, Dict, Optional, Set, Tuple, Union
 
-from causaliq_core.graph import BAYESYS_VERSIONS, EdgeType
+from causaliq_core.graph import (
+    BAYESYS_VERSIONS,
+    PDAG,
+    PDG,
+    EdgeProbabilities,
+)
 from causaliq_core.utils import ln
 from pandas import Series
 
-# Low-level edge comparison counts returned by pdag_compare.
+from causaliq_analysis.merge import source_probabilities
+
+# Low-level edge comparison counts returned by pdag_compare and pdg_compare.
 # The first nine are per-edge categories; missing_matched completes the
 # 2x2 confusion matrix and is derived separately, so it is not part of
 # the counter dictionary but is included here as a public metric name.
@@ -26,35 +33,166 @@ EDGE_METRICS: Tuple[str, ...] = (
     "missing_matched",
 )
 
+# Edge states whose probabilities are stored for each node pair by a PDG.
+_EDGE_STATES: Tuple[str, ...] = (
+    "forward",
+    "backward",
+    "undirected",
+    "none",
+)
 
-def pdag_compare(
+# Map (reference state, graph state) to the low-level metric it feeds. For
+# deterministic graphs (probabilities 0.0/1.0) this reproduces the integer
+# counts obtained by comparing PDAGs directly.
+_STATE_METRICS: Dict[Tuple[str, str], str] = {
+    ("forward", "forward"): "arc_matched",
+    ("forward", "backward"): "arc_reversed",
+    ("forward", "undirected"): "edge_not_arc",
+    ("forward", "none"): "arc_missing",
+    ("backward", "forward"): "arc_reversed",
+    ("backward", "backward"): "arc_matched",
+    ("backward", "undirected"): "edge_not_arc",
+    ("backward", "none"): "arc_missing",
+    ("undirected", "forward"): "arc_not_edge",
+    ("undirected", "backward"): "arc_not_edge",
+    ("undirected", "undirected"): "edge_matched",
+    ("undirected", "none"): "edge_missing",
+    ("none", "forward"): "arc_extra",
+    ("none", "backward"): "arc_extra",
+    ("none", "undirected"): "edge_extra",
+    ("none", "none"): "missing_matched",
+}
+
+# Metrics whose identified edge key is described by the graph's edge state.
+# The remainder (arc_missing, edge_missing) use the reference edge state.
+_GRAPH_KEYED_METRICS = frozenset(
+    {
+        "arc_matched",
+        "arc_reversed",
+        "edge_not_arc",
+        "arc_not_edge",
+        "edge_matched",
+        "arc_extra",
+        "edge_extra",
+    }
+)
+
+# Relative tolerance used by the SHD sanity check for fractional counts.
+_SHD_TOL = 1e-9
+
+
+def _as_number(value: Union[int, float]) -> Union[int, float]:
+    """Return an int for whole numbers, else the float unchanged.
+
+    Deterministic comparisons (probabilities of 0.0/1.0) therefore keep
+    returning integer counts, matching historical pdag_compare output,
+    while probabilistic comparisons return fractional values.
+
+    Args:
+        value: Accumulated metric value.
+
+    Returns:
+        int(value) when value is a whole number, else value unchanged.
+    """
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+def _oriented_key(node_a: str, node_b: str, state: str) -> Tuple[str, str]:
+    """Return the edge key implied by a canonical pair and edge state.
+
+    Args:
+        node_a: First node (alphabetically before node_b).
+        node_b: Second node.
+        state: One of forward, backward, undirected or none.
+
+    Returns:
+        (node_b, node_a) for a backward state, else (node_a, node_b).
+    """
+    return (node_b, node_a) if state == "backward" else (node_a, node_b)
+
+
+def _graph_to_pdg(graph: Any) -> PDG:
+    """Convert a deterministic graph or PDG to a PDG.
+
+    Args:
+        graph: A PDG (returned unchanged), or a deterministic DAG/PDAG
+            whose edges become probability 1.0 for their edge state.
+
+    Returns:
+        The equivalent PDG.
+
+    Raises:
+        TypeError: if graph is neither a PDG nor a PDAG/DAG.
+    """
+    if isinstance(graph, PDG):
+        return graph
+    if not isinstance(graph, PDAG):
+        raise TypeError("bad arg type for compared_to")
+
+    nodes = list(graph.nodes)
+    edges: Dict[Tuple[str, str], EdgeProbabilities] = {}
+    for i, node_a in enumerate(nodes):
+        for node_b in nodes[i + 1 :]:
+            probs = source_probabilities(graph, node_a, node_b)
+            if probs.p_exist > 0.0:
+                edges[(node_a, node_b)] = probs
+    return PDG(nodes, edges)
+
+
+def _pair_probabilities(
+    pdg: PDG, node_a: str, node_b: str
+) -> EdgeProbabilities:
+    """Return edge probabilities for a pair, defaulting to no edge.
+
+    Args:
+        pdg: PDG to query.
+        node_a: First node.
+        node_b: Second node.
+
+    Returns:
+        Edge probabilities for the pair, or EdgeProbabilities() (no edge)
+        when either node is absent, allowing Bayesys v1.3 node mismatch.
+    """
+    if node_a not in pdg.nodes or node_b not in pdg.nodes:
+        return EdgeProbabilities()
+    return pdg.get_probabilities(node_a, node_b)
+
+
+def pdg_compare(
     graph: Any,
     reference: Any,
     bayesys: Optional[str] = None,
     identify_edges: bool = False,
 ) -> Dict[str, Any]:
-    """Compare a pdag with a reference pdag.
+    """Compare a PDG with a reference PDG.
+
+    Both arguments may be PDGs or deterministic graphs (DAG/PDAG/CPDAG),
+    which are converted to PDGs first, each edge state then having
+    probability 1.0. Every node pair contributes the sixteen products of
+    the reference and graph edge-state probabilities, so the low-level
+    edge metrics are fractional for probabilistic graphs and add up to
+    1.0 for each node pair.
 
     Args:
-        graph (PDAG): graph which is to be compared
-        reference (PDAG): reference graph for comparison
-        bayesys (str, optional): version of Bayesys metrics to return, or None
-                                 if not required
+        graph (PDG): graph which is to be compared
+        reference (PDG): reference graph for comparison
+        bayesys (str, optional): version of Bayesys metrics to return, or
+                                 None if not required
         identify_edges (bool): whether edges in each low level category
                               (e.g. arc_missing) are to be included in
                               metrics returned.
 
     Raises:
         TypeError: if bad argument types
+        ValueError: if bad bayesys value or the graphs have different nodes
 
     Returns:
         dict: structural comparison metrics
     """
-    # Import PDAG here to avoid circular imports
-    from causaliq_core.graph import PDAG
-
     # Validation logic from compared_to method
-    if not isinstance(reference, PDAG) or (
+    if not isinstance(reference, (PDAG, PDG)) or (
         not isinstance(bayesys, str) and bayesys is not None
     ):
         raise TypeError("bad arg type for compared_to")
@@ -62,59 +200,54 @@ def pdag_compare(
     if bayesys is not None and bayesys not in BAYESYS_VERSIONS:
         raise ValueError("bad bayesys value for compared_to")
 
-    if graph.nodes != reference.nodes and bayesys != "v1.3":
+    graph_pdg = _graph_to_pdg(graph)
+    reference_pdg = _graph_to_pdg(reference)
+
+    if graph_pdg.nodes != reference_pdg.nodes and bayesys != "v1.3":
         raise ValueError("comparing two graphs with different nodes")
 
-    def _metric(
-        ref_type: Any, type: Any, reversed: bool = False
-    ) -> str:  # identify count metric name
-        if ref_type == EdgeType.DIRECTED and type == EdgeType.DIRECTED:
-            return "arc_matched" if not reversed else "arc_reversed"
-        elif ref_type == EdgeType.DIRECTED and type == EdgeType.UNDIRECTED:
-            return "edge_not_arc"
-        elif ref_type == EdgeType.UNDIRECTED and type == EdgeType.DIRECTED:
-            return "arc_not_edge"
-        elif ref_type == EdgeType.DIRECTED and type is None:
-            return "arc_missing"
-        elif ref_type == EdgeType.UNDIRECTED and type is None:
-            return "edge_missing"
-        else:
-            return "edge_matched"
-
-    edges = graph.edges
-    ref_edges = reference.edges
-
-    metrics = {name: 0 for name in EDGE_METRICS if name != "missing_matched"}
+    metrics: Dict[str, Union[int, float]] = {
+        name: 0 for name in EDGE_METRICS if name != "missing_matched"
+    }
     metric_edges: Optional[Dict[str, Set[Any]]] = (
         {m: set() for m in metrics} if identify_edges else None
     )
 
-    # Loop over all edges in tested graph looking for match in reference graph
-    # Include case of arcs that have same type but are oppositely orientated
-    # Count edges/arcs in graph not in reference graph too
+    # Combine the four edge-state probabilities of each node pair in the
+    # reference and graph, accumulating the sixteen fractional products.
 
-    for e, t in edges.items():
-        if e in ref_edges:
-            metric = _metric(ref_edges[e], t)
-        elif (e[1], e[0]) in ref_edges:
-            metric = _metric(ref_edges[(e[1], e[0])], t, reversed=True)
-        else:
-            metric = "arc_extra" if t == EdgeType.DIRECTED else "edge_extra"
-        metrics[metric] += 1
-        if identify_edges is True and metric_edges is not None:
-            metric_edges[metric].add(e)
+    nodes = reference_pdg.nodes
+    for i, node_a in enumerate(nodes):
+        for node_b in nodes[i + 1 :]:
+            ref_probs = _pair_probabilities(reference_pdg, node_a, node_b)
+            graph_probs = _pair_probabilities(graph_pdg, node_a, node_b)
+            for ref_state in _EDGE_STATES:
+                p_ref = getattr(ref_probs, ref_state)
+                if p_ref == 0.0:
+                    continue
+                for graph_state in _EDGE_STATES:
+                    p_graph = getattr(graph_probs, graph_state)
+                    if p_graph == 0.0:
+                        continue
+                    metric = _STATE_METRICS[(ref_state, graph_state)]
+                    if metric == "missing_matched":
+                        continue
+                    metrics[metric] += p_ref * p_graph
+                    if metric_edges is not None:
+                        state = (
+                            graph_state
+                            if metric in _GRAPH_KEYED_METRICS
+                            else ref_state
+                        )
+                        key = _oriented_key(node_a, node_b, state)
+                        metric_edges[metric].add(key)
 
-    # loop over edges in reference not in graph
+    # Deterministic comparisons keep integer counts for compatibility.
+    metrics = {name: _as_number(value) for name, value in metrics.items()}
 
-    for e, t in ref_edges.items():
-        if e not in edges and (e[1], e[0]) not in edges:
-            metric = _metric(t, None)
-            metrics[metric] += 1
-            if identify_edges is True and metric_edges is not None:
-                metric_edges[metric].add(e)
-
-    max_edges = int(0.5 * len(reference.nodes) * (len(reference.nodes) - 1))
-    metrics.update({"missing_matched": max_edges - sum(metrics.values())})
+    max_edges = int(0.5 * len(nodes) * (len(nodes) - 1))
+    missing = max_edges - sum(metrics.values())
+    metrics["missing_matched"] = _as_number(missing)
 
     # compute standard and edge SHD metrics and perform sanity check
 
@@ -148,7 +281,8 @@ def pdag_compare(
         if p is None or r is None or (p == 0 and r == 0)
         else 2 * p * r / (p + r)
     )
-    if tp + metrics["missing_matched"] + shd != max_edges:
+    total = tp + metrics["missing_matched"] + shd
+    if abs(total - max_edges) > _SHD_TOL * max(1, max_edges):
         raise RuntimeError("SHD sanity check: {}".format(metrics))
 
     # Create base metrics dict with correct types
@@ -158,10 +292,11 @@ def pdag_compare(
     # add in Bayesys metrics and edge details if required
 
     if bayesys is not None:
+        num_ref_edges = sum(
+            probs.p_exist for probs in reference_pdg.edges.values()
+        )
         result_metrics.update(
-            bayesys_metrics(
-                result_metrics, max_edges, len(reference.edges), bayesys
-            )
+            bayesys_metrics(result_metrics, max_edges, num_ref_edges, bayesys)
         )
     if identify_edges and metric_edges is not None:
         # Add edges separately to avoid type conflicts
@@ -170,6 +305,43 @@ def pdag_compare(
         return final_result
 
     return result_metrics
+
+
+def pdag_compare(
+    graph: Any,
+    reference: Any,
+    bayesys: Optional[str] = None,
+    identify_edges: bool = False,
+) -> Dict[str, Any]:
+    """Compare a pdag with a reference pdag.
+
+    Retained for compatibility; delegates to :func:`pdg_compare`, which
+    converts both graphs to PDGs before comparing them. For deterministic
+    graphs the low-level metrics are integers, matching historical output.
+
+    Args:
+        graph (PDAG): graph which is to be compared
+        reference (PDAG): reference graph for comparison
+        bayesys (str, optional): version of Bayesys metrics to return, or
+                                 None if not required
+        identify_edges (bool): whether edges in each low level category
+                              (e.g. arc_missing) are to be included in
+                              metrics returned.
+
+    Raises:
+        TypeError: if bad argument types
+
+    Returns:
+        dict: structural comparison metrics
+    """
+    if not isinstance(reference, PDAG) or (
+        not isinstance(bayesys, str) and bayesys is not None
+    ):
+        raise TypeError("bad arg type for compared_to")
+
+    return pdg_compare(
+        graph, reference, bayesys=bayesys, identify_edges=identify_edges
+    )
 
 
 def kl(dist: Series, ref_dist: Series) -> float:
@@ -214,7 +386,7 @@ def kl(dist: Series, ref_dist: Series) -> float:
 def bayesys_metrics(
     metrics: Dict[str, Union[int, float, None]],
     max_edges: int,
-    num_ref_edges: int,
+    num_ref_edges: float,
     version: str,
 ) -> Dict[str, float]:
 
@@ -227,13 +399,13 @@ def bayesys_metrics(
     # This implementation has extra protection against divide by zero errors
 
     # Ensure we get numeric values from metrics (they should all be int/float)
-    arc_matched = int(metrics["arc_matched"] or 0)
-    arc_not_edge = int(metrics["arc_not_edge"] or 0)
-    edge_matched = int(metrics["edge_matched"] or 0)
-    arc_reversed = int(metrics["arc_reversed"] or 0)
-    edge_not_arc = int(metrics["edge_not_arc"] or 0)
-    arc_extra = int(metrics["arc_extra"] or 0)
-    edge_extra = int(metrics["edge_extra"] or 0)
+    arc_matched = float(metrics["arc_matched"] or 0)
+    arc_not_edge = float(metrics["arc_not_edge"] or 0)
+    edge_matched = float(metrics["edge_matched"] or 0)
+    arc_reversed = float(metrics["arc_reversed"] or 0)
+    edge_not_arc = float(metrics["edge_not_arc"] or 0)
+    arc_extra = float(metrics["arc_extra"] or 0)
+    edge_extra = float(metrics["edge_extra"] or 0)
 
     TP = float(arc_matched + arc_not_edge + edge_matched)
     TP2 = float(arc_reversed + edge_not_arc)

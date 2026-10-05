@@ -218,12 +218,15 @@ def _accumulate_sdg(
             probs_dict["none"] += weight
 
 
-def _source_probs(
+def source_probabilities(
     graph: Union[DAG, PDAG, PDG],
     node_a: str,
     node_b: str,
 ) -> EdgeProbabilities:
     """Extract edge probabilities for a node pair.
+
+    Public helper reused by :mod:`causaliq_analysis.metrics` to convert
+    deterministic graphs (DAG/PDAG) into edge-state probabilities.
 
     For DAG/PDAG, edges are converted to probability 1.0
     for their type. Absent edges become p_none=1.0.
@@ -380,7 +383,9 @@ def _merge_per_source(
 
     for i, node_a in enumerate(nodes):
         for node_b in nodes[i + 1 :]:
-            src_probs = [_source_probs(g, node_a, node_b) for g in graphs]
+            src_probs = [
+                source_probabilities(g, node_a, node_b) for g in graphs
+            ]
             combined = combine(src_probs, weights)
             if combined.none < 1.0 - 1e-9:
                 edges[(node_a, node_b)] = combined

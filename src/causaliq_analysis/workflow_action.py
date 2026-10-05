@@ -78,6 +78,10 @@ else:
             pass
 
 
+from causaliq_analysis.graph_io import (  # noqa: E402
+    is_pdg_graphml,
+    read_graph_or_pdg_file,
+)
 from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
 from causaliq_analysis.plot import run_plot  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
@@ -271,7 +275,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "Ground truth reference: path to a graph file "
                 "(.graphml, .csv, .tetrad, .xdsl, .dsc) or a workflow "
                 "cache (.db) containing reference graphs with the same "
-                "key structure as the input cache."
+                "key structure as the input cache. GraphML files may "
+                "contain a PDG, in which case probabilities are compared."
             ),
             required=False,
             type_hint="str",
@@ -284,7 +289,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "(e.g., ['f1', 'shd', 'precision', 'recall', 'edge', "
                 "'equiv.f1', 'equiv.shd', 'equiv.edge']). Required. "
                 "The 'edge' and 'equiv.edge' values expand to the "
-                "low-level edge counts returned by pdag_compare. "
+                "low-level edge counts returned by pdag_compare or "
+                "pdg_compare (fractional for PDG inputs). "
                 "For summarise: List of metric specs in <field>.<stat> format "
                 "(e.g., ['f1.mean', 'shd.sd'])."
             ),
@@ -1129,11 +1135,11 @@ class AnalysisActionProvider(CausalIQActionProvider):
         entry: Any,
         source_label: str,
     ) -> Tuple[Any, str]:
-        """Extract an evaluable graph (DAG, PDAG, CPDAG) from a cache entry.
+        """Extract an evaluable graph from a cache entry.
 
-        Locates a GraphML object of type 'dag', 'pdag', or 'cpdag' within
-        the entry, rejecting PDG objects which carry edge probabilities
-        and so cannot be evaluated by evaluate_graph.
+        Locates a GraphML object of type 'dag', 'pdag', 'cpdag' or 'pdg'
+        within the entry. Deterministic graphs are read as DAG/PDAG while
+        PDG content (carrying edge probabilities) is read as a PDG.
 
         Args:
             entry: Cache entry containing typed objects.
@@ -1144,19 +1150,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
             Tuple of (parsed graph, object type).
 
         Raises:
-            ActionExecutionError: If no evaluable graph is found, the
-                graph cannot be parsed, or the object is a PDG.
+            ActionExecutionError: If no evaluable graph is found or the
+                graph cannot be parsed.
         """
         from io import StringIO
 
         from causaliq_core.graph.io import graphml
 
-        # Valid graph types for evaluation (exclude pdg)
-        valid_graph_types = ("dag", "pdag", "cpdag")
-
-        def _is_pdg_graphml(content: str) -> bool:
-            """Check if GraphML content is a PDG (has probability keys)."""
-            return '<key id="p_forward"' in content
+        # Deterministic graph types are preferred over PDG objects
+        valid_graph_types = ("dag", "pdag", "cpdag", "pdg")
 
         # Find graphml object of valid type in entry
         for obj_type in entry.object_types():
@@ -1165,17 +1167,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
             obj = entry.get_object(obj_type)
             if obj is None or obj.format != "graphml":
                 continue
-            # Validate that graphml is not actually a PDG
-            if _is_pdg_graphml(obj.content):
-                raise ActionExecutionError(
-                    f"Object '{obj_type}' in {source_label} contains PDG "
-                    "data (has p_forward probabilities). evaluate_graph "
-                    "requires a DAG, PDAG, or CPDAG without probability "
-                    "weights."
-                )
+            is_pdg = is_pdg_graphml(obj.content)
+            if obj_type == "pdg" and not is_pdg:
+                # PDG-labelled object without probability data: skip
+                continue
             try:
-                graph = graphml.read(StringIO(obj.content))
-                return graph, obj_type
+                if is_pdg:
+                    return graphml.read_pdg(StringIO(obj.content)), "pdg"
+                return graphml.read(StringIO(obj.content)), obj_type
             except Exception as e:
                 raise ActionExecutionError(
                     f"Failed to parse graph '{obj_type}' from "
@@ -1184,7 +1183,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         raise ActionExecutionError(
             f"No evaluable graph object found in {source_label}. "
-            "evaluate_graph requires a 'dag', 'pdag', or 'cpdag' object."
+            "evaluate_graph requires a 'dag', 'pdag', 'cpdag' or 'pdg' "
+            "object."
         )
 
     def _resolve_reference_graph(
@@ -1212,22 +1212,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
         Raises:
             ActionExecutionError: If the reference cannot be resolved.
         """
-        from typing import Any as TypingAny
-
-        from causaliq_core.bn.io import read_bn
-        from causaliq_core.graph.io import read_graph
-
-        def _read_graph_file(path: str) -> TypingAny:
-            """Read graph from file, auto-detecting format from suffix."""
-            suffix = path.lower().split(".")[-1]
-            if suffix in ("xdsl", "dsc"):
-                return read_bn(path).dag
-            return read_graph(path)
-
         # Single ground-truth reference graph file
         if not str(reference_path).lower().endswith(".db"):
             try:
-                return _read_graph_file(reference_path)
+                return read_graph_or_pdg_file(reference_path)
             except FileNotFoundError:
                 raise ActionExecutionError(
                     f"Reference graph not found: {reference_path}"
@@ -1306,7 +1294,13 @@ class AnalysisActionProvider(CausalIQActionProvider):
         Returns:
             ActionResult with structural metrics as metadata
         """
-        from causaliq_analysis.metrics import EDGE_METRICS, pdag_compare
+        from causaliq_core.graph import PDG
+
+        from causaliq_analysis.metrics import (
+            EDGE_METRICS,
+            pdag_compare,
+            pdg_compare,
+        )
 
         # Extract UPDATE action entry data
         update_entry = parameters.get("_update_entry")
@@ -1357,9 +1351,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # Load reference graph (file or workflow cache)
         reference = self._resolve_reference_graph(reference_path, update_entry)
 
-        # Compute metrics
+        # Compute metrics, using the probabilistic comparison for PDGs
         try:
-            metrics = pdag_compare(graph, reference)
+            if isinstance(graph, PDG) or isinstance(reference, PDG):
+                metrics = pdg_compare(graph, reference)
+            else:
+                metrics = pdag_compare(graph, reference)
         except Exception as e:
             raise ActionExecutionError(
                 f"Metric computation failed: {e}"
@@ -1407,8 +1404,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 # metrics and continue with skeleton metrics.
                 if logger and logger.is_terminal_logging:
                     print(
-                        "Warning: PDAG not extendable to "
-                        "CPDAG, skipping equiv metrics"
+                        "Warning: equivalence class not available, "
+                        "skipping equiv metrics"
                     )
 
         # 'edge' and 'equiv.edge' are group requests which expand to the

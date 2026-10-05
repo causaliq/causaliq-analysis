@@ -524,7 +524,9 @@ def evaluate_graph_cmd(
 
     Computes structural accuracy metrics including F1 and SHD (Structural
     Hamming Distance). Supports both direct comparison and equivalence
-    class comparison (comparing CPDAGs).
+    class comparison (comparing CPDAGs). Graphs may be deterministic
+    (DAG/PDAG/CPDAG) or PDGs whose edge probabilities are compared
+    fractionally; equivalence class metrics are unavailable for PDGs.
 
     Supported metrics:
     - f1: F1 score from direct graph comparison
@@ -533,7 +535,8 @@ def evaluate_graph_cmd(
     - recall: Recall from direct comparison
     - edge: Low-level edge counts from direct comparison (arc_matched,
       arc_reversed, edge_not_arc, arc_not_edge, edge_matched, arc_extra,
-      edge_extra, arc_missing, edge_missing, missing_matched)
+      edge_extra, arc_missing, edge_missing, missing_matched). Counts
+      are fractional when either graph is a PDG.
     - equiv.f1: F1 score comparing equivalence classes (CPDAGs)
     - equiv.shd: SHD comparing equivalence classes (CPDAGs)
     - equiv.edge: Low-level edge counts comparing equivalence classes
@@ -555,20 +558,19 @@ def evaluate_graph_cmd(
     import json
     from typing import Any, Dict, Union
 
-    from causaliq_core.bn.io import read_bn
-    from causaliq_core.graph import DAG, PDAG
+    from causaliq_core.graph import DAG, PDAG, PDG
     from causaliq_core.graph.convert import dag_to_pdag, pdag_to_cpdag
-    from causaliq_core.graph.io import read_graph
 
-    from causaliq_analysis.metrics import EDGE_METRICS, pdag_compare
+    from causaliq_analysis.graph_io import read_graph_or_pdg_file
+    from causaliq_analysis.metrics import (
+        EDGE_METRICS,
+        pdag_compare,
+        pdg_compare,
+    )
 
     def _read_graph_file(path: str) -> Any:
-        """Read graph from file, auto-detecting format from suffix."""
-        suffix = path.lower().split(".")[-1]
-        if suffix in ("xdsl", "dsc"):
-            return read_bn(path).dag
-        else:
-            return read_graph(path)
+        """Read graph from file, auto-detecting PDG and other formats."""
+        return read_graph_or_pdg_file(path)
 
     def _to_cpdag(g: Any) -> PDAG:
         """Convert a graph to its CPDAG (equivalence class)."""
@@ -616,7 +618,12 @@ def evaluate_graph_cmd(
     # Compute direct metrics if needed
     if need_direct:
         try:
-            raw_metrics = pdag_compare(learned_graph, reference_graph)
+            if isinstance(learned_graph, PDG) or isinstance(
+                reference_graph, PDG
+            ):
+                raw_metrics = pdg_compare(learned_graph, reference_graph)
+            else:
+                raw_metrics = pdag_compare(learned_graph, reference_graph)
         except ValueError as e:
             raise click.ClickException(f"Comparison failed: {e}")
         except TypeError as e:
