@@ -12,6 +12,14 @@ This module provides functions for analysing and comparing causal graphs, includ
 
 Compare a PDAG with a reference PDAG to compute structural comparison metrics including precision, recall, F1 score, and Structural Hamming Distance (SHD).
 
+::: causaliq_analysis.metrics.pdg_compare
+    options:
+        show_root_heading: true
+        show_source: false
+        heading_level: 3
+
+Compare a PDG with a reference PDG to compute structural comparison metrics. Deterministic DAG/PDAG/CPDAG inputs are converted to PDGs first, so this provides a single probabilistic comparison path for every supported graph type.
+
 ::: causaliq_analysis.metrics.kl
     options:
         show_root_heading: true
@@ -49,6 +57,31 @@ the `evaluate_graph` CLI command and workflow action to expand the `edge` and
 
 The function includes built-in sanity checks to ensure metric consistency and can optionally identify specific edges in each category for detailed analysis.
 
+### PDG Comparison
+
+The `pdg_compare` function extends the comparison to Probabilistic Dependency
+Graphs (PDGs), which assign a probability to each possible edge state between a
+pair of variables: `forward` (`A -> B`), `backward` (`A <- B`), `undirected`
+(`A -- B`) and `none` (no edge). Deterministic graphs (DAG/PDAG/CPDAG) are
+converted to PDGs first, so `pdg_compare` compares every supported graph type.
+
+For each node pair the four reference states and four graph states are combined
+in sixteen products, for example:
+
+| Reference | Graph | Metric | Contribution |
+|-----------|-------|--------|--------------|
+| `A -> B` **0.6** | `A -> B` **0.4** | `arc_matched` | `0.6 x 0.4 = 0.24` |
+| `A -> B` **0.6** | `A <- B` **0.3** | `arc_reversed` | `0.6 x 0.3 = 0.18` |
+| no edge **0.3** | no edge **0.2** | `missing_matched` | `0.3 x 0.2 = 0.06` |
+
+The fractional contributions add up to `1.0` for each node pair. Deterministic
+inputs (probabilities of `0.0`/`1.0`) therefore reproduce the integer counts of
+`pdag_compare`, which is retained as a wrapper around `pdg_compare` for
+compatibility.
+
+The derived metrics (precision, recall, F1 and SHD) are computed from the
+fractional counts in exactly the same way as for `pdag_compare`.
+
 ### Distribution Analysis
 
 The `kl` function computes Kullback-Leibler divergence for comparing probability distributions, commonly used in causal discovery for independence testing and model comparison.
@@ -69,6 +102,27 @@ from causaliq_core.graph import PDAG
 result = pdag_compare(learned_graph, reference_graph)
 print(f"F1 Score: {result['f1']}")
 print(f"SHD: {result['shd']}")
+```
+
+### PDG Comparison
+
+```python
+from causaliq_analysis.metrics import pdg_compare
+from causaliq_core.graph import PDG, EdgeProbabilities
+
+learned = PDG(
+    ["A", "B"],
+    {("A", "B"): EdgeProbabilities(forward=0.4, backward=0.3, none=0.3)},
+)
+reference = PDG(
+    ["A", "B"],
+    {("A", "B"): EdgeProbabilities(forward=0.6, backward=0.1, none=0.3)},
+)
+
+# Compare edge probabilities (fractional low-level counts)
+result = pdg_compare(learned, reference)
+print(f"Matched: {result['arc_matched']}")
+print(f"F1: {result['f1']}")
 ```
 
 ### With Bayesys Compatibility

@@ -40,6 +40,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `summarise` (e.g. `arc_matched.mean`, `equiv.missing_matched.sd`)
   - New `EDGE_METRICS` constant in `causaliq_analysis.metrics` names the ten
     counts
+- **PDG Graph Comparison**: new `pdg_compare` function in
+  `causaliq_analysis.metrics` which compares Probabilistic Dependency Graphs
+  (PDGs) by edge probability
+  - Each node pair combines the four reference and four graph edge states
+    (`forward`, `backward`, `undirected`, `none`) into sixteen fractional
+    low-level edge counts which sum to one per pair
+  - Deterministic graphs (DAG/PDAG/CPDAG) are converted to PDGs first, so all
+    supported graph types share one comparison path
+  - `pdag_compare` is retained as a wrapper around `pdg_compare`; deterministic
+    comparisons still return integer counts, so existing results are unchanged
+  - `evaluate_graph` (CLI and workflow action) now accepts PDG inputs and
+    references, reading PDG GraphML automatically; `equiv.*` metrics are
+    unavailable for PDG inputs and are skipped with a warning
+  - New `causaliq_analysis.graph_io` helpers read a graph or PDG from file,
+    shared by the CLI and workflow action
 
 ### Changed
 - **Python-typed plot properties**: `plot` property strings now use the

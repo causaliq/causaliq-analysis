@@ -1,8 +1,10 @@
 # Evaluating Graphs
 
-The `evaluate_graph` capability structurally evaluates a graph (PDAG, CPDAG, or
-DAG) against a reference graph. Note that comparisons between general SDG
-graphs are not supported.
+The `evaluate_graph` capability structurally evaluates a graph against a
+reference graph. Deterministic graphs (DAG, PDAG, CPDAG) and Probabilistic
+Dependency Graphs (PDGs) are supported; the latter are compared by edge
+probability. Note that comparisons between general SDG graphs are not
+supported.
 
 This is an `update` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
@@ -122,6 +124,12 @@ This writes `results/eval/_meta.json` containing the counts:
 `missing_matched` is the number of edges absent from both graphs. It is derived
 as the maximum possible number of edges minus the sum of the other counts, so
 it is usually the largest of the counts.
+
+When either graph is a PDG these counts are fractional: each node pair
+contributes the sixteen products of the reference and graph edge-state
+probabilities, and the counts sum to the number of node pairs. Because a PDG has
+no single equivalence class, `equiv.*` metrics are unavailable for PDG inputs
+and are omitted with a warning.
 
 `equiv.edge` reports the same counts computed after converting both graphs to
 CPDAGs, exactly as `equiv.f1` and `equiv.shd` do. Its keys are prefixed with
