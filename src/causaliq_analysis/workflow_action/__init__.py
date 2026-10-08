@@ -1,11 +1,13 @@
 """
 CausalIQ Workflow Action for analysis operations.
 
-This module implements the Action interface for causaliq-workflow integration,
-enabling trace migration to be used in workflow definitions.
+This package implements the Action interface for causaliq-workflow
+integration, enabling trace migration to be used in workflow definitions.
+
+The provider class lives here, with shared type imports and fallback stubs
+in ``types.py`` and shared helper functions in ``helpers.py``.
 """
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 # Check if workflow is available at runtime
@@ -43,45 +45,19 @@ else:
 
         WORKFLOW_AVAILABLE = True
     except ImportError:
-        # Define minimal stubs for runtime when workflow not installed
-        class CausalIQActionProvider:  # type: ignore[no-redef]
-            pass
+        # Fall back to stub definitions without workflow support
+        from causaliq_analysis.workflow_action.types import (
+            ActionExecutionError,
+            ActionInput,
+            ActionPattern,
+            ActionResult,
+            ActionValidationError,
+            CausalIQActionProvider,
+            WorkflowContext,
+            WorkflowLogger,
+        )
 
-        class ActionExecutionError(Exception):
-            pass
-
-        class ActionValidationError(Exception):  # type: ignore[no-redef]
-            pass
-
-        # Type alias stub for ActionResult
-        ActionResult = tuple  # type: ignore[misc]
-
-        @dataclass
-        class ActionInput:
-            name: str
-            description: str
-            required: bool = False
-            default: Any = None
-            type_hint: str = "Any"
-
-        # Stub for ActionPattern enum
-        class ActionPattern:  # type: ignore[no-redef]
-            CREATE = "create"
-            UPDATE = "update"
-            AGGREGATE = "aggregate"
-            NOCACHES = "nocaches"
-
-        class WorkflowContext:
-            pass
-
-        class WorkflowLogger:
-            pass
-
-
-from causaliq_analysis.graph_io import (  # noqa: E402
-    is_pdg_graphml,
-    read_graph_or_pdg_file,
-)
+from causaliq_analysis.graph_io import read_graph_or_pdg_file  # noqa: E402
 from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
 from causaliq_analysis.plot import run_plot  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
@@ -91,6 +67,7 @@ from causaliq_analysis.validation import (  # noqa: E402
     validate_filter_expression,
     validate_metric_specs,
 )
+from causaliq_analysis.workflow_action import helpers  # noqa: E402
 
 
 class AnalysisActionProvider(CausalIQActionProvider):
@@ -1135,57 +1112,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
         entry: Any,
         source_label: str,
     ) -> Tuple[Any, str]:
-        """Extract an evaluable graph from a cache entry.
-
-        Locates a GraphML object of type 'dag', 'pdag', 'cpdag' or 'pdg'
-        within the entry. Deterministic graphs are read as DAG/PDAG while
-        PDG content (carrying edge probabilities) is read as a PDG.
-
-        Args:
-            entry: Cache entry containing typed objects.
-            source_label: Human-readable description of the entry source,
-                used in error messages.
-
-        Returns:
-            Tuple of (parsed graph, object type).
-
-        Raises:
-            ActionExecutionError: If no evaluable graph is found or the
-                graph cannot be parsed.
-        """
-        from io import StringIO
-
-        from causaliq_core.graph.io import graphml
-
-        # Deterministic graph types are preferred over PDG objects
-        valid_graph_types = ("dag", "pdag", "cpdag", "pdg")
-
-        # Find graphml object of valid type in entry
-        for obj_type in entry.object_types():
-            if obj_type not in valid_graph_types:
-                continue
-            obj = entry.get_object(obj_type)
-            if obj is None or obj.format != "graphml":
-                continue
-            is_pdg = is_pdg_graphml(obj.content)
-            if obj_type == "pdg" and not is_pdg:
-                # PDG-labelled object without probability data: skip
-                continue
-            try:
-                if is_pdg:
-                    return graphml.read_pdg(StringIO(obj.content)), "pdg"
-                return graphml.read(StringIO(obj.content)), obj_type
-            except Exception as e:
-                raise ActionExecutionError(
-                    f"Failed to parse graph '{obj_type}' from "
-                    f"{source_label}: {e}"
-                ) from e
-
-        raise ActionExecutionError(
-            f"No evaluable graph object found in {source_label}. "
-            "evaluate_graph requires a 'dag', 'pdag', 'cpdag' or 'pdg' "
-            "object."
-        )
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._extract_graph_from_entry(entry, source_label)
 
     def _resolve_reference_graph(
         self,
@@ -1994,132 +1922,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
         matrix_filter: Optional[Dict[str, Any]],
         log_fn: Optional[Any],
     ) -> int:
-        """Collect metric values from a workflow cache.
-
-        Args:
-            cache_path: Path to .db cache file.
-            fields: List of field names to extract.
-            all_values: Dictionary to append values to.
-            filter_expr: Optional filter expression.
-            matrix_filter: Optional matrix values to filter by.
-            log_fn: Optional logging function.
-
-        Returns:
-            Number of entries processed.
-        """
-        try:
-            from causaliq_workflow.cache import WorkflowCache
-        except ImportError:  # pragma: no cover
-            raise ActionExecutionError(
-                "causaliq-workflow required to read .db caches"
-            )
-
-        count = 0
-        try:
-            with WorkflowCache(cache_path) as cache:
-                entries = cache.list_entries()
-
-                # Pre-resolve random() in filter
-                resolved_filter = filter_expr
-                extra_names: Dict[str, Any] = {}
-                if filter_expr and "random(" in filter_expr:
-                    from causaliq_core.utils import (
-                        resolve_random_calls,
-                    )
-
-                    _meta = []
-                    for _ei in entries:
-                        _fe = cache.get(_ei["matrix_values"])
-                        if _fe is not None:
-                            _meta.append(
-                                self._flatten_entry_metadata(
-                                    _ei["matrix_values"],
-                                    _fe.metadata,
-                                )
-                            )
-                    resolved_filter, extra_names = resolve_random_calls(
-                        filter_expr, _meta
-                    )
-
-                for entry_info in entries:
-                    entry = cache.get(entry_info["matrix_values"])
-                    if entry is None:  # pragma: no cover
-                        continue
-
-                    matrix_values = entry_info["matrix_values"]
-
-                    # Filter by matrix values if specified
-                    if matrix_filter:
-                        if not all(
-                            matrix_values.get(k) == v
-                            for k, v in matrix_filter.items()
-                        ):
-                            continue
-
-                    flat_meta = self._flatten_entry_metadata(
-                        matrix_values, entry.metadata
-                    )
-
-                    # Apply filter if specified
-                    if resolved_filter:
-                        try:
-                            from causaliq_core.utils import evaluate_filter
-
-                            if not evaluate_filter(
-                                resolved_filter,
-                                {**flat_meta, **extra_names},
-                            ):
-                                continue
-                        except Exception:
-                            continue
-
-                    count += 1
-
-                    # Extract metric values
-                    for field in fields:
-                        value = self._get_nested_value(flat_meta, field)
-                        if value is not None and isinstance(
-                            value, (int, float)
-                        ):
-                            all_values[field].append(float(value))
-
-                    if log_fn:
-                        log_fn(f"Processed: {matrix_values}")
-
-        except FileNotFoundError:  # pragma: no cover
-            raise ActionExecutionError(f"Cache file not found: {cache_path}")
-        except Exception as e:
-            if isinstance(e, ActionExecutionError):  # pragma: no cover
-                raise
-            raise ActionExecutionError(
-                f"Failed to read cache '{cache_path}': {e}"
-            ) from e
-
-        return count
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._collect_values_from_cache(
+            cache_path, fields, all_values, filter_expr, matrix_filter, log_fn
+        )
 
     def _get_nested_value(self, data: Dict[str, Any], field: str) -> Any:
-        """Get value from dict using dotted path notation.
-
-        Args:
-            data: Dictionary to search.
-            field: Field name, optionally with dots for nested access.
-
-        Returns:
-            Value if found, None otherwise.
-        """
-        # First try direct key lookup
-        if field in data:
-            return data[field]
-
-        # Dotted path traversal (defensive - flattened dicts don't need this)
-        parts = field.split(".")
-        current = data
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]  # pragma: no cover
-            else:
-                return None
-        return current  # pragma: no cover
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._get_nested_value(data, field)
 
     def _extract_graphs_from_entries(
         self,
@@ -2128,127 +1938,18 @@ class AnalysisActionProvider(CausalIQActionProvider):
         *,
         object_type: Optional[str] = None,
     ) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
-        """Extract graphs from aggregation entries.
-
-        Reads graphml objects from pre-scanned cache entries provided
-        by the workflow executor in aggregation mode.
-
-        Args:
-            entries: List of entry dictionaries from aggregation scan.
-                Each entry has: matrix_values, metadata, cache_path,
-                entry_hash, entry (the CacheEntry object).
-            log_fn: Optional logging function.
-            object_type: If set, only extract objects with this type
-                name (e.g., 'pdg'). If None, all graphml objects
-                are extracted.
-
-        Returns:
-            Tuple of:
-            - list of graphs
-            - list of flattened metadata dicts (one per graph)
-            - source_info dict with provenance
-
-        Raises:
-            ActionExecutionError: If graph extraction fails.
-        """
-        from io import StringIO
-
-        from causaliq_core.graph.io import graphml
-
-        graphs = []
-        graph_metadata: List[Dict[str, Any]] = []
-        source_caches: set = set()
-        entries_with_graphs = 0
-
-        for entry_dict in entries:
-            entry = entry_dict.get("entry")
-            cache_path = entry_dict.get("cache_path", "unknown")
-            matrix_values = entry_dict.get("matrix_values", {})
-            metadata = entry_dict.get("metadata", {})
-
-            if entry is None:
-                continue
-
-            source_caches.add(cache_path)
-            found_in_entry = 0
-
-            # Flatten metadata for filter/weight evaluation
-            flat_meta = self._flatten_entry_metadata(matrix_values, metadata)
-
-            # Find graphml objects in this entry
-            for obj_type in entry.object_types():
-                if object_type is not None and obj_type != object_type:
-                    continue
-                obj = entry.get_object(obj_type)
-                if obj is None or obj.format != "graphml":
-                    continue
-
-                try:
-                    graph: Any
-                    if obj_type == "pdg":
-                        graph = graphml.read_pdg(StringIO(obj.content))
-                    else:
-                        graph = graphml.read(StringIO(obj.content))
-                    graphs.append(graph)
-                    graph_metadata.append(flat_meta)
-                    found_in_entry += 1
-                    if log_fn:
-                        log_fn(f"Loaded '{obj_type}' from {matrix_values}")
-                except Exception as e:
-                    raise ActionExecutionError(
-                        f"Failed to parse graph '{obj_type}' from "
-                        f"entry {matrix_values}: {e}"
-                    ) from e
-
-            if found_in_entry > 0:
-                entries_with_graphs += 1
-            elif log_fn:
-                log_fn(f"Entry {matrix_values} has no graphml objects")
-
-        source_info = {
-            "source_count": entries_with_graphs,
-            "source_caches": sorted(source_caches),
-        }
-
-        return graphs, graph_metadata, source_info
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._extract_graphs_from_entries(
+            entries, log_fn, object_type=object_type
+        )
 
     def _flatten_entry_metadata(
         self,
         matrix_values: Dict[str, Any],
         metadata: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Flatten entry metadata for filter/weight evaluation.
-
-        Combines matrix values with nested metadata structure into a flat
-        dictionary suitable for filter expression or weight computation.
-
-        Args:
-            matrix_values: Entry's matrix variable values.
-            metadata: Entry's nested metadata dictionary.
-
-        Returns:
-            Flat dictionary with all metadata fields.
-        """
-        flat: Dict[str, Any] = dict(matrix_values)
-
-        # Flatten nested metadata (provider -> action -> fields)
-        for provider_name, provider_data in metadata.items():
-            if isinstance(provider_data, dict):
-                for action_name, action_data in provider_data.items():
-                    if isinstance(action_data, dict):
-                        for key, value in action_data.items():
-                            # Use simple key if no conflict
-                            if key not in flat:
-                                flat[key] = value
-                            # Use fully qualified key as fallback
-                            qual_key = f"{provider_name}.{action_name}.{key}"
-                            flat[qual_key] = value
-                    else:
-                        flat[f"{provider_name}.{action_name}"] = action_data
-            else:
-                flat[provider_name] = provider_data
-
-        return flat
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._flatten_entry_metadata(matrix_values, metadata)
 
     def _compute_weights_from_metadata(
         self,
@@ -2256,57 +1957,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
         weight_spec: Dict[str, Dict[str, float]],
         log_fn: Optional[Any],
     ) -> List[float]:
-        """Compute normalised weights from graph metadata.
-
-        Uses the weight specification to compute a weight for each graph
-        based on its metadata. Weights are normalised to sum to 1.0.
-
-        Args:
-            graph_metadata: List of flattened metadata dicts (one per graph).
-            weight_spec: Mapping from metadata field to value-weight pairs.
-            log_fn: Optional logging function.
-
-        Returns:
-            List of normalised weights (one per graph, sum to 1.0).
-
-        Raises:
-            ActionExecutionError: If weight computation fails.
-        """
-        from causaliq_core.utils import (
-            WeightSpecError,
-            compute_weight,
-            validate_weight_spec,
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._compute_weights_from_metadata(
+            graph_metadata, weight_spec, log_fn
         )
-
-        # Validate weight specification
-        try:
-            validate_weight_spec(weight_spec)
-        except WeightSpecError as e:
-            raise ActionExecutionError(f"Invalid weight specification: {e}")
-
-        # Compute raw weights for each graph
-        raw_weights = []
-        for meta in graph_metadata:
-            w = compute_weight(meta, weight_spec)
-            raw_weights.append(w)
-
-        # Normalise to sum to 1.0
-        total = sum(raw_weights)
-        if total <= 0:
-            raise ActionExecutionError(
-                "Computed weights sum to zero or negative. "
-                "Check weight specification."
-            )
-
-        normalised = [w / total for w in raw_weights]
-
-        if log_fn:
-            log_fn(
-                f"Computed weights from metadata: "
-                f"raw={raw_weights}, normalised={normalised}"
-            )
-
-        return normalised
 
     def _read_graphs_from_cache(
         self,
@@ -2315,86 +1969,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
         *,
         object_type: Optional[str] = None,
     ) -> Tuple[List[Any], int]:
-        """Read graphs from a WorkflowCache database.
-
-        Finds graphml objects in all cache entries.
-
-        Args:
-            cache_path: Path to WorkflowCache database file (.db).
-            log_fn: Optional logging function.
-            object_type: If set, only extract objects with this type
-                name (e.g., 'pdg'). If None, all graphml objects
-                are extracted.
-
-        Returns:
-            Tuple of (list of graphs, number of entries with graphs).
-
-        Raises:
-            ActionExecutionError: If cache cannot be read.
-        """
-        from io import StringIO
-
-        from causaliq_core.graph.io import graphml
-        from causaliq_workflow.cache import WorkflowCache
-
-        graphs = []
-        entries_with_graphs = 0
-
-        try:
-            with WorkflowCache(cache_path) as cache:
-                entries = cache.list_entries()
-                if log_fn:
-                    log_fn(f"Found {len(entries)} entries in cache")
-
-                for entry_info in entries:
-                    matrix_values = entry_info.get("matrix_values", {})
-                    entry = cache.get(matrix_values)
-
-                    if entry is None:
-                        continue
-
-                    # Find graphml objects in this entry
-                    found_in_entry = 0
-                    for obj_type in entry.object_types():
-                        if object_type is not None and obj_type != object_type:
-                            continue
-                        obj = entry.get_object(obj_type)
-                        if obj is None or obj.format != "graphml":
-                            continue
-
-                        try:
-                            graph: Any
-                            if obj_type == "pdg":
-                                graph = graphml.read_pdg(StringIO(obj.content))
-                            else:
-                                graph = graphml.read(StringIO(obj.content))
-                            graphs.append(graph)
-                            found_in_entry += 1
-                            if log_fn:
-                                log_fn(
-                                    f"Loaded '{obj_type}' from {matrix_values}"
-                                )
-                        except Exception as e:
-                            raise ActionExecutionError(
-                                f"Failed to parse graph '{obj_type}' from "
-                                f"cache entry {matrix_values}: {e}"
-                            ) from e
-
-                    if found_in_entry > 0:
-                        entries_with_graphs += 1
-                    elif log_fn:
-                        log_fn(f"Entry {matrix_values} has no graphml objects")
-
-        except FileNotFoundError:
-            raise ActionExecutionError(f"Cache file not found: {cache_path}")
-        except Exception as e:
-            if isinstance(e, ActionExecutionError):
-                raise
-            raise ActionExecutionError(
-                f"Failed to read from cache '{cache_path}': {e}"
-            ) from e
-
-        return graphs, entries_with_graphs
+        """Delegate to the shared helper in helpers.py."""
+        return helpers._read_graphs_from_cache(
+            cache_path, log_fn, object_type=object_type
+        )
 
 
 # Export as ActionProvider for auto-discovery by causaliq-workflow
