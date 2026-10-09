@@ -21,7 +21,6 @@ from causaliq_analysis.workflow_action.types import (
 
 __all__ = ["EvaluateGraphAction"]
 
-# Valid metrics for evaluate_graph action
 VALID_EVALUATE_METRICS = frozenset(
     {
         "f1",
@@ -34,6 +33,7 @@ VALID_EVALUATE_METRICS = frozenset(
         "equiv.edge",
     }
 )
+"""Metric names supported by the evaluate_graph action."""
 
 
 class EvaluateGraphAction(AnalysisAction):

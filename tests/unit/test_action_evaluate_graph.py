@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from causaliq_analysis.workflow_action import helpers
+
 from .conftest import (
     VALID_GRAPHML,
     VALID_PDG_GRAPHML,
@@ -1938,14 +1940,12 @@ def test_evaluate_graph_edge_metrics_not_leaked() -> None:
 
 
 # Test the provider delegate for entry graph extraction.
-def test_extract_graph_from_entry_delegate() -> None:
-    """Test the provider delegate forwards to the shared helper."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
+def test_extract_graph_from_entry_helper() -> None:
+    """Test the shared helper extracts a graph from an entry."""
 
-    provider = AnalysisActionProvider()
     mock_entry = create_mock_graphml_entry()
 
-    graph, graph_type = provider._extract_graph_from_entry(
+    graph, graph_type = helpers._extract_graph_from_entry(
         mock_entry, "cache entry"
     )
 

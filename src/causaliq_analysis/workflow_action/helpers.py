@@ -5,6 +5,10 @@ These helpers perform cache parsing, metadata flattening and graph
 extraction for the action provider. They are module-level functions so
 that individual action sub-modules can reuse them without requiring a
 provider instance.
+
+This module sits close to the ~200 statement module limit, so new helpers
+belong in the action modules that need them (or in a dedicated sub-package)
+rather than here.
 """
 
 from typing import Any, Dict, List, Optional, Tuple

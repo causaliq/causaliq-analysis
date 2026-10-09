@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from causaliq_analysis.workflow_action import helpers
+
 from .conftest import (  # noqa: F401
     VALID_GRAPHML,
     VALID_PDG_GRAPHML,
@@ -119,16 +121,13 @@ def test_merge_graphs_no_graphs_found() -> None:
 # Test _extract_graphs_from_entries with None entry (line 577).
 def test_extract_graphs_entry_is_none() -> None:
     """Test that entries with None entry object are skipped."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     # Entry where entry is None
     entries = [
         {"entry": None, "matrix_values": {"seed": 1}, "metadata": {}},
     ]
 
-    graphs, metadata, source_info = provider._extract_graphs_from_entries(
+    graphs, metadata, source_info = helpers._extract_graphs_from_entries(
         entries, log_fn=None
     )
     assert graphs == []
@@ -138,9 +137,6 @@ def test_extract_graphs_entry_is_none() -> None:
 # Test _extract_graphs_from_entries skips non-graphml objects (line 589).
 def test_extract_graphs_skips_non_graphml_objects() -> None:
     """Test objects that are None or not graphml type are skipped."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     # Create mock entry with non-graphml object
     mock_obj = MagicMock()
@@ -160,7 +156,7 @@ def test_extract_graphs_skips_non_graphml_objects() -> None:
         },
     ]
 
-    graphs, metadata, source_info = provider._extract_graphs_from_entries(
+    graphs, metadata, source_info = helpers._extract_graphs_from_entries(
         entries, log_fn=None
     )
     assert graphs == []
@@ -170,9 +166,6 @@ def test_extract_graphs_skips_non_graphml_objects() -> None:
 # Test _extract_graphs_from_entries handles None object (line 589).
 def test_extract_graphs_handles_none_object() -> None:
     """Test entries returning None object are handled."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = ["orphan"]
@@ -187,7 +180,7 @@ def test_extract_graphs_handles_none_object() -> None:
         },
     ]
 
-    graphs, metadata, source_info = provider._extract_graphs_from_entries(
+    graphs, metadata, source_info = helpers._extract_graphs_from_entries(
         entries, log_fn=None
     )
     assert graphs == []
@@ -196,9 +189,6 @@ def test_extract_graphs_handles_none_object() -> None:
 # Test _extract_graphs_from_entries logs success (line 597).
 def test_extract_graphs_logs_success(capsys: Any) -> None:
     """Test logging when graph is successfully loaded."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_entry = create_mock_graphml_entry()
     entries: List[Dict[str, Any]] = [
@@ -210,7 +200,7 @@ def test_extract_graphs_logs_success(capsys: Any) -> None:
         },
     ]
 
-    graphs, metadata, source_info = provider._extract_graphs_from_entries(
+    graphs, metadata, source_info = helpers._extract_graphs_from_entries(
         entries, log_fn=print
     )
 
@@ -222,9 +212,6 @@ def test_extract_graphs_logs_success(capsys: Any) -> None:
 # Test _extract_graphs_from_entries with invalid graphml (lines 597-599).
 def test_extract_graphs_invalid_graphml_raises_error() -> None:
     """Test that invalid graphml content raises ActionExecutionError."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     # Create mock object with invalid graphml content
     mock_obj = MagicMock()
@@ -246,16 +233,13 @@ def test_extract_graphs_invalid_graphml_raises_error() -> None:
     ]
 
     with pytest.raises(Exception) as exc_info:
-        provider._extract_graphs_from_entries(entries, log_fn=None)
+        helpers._extract_graphs_from_entries(entries, log_fn=None)
     assert "Failed to parse graph" in str(exc_info.value)
 
 
 # Test _extract_graphs_from_entries logs when no graphml (lines 606-607).
 def test_extract_graphs_logs_no_graphml_objects(capsys: Any) -> None:
     """Test that entries with no graphml log a message."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = []
@@ -269,7 +253,7 @@ def test_extract_graphs_logs_no_graphml_objects(capsys: Any) -> None:
         },
     ]
 
-    graphs, metadata, source_info = provider._extract_graphs_from_entries(
+    graphs, metadata, source_info = helpers._extract_graphs_from_entries(
         entries, log_fn=print
     )
 
@@ -280,9 +264,6 @@ def test_extract_graphs_logs_no_graphml_objects(capsys: Any) -> None:
 # Test _flatten_entry_metadata with nested metadata (lines 638-648).
 def test_flatten_entry_metadata_with_nested_structure() -> None:
     """Test flattening deeply nested metadata structure."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     matrix_values = {"seed": 42, "network": "asia"}
     metadata = {
@@ -295,7 +276,7 @@ def test_flatten_entry_metadata_with_nested_structure() -> None:
         "simple_key": "simple_value",  # Non-dict provider_data branch
     }
 
-    result = provider._flatten_entry_metadata(matrix_values, metadata)
+    result = helpers._flatten_entry_metadata(matrix_values, metadata)
 
     # Original matrix values preserved
     assert result["seed"] == 42
@@ -315,9 +296,6 @@ def test_flatten_entry_metadata_with_nested_structure() -> None:
 # Test _flatten_entry_metadata with action value not dict (line 645).
 def test_flatten_entry_metadata_action_not_dict() -> None:
     """Test handling when action_data is not a dict."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     matrix_values = {}
     metadata = {
@@ -326,16 +304,13 @@ def test_flatten_entry_metadata_action_not_dict() -> None:
         },
     }
 
-    result = provider._flatten_entry_metadata(matrix_values, metadata)
+    result = helpers._flatten_entry_metadata(matrix_values, metadata)
     assert result["provider.action"] == "scalar_value"
 
 
 # Test _compute_weights_from_metadata with zero sum (line 697).
 def test_compute_weights_zero_sum_raises_error() -> None:
     """Test error when computed weights sum to zero."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     graph_metadata = [
         {"algo": "PC"},
@@ -346,7 +321,7 @@ def test_compute_weights_zero_sum_raises_error() -> None:
     weight_spec = {"algo": {"PC": 0.0, "GES": 0.0}}
 
     with pytest.raises(Exception) as exc_info:
-        provider._compute_weights_from_metadata(
+        helpers._compute_weights_from_metadata(
             graph_metadata, weight_spec, log_fn=None
         )
     assert "Computed weights sum to zero" in str(exc_info.value)
@@ -355,9 +330,6 @@ def test_compute_weights_zero_sum_raises_error() -> None:
 # Test _compute_weights_from_metadata logs computed weights (line 705).
 def test_compute_weights_logs_values(capsys: Any) -> None:
     """Test that computed weights are logged with log_fn."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     graph_metadata = [
         {"algo": "PC"},
@@ -366,7 +338,7 @@ def test_compute_weights_logs_values(capsys: Any) -> None:
 
     weight_spec = {"algo": {"PC": 2.0, "GES": 1.0}}
 
-    provider._compute_weights_from_metadata(
+    helpers._compute_weights_from_metadata(
         graph_metadata, weight_spec, log_fn=print
     )
 
@@ -379,9 +351,6 @@ def test_compute_weights_logs_values(capsys: Any) -> None:
 # Test _read_graphs_from_cache with valid cache (lines 731-787).
 def test_read_graphs_from_cache_success(capsys: Any) -> None:
     """Test successful reading of graphs from cache."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     # Create mock graphml content (valid minimal graphml)
     graphml_content = """<?xml version="1.0" encoding="UTF-8"?>
@@ -418,7 +387,7 @@ def test_read_graphs_from_cache_success(capsys: Any) -> None:
         "causaliq_workflow.cache.WorkflowCache",
         return_value=mock_cache,
     ):
-        graphs, entries_count = provider._read_graphs_from_cache(
+        graphs, entries_count = helpers._read_graphs_from_cache(
             "test.db", log_fn=print
         )
 
@@ -432,41 +401,32 @@ def test_read_graphs_from_cache_success(capsys: Any) -> None:
 # Test _read_graphs_from_cache with FileNotFoundError (line 780).
 def test_read_graphs_from_cache_file_not_found() -> None:
     """Test FileNotFoundError raises appropriate ActionExecutionError."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     with patch(
         "causaliq_workflow.cache.WorkflowCache",
         side_effect=FileNotFoundError("not found"),
     ):
         with pytest.raises(Exception) as exc_info:
-            provider._read_graphs_from_cache("nonexistent.db", log_fn=None)
+            helpers._read_graphs_from_cache("nonexistent.db", log_fn=None)
     assert "Cache file not found" in str(exc_info.value)
 
 
 # Test _read_graphs_from_cache with generic error (lines 782-785).
 def test_read_graphs_from_cache_generic_error() -> None:
     """Test generic exception wrapping in cache read."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     with patch(
         "causaliq_workflow.cache.WorkflowCache",
         side_effect=RuntimeError("Database corrupt"),
     ):
         with pytest.raises(Exception) as exc_info:
-            provider._read_graphs_from_cache("bad.db", log_fn=None)
+            helpers._read_graphs_from_cache("bad.db", log_fn=None)
     assert "Failed to read from cache" in str(exc_info.value)
 
 
 # Test _read_graphs_from_cache with entry returning None (line 751).
 def test_read_graphs_from_cache_entry_is_none() -> None:
     """Test cache.get returning None is handled."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     # Create mock cache that returns None for get()
     mock_cache = MagicMock()
@@ -479,7 +439,7 @@ def test_read_graphs_from_cache_entry_is_none() -> None:
         "causaliq_workflow.cache.WorkflowCache",
         return_value=mock_cache,
     ):
-        graphs, entries_count = provider._read_graphs_from_cache(
+        graphs, entries_count = helpers._read_graphs_from_cache(
             "test.db", log_fn=None
         )
 
@@ -490,9 +450,6 @@ def test_read_graphs_from_cache_entry_is_none() -> None:
 # Test _read_graphs_from_cache with invalid graphml (lines 768-772).
 def test_read_graphs_from_cache_invalid_graphml() -> None:
     """Test invalid graphml in cache raises ActionExecutionError."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_obj = MagicMock()
     mock_obj.type = "dag"
@@ -514,16 +471,13 @@ def test_read_graphs_from_cache_invalid_graphml() -> None:
         return_value=mock_cache,
     ):
         with pytest.raises(Exception) as exc_info:
-            provider._read_graphs_from_cache("test.db", log_fn=None)
+            helpers._read_graphs_from_cache("test.db", log_fn=None)
     assert "Failed to parse graph" in str(exc_info.value)
 
 
 # Test _read_graphs_from_cache logs no graphml objects (line 775-776).
 def test_read_graphs_from_cache_logs_no_graphml(capsys: Any) -> None:
     """Test logging when entry has no graphml objects."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = []
@@ -538,7 +492,7 @@ def test_read_graphs_from_cache_logs_no_graphml(capsys: Any) -> None:
         "causaliq_workflow.cache.WorkflowCache",
         return_value=mock_cache,
     ):
-        graphs, entries_count = provider._read_graphs_from_cache(
+        graphs, entries_count = helpers._read_graphs_from_cache(
             "test.db", log_fn=print
         )
 
@@ -549,9 +503,6 @@ def test_read_graphs_from_cache_logs_no_graphml(capsys: Any) -> None:
 # Test _read_graphs_from_cache skips non-graphml objects (line 757-758).
 def test_read_graphs_from_cache_skips_non_graphml() -> None:
     """Test objects with type != graphml are skipped."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_obj = MagicMock()
     mock_obj.type = "metadata"
@@ -571,7 +522,7 @@ def test_read_graphs_from_cache_skips_non_graphml() -> None:
         "causaliq_workflow.cache.WorkflowCache",
         return_value=mock_cache,
     ):
-        graphs, entries_count = provider._read_graphs_from_cache(
+        graphs, entries_count = helpers._read_graphs_from_cache(
             "test.db", log_fn=None
         )
 
@@ -735,9 +686,6 @@ def test_merge_graphs_aggregation_mode_detected_from_empty_list() -> None:
 # Test object_type filters to matching type in aggregation mode.
 def test_extract_graphs_object_type_filters_entries() -> None:
     """Test that object_type selects only matching objects."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     # Create entry with both "dag" and "pdg" objects
     mock_dag_obj = MagicMock()
@@ -766,13 +714,13 @@ def test_extract_graphs_object_type_filters_entries() -> None:
     ]
 
     # Without filter: gets both
-    graphs_all, _, _ = provider._extract_graphs_from_entries(
+    graphs_all, _, _ = helpers._extract_graphs_from_entries(
         entries, log_fn=None
     )
     assert len(graphs_all) == 2
 
     # With object_type="pdg": gets only PDG
-    graphs_pdg, _, _ = provider._extract_graphs_from_entries(
+    graphs_pdg, _, _ = helpers._extract_graphs_from_entries(
         entries, log_fn=None, object_type="pdg"
     )
     assert len(graphs_pdg) == 1
@@ -781,9 +729,6 @@ def test_extract_graphs_object_type_filters_entries() -> None:
 # Test object_type filters in _read_graphs_from_cache.
 def test_read_graphs_from_cache_object_type_filter() -> None:
     """Test that object_type filters objects in cache reads."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
 
     mock_dag_obj = MagicMock()
     mock_dag_obj.type = "dag"
@@ -813,7 +758,7 @@ def test_read_graphs_from_cache_object_type_filter() -> None:
         "causaliq_workflow.cache.WorkflowCache",
         return_value=mock_cache,
     ):
-        graphs, count = provider._read_graphs_from_cache(
+        graphs, count = helpers._read_graphs_from_cache(
             "test.db", log_fn=None, object_type="pdg"
         )
 

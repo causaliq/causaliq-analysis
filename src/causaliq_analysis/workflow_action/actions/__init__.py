@@ -22,6 +22,9 @@ from causaliq_analysis.workflow_action.actions.migrate_trace import (
     MigrateTraceAction,
 )
 from causaliq_analysis.workflow_action.actions.plot import PlotAction
+from causaliq_analysis.workflow_action.actions.summarise import (
+    SummariseAction,
+)
 
 __all__ = [
     "ACTION_CLASSES",
@@ -30,6 +33,7 @@ __all__ = [
     "MergeGraphsAction",
     "MigrateTraceAction",
     "PlotAction",
+    "SummariseAction",
 ]
 
 # Registry mapping action names to action classes
@@ -39,4 +43,5 @@ ACTION_CLASSES: Dict[str, Type[AnalysisAction]] = {
     "merge_graphs": MergeGraphsAction,
     "migrate_trace": MigrateTraceAction,
     "plot": PlotAction,
+    "summarise": SummariseAction,
 }

@@ -699,9 +699,7 @@ def test_migrate_trace_value_error_exception(
 # Test _compute_weights_from_metadata computes normalised weights.
 def test_compute_weights_from_metadata() -> None:
     """Test metadata-driven weight computation and normalisation."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    action = AnalysisActionProvider()
+    from causaliq_analysis.workflow_action import helpers
 
     # Sample metadata for 3 graphs
     graph_metadata = [
@@ -722,7 +720,7 @@ def test_compute_weights_from_metadata() -> None:
         },
     }
 
-    weights = action._compute_weights_from_metadata(
+    weights = helpers._compute_weights_from_metadata(
         graph_metadata, weight_spec, None
     )
 
@@ -774,16 +772,14 @@ def test_merge_graphs_invalid_weight_spec() -> None:
     """Test invalid weight specification raises ActionExecutionError."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
-        AnalysisActionProvider,
+        helpers,
     )
-
-    action = AnalysisActionProvider()
 
     # Invalid weight: negative value
     weight_spec = {"action": {"pc": -1.0}}
 
     with pytest.raises(ActionExecutionError, match="Invalid weight"):
-        action._compute_weights_from_metadata(
+        helpers._compute_weights_from_metadata(
             [{"action": "pc"}], weight_spec, None
         )
 
