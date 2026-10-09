@@ -15,6 +15,9 @@ causal discovery experiments:
 - **Structural evaluation** — Compute accuracy metrics against ground truth
   for deterministic graphs (DAG/PDAG/CPDAG) and probabilistic dependency
   graphs (PDGs)
+- **Metric summarisation** — Aggregate metric values from workflow cache
+  entries into summary statistics (mean, SD, count) written to CSV
+- **Plot generation** — Chart metric summaries produced by the summarise step
 - **Trace migration** — Convert legacy experiment traces to modern formats
 
 ## Key Architectural Concepts
@@ -47,6 +50,17 @@ reference and graph edge-state probabilities (`forward`, `backward`,
 represent a DAG, PDAG or CPDAG, this single comparison path supports all
 graph types produced by the CausalIQ ecosystem.
 
+### Action Classes and Registry
+
+Each workflow action is implemented as a small class in
+`workflow_action/actions/`, subclassing the `AnalysisAction` contract with its
+own `validate` and `run` methods. `workflow_action/actions/__init__.py` maps
+action names to classes in `ACTION_CLASSES`. The provider in
+`workflow_action/__init__.py` stays thin: it checks that the action is
+supported and that the parameters are known, then delegates validation and
+execution to the registered class. Adding an action therefore means adding one
+module plus one registry entry, and nothing else in the provider.
+
 ### Integration Points
 
 | Component | Integration |
@@ -68,5 +82,17 @@ src/causaliq_analysis/
 ├── migrate.py          # Trace migration utilities
 ├── trace.py            # Legacy Trace format support
 ├── validation.py       # Input validation
-└── workflow_action.py  # Workflow action interface
+└── workflow_action/    # Workflow action interface
+    ├── __init__.py     # Provider class and public API
+    ├── types.py        # Shared type imports and fallback stubs
+    ├── helpers.py      # Cache parsing and graph extraction helpers
+    └── actions/        # Individual workflow action classes
+        ├── __init__.py # Action registry
+        ├── base.py     # Abstract action contract
+        ├── best_graph.py # BestGraphAction (optimal DAG extraction)
+        ├── evaluate_graph.py # EvaluateGraphAction (structural metrics)
+        ├── merge_graphs.py # MergeGraphsAction (graph merging to PDG)
+        ├── migrate_trace.py # MigrateTraceAction (legacy traces to GraphML)
+        ├── plot.py     # PlotAction (chart generation)
+        └── summarise.py # SummariseAction (metric aggregation to CSV)
 ```

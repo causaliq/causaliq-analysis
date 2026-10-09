@@ -37,3 +37,10 @@ module.
 ### [CLI](cli.md)
 
 Command-line interface for causaliq-analysis operations.
+
+### [Workflow Action](workflow_action.md)
+
+Workflow action interface for causaliq-workflow: a thin provider that
+validates parameters and delegates to per-action classes registered in
+`ACTION_CLASSES` (migrate_trace, merge_graphs, evaluate_graph, best_graph,
+summarise, plot).

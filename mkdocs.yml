@@ -63,6 +63,14 @@ nav:
     - Trace: api/trace.md
     - Plot: api/plot.md
     - CLI: api/cli.md
+    - Workflow Action:
+        - Overview: api/workflow_action.md
+        - Migrate Trace: api/workflow_action/migrate_trace.md
+        - Merge Graphs: api/workflow_action/merge_graphs.md
+        - Evaluate Graph: api/workflow_action/evaluate_graph.md
+        - Best Graph: api/workflow_action/best_graph.md
+        - Summarise: api/workflow_action/summarise.md
+        - Plot: api/workflow_action/plot.md
 
 plugins:
   - search

@@ -1,41 +1,55 @@
-# evalute_graph extended to compare PDGs
+# refactor workflow_acction.py according to module and method rules
 
-The `evaluate_graph` action of `causaliq-analysis` performs a structural
-comparison of a graph against a reference graph, producing F1, precision,
-recall, SHD and low-level edge metrics. It makes use of the `pdag_compare`
-method in @causaliq-analysis/src/causaliq-analysis/metrics.py which first computes low-level edge metrics, then derives F1, SHD etc from them.
+Please generate a plan to refactor @src/causaliq_analysis/workflow_action/ following the policies defined by the files listed in @.clinerules.
 
-We wish to extend evaluate_graph so it can also compare PDGs which 
-define a probability associated with each edge type between pairs
-of variables (A->B, A<-B, A--B and no edge). Since PDGs can represent DAGs, 
-PDAGs and CPDAGs this means that evaluate_graph will be able to compare all supported graph types.
+Suggested steps are:
+  1. Step 1 (Infrastructure Foundation): Create the workflow_action/ directory, set up types.py, helpers.py, and actions/base.py. Have __init__.py act as a pass-through so all existing tests pass unchanged.
 
-I suggest that the functionality in `pdag_compare` can be extended in
-a new method `pdg_compare`. Further, the only functionality
-within pdag_compare that needs to be changed is the computation of the low-level
-edge metrics such as arcs_matched etc. Subsequent logic in pdag_compare can
-probably remain the same.
+  2. Step 2 (Single Action Slice): Extract the simplest action (e.g., plot.py or summarise.py) into actions/. Wire it up, update its specific test module, and verify pytest passes.
 
-In the current code these low-level metrics are always integers. Their
-computation needs to be modified to account for the edge probabilities
-present in PDGs as follows:
+  1. Step 3 (Iterative Extraction): Migrate the remaining actions one by one (migrate_trace.py, evaluate_graph.py, etc.), verifying green test builds after each.
 
-Suppose we have the following probabilities for the edge between A and B
+  1. Step 4 (Final Cleanup & Removal): Delete the old monolithic workflow_action.py once the package __init__.py fully replaces its public interface.  
 
+A suggested **final** refactor structure might be (but consider alternatives if you
+feel they might be better):
 ```
-REFERENCE PDG: A->B: 0.6, A<-B: 0.1, A--B: 0.0, no edge: 0.3
-    GRAPH PDG: A->B: 0.4, A<-B: 0.3, A--B: 0.1, no edge: 0.2
+causaliq_analysis/
+└── workflow_action/
+    ├── __init__.py            # Provider class & public API re-exports
+    ├── types.py               # Stub/Type-checking imports & shared data structures
+    ├── helpers.py             # Cache parsing, metadata flattening, graph extraction
+    └── actions/
+        ├── __init__.py        # Registry mapping action names to action classes
+        ├── base.py            # Abstract Base Action (validate & run contracts)
+        ├── migrate_trace.py   # MigrateTraceAction (validate & run)
+        ├── merge_graphs.py    # MergeGraphsAction (validate & run)
+        ├── evaluate_graph.py  # EvaluateGraphAction (validate & run)
+        ├── best_graph.py      # BestGraphAction (validate & run)
+        ├── summarise.py       # SummariseAction (validate & run)
+        └── plot.py            # PlotAction (validate & run)
+```
 
-Each of the four types of edge in the REFERENCE and GRAPH will be combined in 16 fractional low-level edge metric computations as folows:
-REF: A->B: 0.6, GRAPH A->B: 0.4 ===> 'arc_matched' = 0.6 x 0.4 = 0.24
-REF: A->B: 0.6, GRAPH A<-B: 0.3 ===> 'arc_reversed' = 0.6 x 0.3 = 0.18
-... 
-REF: no edge: 0.3, GRAPH no edge: 0.2 ===> 'missing_matched' = 0.3 x 0.2 = 0.06
-```                  
+## Status: complete
 
-These fractional low-level edge metrics will add up to 1.0 for each variable. pair.
+Steps 1-4 are done; the legacy monolith no longer exists and the package fully
+replaces its public interface.
 
-We need to keep method `pdag_compare` for compatability with existing code.
-However, it can now be a wrapper around `pdg_compare`; it just needs to convert its PDAG input arguments to PDGs before calling `pdg_compare`. Existing
-tests of `pdag_compare` should therefore continue to pass and will provide a
-useful test of the `pdg_compare` method.
+- `workflow_action/__init__.py` is now a thin provider: **40 statements**
+  (down from 605) holding the parameter tables, `validate_parameters`,
+  `run`/`_execute` and the public re-exports — no action logic.
+- Seven action classes in `workflow_action/actions/`: `plot`,
+  `migrate_trace`, `best_graph`, `evaluate_graph`, `merge_graphs`,
+  `summarise`, plus the `AnalysisAction` base contract, all registered in
+  `ACTION_CLASSES`.
+- Shared infrastructure: `types.py` (31 statements) and `helpers.py`
+  (195 statements — frozen close to the module limit).
+- Code rules: `python scripts/check_code_rules.py` reports **0 breaches** for
+  the whole `workflow_action` package in both advisory and `--strict` mode.
+- Tests: full suite green (919 passed) with **100 % coverage** on every
+  package module.
+
+The remaining code-rule breaches in the repository are legacy CLI/core code
+(`cli.py`, `trace.py`, `plot.py`, `merge.py`, `metrics.py`,
+`validation.py`) and are candidates for a follow-on refactor, starting with
+`cli.py`.

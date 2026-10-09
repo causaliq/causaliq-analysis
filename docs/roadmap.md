@@ -1,6 +1,6 @@
 # CausalIQ Analysis - Development Roadmap
 
-**Last updated**: August 27, 2026
+**Last updated**: October 9, 2026
 
 This project roadmap fits into the
 [overall ecosystem roadmap](https://causaliq.org/projects/ecosystem_roadmap/).
@@ -15,8 +15,9 @@ Assuring reproducibility of results and assets for published papers.
 1. ✅ new `plot` action works in GitHub CI with no warnings
 1. ✅ Support tuples, lists and dicts as property values
 1. ✅ new `edge` and `equiv.edge` metrics for `evaluate_graph` return the ten edge comparison counts
-1. ✅ [develop pdg_compare based on 9 edge comparison counts](current_task.md)
-1. 📊 [Refactor code to make modules smaller and clearer](refactor.md)
+1. ✅ develop pdg_compare based on 9 edge comparison counts
+1. ✅ [Refactor workflow_action to make modules smaller and clearer](current_task.md)
+1. 📊 Refactor cli.py to make modules smaller and clearer
 1. 📊 Support Python 3.10-14, with 3.12 as default, and badge as [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
 1. 🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster
 
