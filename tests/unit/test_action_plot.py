@@ -1,18 +1,23 @@
 """Unit tests for the plot workflow action."""
 
 from typing import Any, Dict
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from causaliq_analysis.workflow_action import AnalysisActionProvider
 
 
-def _make_logger() -> MagicMock:
-    """Create a mock logger without terminal logging."""
-    logger = MagicMock()
-    logger.is_terminal_logging = False
-    return logger
+class _StubLogger:
+    """Logger stub reporting the terminal logging flag."""
+
+    def __init__(self) -> None:
+        """Create a stub with terminal logging disabled."""
+        self.is_terminal_logging = False
+
+
+def _make_logger() -> _StubLogger:
+    """Create a logger stub without terminal logging."""
+    return _StubLogger()
 
 
 def _valid_parameters() -> Dict[str, Any]:
@@ -183,7 +188,7 @@ def test_plot_rejects_legacy_properties() -> None:
 
 
 # Plot action accepts equals-separated Python literal properties.
-def test_plot_accepts_equals_properties() -> None:
+def test_plot_accepts_equals_properties(mocker) -> None:
     """Test plot validation passes for Python literal properties."""
     provider = AnalysisActionProvider()
     parameters = _valid_parameters()
@@ -193,17 +198,17 @@ def test_plot_accepts_equals_properties() -> None:
         "list.property=['a', 1]",
     ]
 
-    with patch(
-        "causaliq_analysis.workflow_action.run_plot",
+    mocker.patch(
+        "causaliq_analysis.workflow_action.actions.plot.run_plot",
         return_value={"output": "chart.png", "type": "line"},
-    ):
-        status, _, _ = provider.run(
-            action="plot",
-            parameters=parameters,
-            mode="run",
-            context=None,
-            logger=_make_logger(),
-        )
+    )
+    status, _, _ = provider.run(
+        action="plot",
+        parameters=parameters,
+        mode="run",
+        context=None,
+        logger=_make_logger(),
+    )
 
     assert status == "success"
 
@@ -227,21 +232,21 @@ def test_plot_dry_run() -> None:
 
 
 # Plot action runs successfully and returns metadata.
-def test_plot_runs_successfully() -> None:
+def test_plot_runs_successfully(mocker) -> None:
     """Test plot returns success when run_plot completes."""
     provider = AnalysisActionProvider()
 
-    with patch(
-        "causaliq_analysis.workflow_action.run_plot",
+    mock_plot = mocker.patch(
+        "causaliq_analysis.workflow_action.actions.plot.run_plot",
         return_value={"output": "chart.png", "type": "line"},
-    ) as mock_plot:
-        status, metadata, objects = provider.run(
-            action="plot",
-            parameters=_valid_parameters(),
-            mode="run",
-            context=None,
-            logger=_make_logger(),
-        )
+    )
+    status, metadata, objects = provider.run(
+        action="plot",
+        parameters=_valid_parameters(),
+        mode="run",
+        context=None,
+        logger=_make_logger(),
+    )
 
     assert status == "success"
     assert metadata["output"] == "chart.png"
@@ -254,45 +259,45 @@ def test_plot_runs_successfully() -> None:
 
 
 # Plot action reports execution failures.
-def test_plot_run_failure() -> None:
+def test_plot_run_failure(mocker) -> None:
     """Test plot raises ActionExecutionError when run_plot fails."""
     from causaliq_core import ActionExecutionError
 
     provider = AnalysisActionProvider()
 
-    with patch(
-        "causaliq_analysis.workflow_action.run_plot",
+    mocker.patch(
+        "causaliq_analysis.workflow_action.actions.plot.run_plot",
         side_effect=ValueError("boom"),
-    ):
-        with pytest.raises(ActionExecutionError, match="Plot failed"):
-            provider.run(
-                action="plot",
-                parameters=_valid_parameters(),
-                mode="run",
-                context=None,
-                logger=_make_logger(),
-            )
+    )
+    with pytest.raises(ActionExecutionError, match="Plot failed"):
+        provider.run(
+            action="plot",
+            parameters=_valid_parameters(),
+            mode="run",
+            context=None,
+            logger=_make_logger(),
+        )
 
 
 # Plot action re-raises ActionExecutionError from run_plot.
-def test_plot_re_raises_execution_error() -> None:
+def test_plot_re_raises_execution_error(mocker) -> None:
     """Test plot re-raises ActionExecutionError from run_plot."""
     from causaliq_core import ActionExecutionError
 
     provider = AnalysisActionProvider()
 
-    with patch(
-        "causaliq_analysis.workflow_action.run_plot",
+    mocker.patch(
+        "causaliq_analysis.workflow_action.actions.plot.run_plot",
         side_effect=ActionExecutionError("boom"),
-    ):
-        with pytest.raises(ActionExecutionError, match="boom"):
-            provider.run(
-                action="plot",
-                parameters=_valid_parameters(),
-                mode="run",
-                context=None,
-                logger=_make_logger(),
-            )
+    )
+    with pytest.raises(ActionExecutionError, match="boom"):
+        provider.run(
+            action="plot",
+            parameters=_valid_parameters(),
+            mode="run",
+            context=None,
+            logger=_make_logger(),
+        )
 
 
 # Plot action is registered as a nocaches pattern.
@@ -327,23 +332,23 @@ def test_plot_dry_run_terminal_logging(capsys) -> None:
 
 
 # Plot action uses print as the log function with terminal logging.
-def test_plot_runs_with_terminal_logging(capsys) -> None:
+def test_plot_runs_with_terminal_logging(mocker, capsys) -> None:
     """Test plot passes print as the log function when enabled."""
     provider = AnalysisActionProvider()
     logger = _make_logger()
     logger.is_terminal_logging = True
 
-    with patch(
-        "causaliq_analysis.workflow_action.run_plot",
+    mock_plot = mocker.patch(
+        "causaliq_analysis.workflow_action.actions.plot.run_plot",
         return_value={"output": "chart.png", "type": "line"},
-    ) as mock_plot:
-        status, _, _ = provider.run(
-            action="plot",
-            parameters=_valid_parameters(),
-            mode="run",
-            context=None,
-            logger=logger,
-        )
+    )
+    status, _, _ = provider.run(
+        action="plot",
+        parameters=_valid_parameters(),
+        mode="run",
+        context=None,
+        logger=logger,
+    )
 
     assert status == "success"
     mock_plot.assert_called_once()

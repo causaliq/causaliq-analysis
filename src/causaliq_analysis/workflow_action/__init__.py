@@ -59,7 +59,6 @@ else:
 
 from causaliq_analysis.graph_io import read_graph_or_pdg_file  # noqa: E402
 from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
-from causaliq_analysis.plot import run_plot  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
     parse_sample_size,
     parse_seed_workflow,
@@ -68,6 +67,9 @@ from causaliq_analysis.validation import (  # noqa: E402
     validate_metric_specs,
 )
 from causaliq_analysis.workflow_action import helpers  # noqa: E402
+from causaliq_analysis.workflow_action.actions import (  # noqa: E402
+    ACTION_CLASSES,
+)
 
 
 class AnalysisActionProvider(CausalIQActionProvider):
@@ -471,7 +473,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             elif action == "summarise":
                 self._validate_summarise(parameters)
             elif action == "plot":
-                self._validate_plot(parameters)
+                ACTION_CLASSES["plot"]().validate(parameters)
         except ValueError as e:
             raise ActionValidationError(str(e))
 
@@ -631,58 +633,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 f"Got: {output_path}"
             )
 
-    def _validate_plot(self, parameters: Dict[str, Any]) -> None:
-        """Validate plot parameters."""
-        from causaliq_analysis.plot import SUPPORTED_KINDS, parse_properties
-
-        # Require input CSV file.
-        input_path = parameters.get("input")
-        if input_path is None:
-            raise ValueError(
-                "plot requires 'input' parameter with a .csv file path."
-            )
-        if not str(input_path).lower().endswith(".csv"):
-            raise ValueError(
-                "plot input must be a CSV file (.csv). " f"Got: {input_path}"
-            )
-
-        # Require output image file.
-        output_path = parameters.get("output")
-        if output_path is None:
-            raise ValueError(
-                "plot requires 'output' parameter with an image file path."
-            )
-        image_extensions = (".png", ".jpg", ".jpeg", ".svg", ".pdf")
-        if not str(output_path).lower().endswith(image_extensions):
-            raise ValueError(
-                "plot output must be an image file "
-                f"({' or '.join(image_extensions)}). Got: {output_path}"
-            )
-
-        # Require the subplot, group, x and y column names.
-        for column_param in ("subplot", "group", "x", "y"):
-            if not parameters.get(column_param):
-                raise ValueError(
-                    f"plot requires '{column_param}' parameter identifying "
-                    "a column in the input CSV."
-                )
-
-        # Validate the plot type.
-        plot_type = parameters.get("type", "line")
-        if plot_type not in SUPPORTED_KINDS:
-            raise ValueError(
-                f"Unknown plot type '{plot_type}'. Supported types are: "
-                f"{', '.join(sorted(SUPPORTED_KINDS))}"
-            )
-
-        # Validate property strings are parseable.
-        properties = parameters.get("properties")
-        if properties is not None:
-            try:
-                parse_properties(properties)
-            except ValueError as e:
-                raise ValueError(f"Invalid plot properties: {e}")
-
     def run(
         self,
         action: str,
@@ -748,7 +698,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
         elif action == "best_graph":
             return self._run_best_graph(parameters, mode, context, logger)
         elif action == "plot":
-            return self._run_plot(parameters, mode, context, logger)
+            plot_action = ACTION_CLASSES["plot"]()
+            return plot_action.run(parameters, mode, context, logger)
         else:
             # action == "summarise" - must be valid since validate_parameters
             # already verified action is in supported_actions
@@ -1827,91 +1778,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
             raise
         except Exception as e:
             raise ActionExecutionError(f"Summarise failed: {e}") from e
-
-    def _run_plot(
-        self,
-        parameters: Dict[str, Any],
-        mode: str,
-        context: Optional[WorkflowContext],
-        logger: Optional[WorkflowLogger],
-    ) -> ActionResult:
-        """Execute chart generation from a summarise CSV output.
-
-        Reads the input CSV, builds the long-form data required by the
-        legacy plotting functions and writes the output chart file.
-
-        Args:
-            parameters: Action parameter values.
-            mode: Execution mode ('dry-run', 'run', 'compare').
-            context: Workflow context for optimisation.
-            logger: Logger for reporting.
-
-        Returns:
-            Tuple of (status, metadata, objects).
-
-        Raises:
-            ActionExecutionError: If execution fails.
-        """
-        try:
-            # Extract parameters
-            input_csv = parameters.get("input")
-            output = parameters.get("output")
-            plot_type = parameters.get("type", "line")
-            subplot = parameters.get("subplot")
-            group = parameters.get("group")
-            x = parameters.get("x")
-            y = parameters.get("y")
-            properties = parameters.get("properties")
-
-            # The required parameters are validated by _validate_plot.
-            assert isinstance(input_csv, str)
-            assert isinstance(output, str)
-            assert isinstance(plot_type, str)
-            assert isinstance(subplot, str)
-            assert isinstance(group, str)
-            assert isinstance(x, str)
-            assert isinstance(y, str)
-
-            # Dry-run mode
-            if mode == "dry-run":
-                if logger and logger.is_terminal_logging:
-                    print(
-                        f"Would plot {plot_type} from {input_csv} "
-                        f"to {output}"
-                    )
-                return (
-                    "skipped",
-                    {
-                        "message": "Dry-run mode",
-                        "input": str(input_csv),
-                        "output": str(output),
-                        "type": plot_type,
-                    },
-                    [],
-                )
-
-            # Set up logging callback
-            log_fn = None
-            if logger and logger.is_terminal_logging:
-                log_fn = print
-
-            metadata = run_plot(
-                input_csv=input_csv,
-                output=output,
-                kind=plot_type,
-                subplot=subplot,
-                group=group,
-                x=x,
-                y=y,
-                properties=properties,
-                log_fn=log_fn,
-            )
-            return ("success", metadata, [])
-
-        except ActionExecutionError:
-            raise
-        except Exception as e:
-            raise ActionExecutionError(f"Plot failed: {e}") from e
 
     def _collect_values_from_cache(
         self,
