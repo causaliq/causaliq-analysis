@@ -58,10 +58,7 @@ else:
         )
 
 from causaliq_analysis.graph_io import read_graph_or_pdg_file  # noqa: E402
-from causaliq_analysis.migrate import run_migrate_trace  # noqa: E402
 from causaliq_analysis.validation import (  # noqa: E402
-    parse_sample_size,
-    parse_seed_workflow,
     require_param,
     validate_filter_expression,
     validate_metric_specs,
@@ -463,57 +460,19 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
         try:
             if action == "migrate_trace":
-                self._validate_migrate_trace(parameters)
+                ACTION_CLASSES["migrate_trace"]().validate(parameters)
             elif action == "merge_graphs":
                 self._validate_merge_graphs(parameters)
             elif action == "evaluate_graph":
                 self._validate_evaluate_graph(parameters)
             elif action == "best_graph":
-                self._validate_best_graph(parameters)
+                ACTION_CLASSES["best_graph"]().validate(parameters)
             elif action == "summarise":
                 self._validate_summarise(parameters)
             elif action == "plot":
                 ACTION_CLASSES["plot"]().validate(parameters)
         except ValueError as e:
             raise ActionValidationError(str(e))
-
-    def _validate_migrate_trace(self, parameters: Dict[str, Any]) -> None:
-        """Validate migrate_trace parameters."""
-        # Require traces OR (series AND network)
-        has_traces = (
-            "traces" in parameters and parameters["traces"] is not None
-        )
-        has_series = (
-            "series" in parameters and parameters["series"] is not None
-        )
-        has_network = (
-            "network" in parameters and parameters["network"] is not None
-        )
-
-        if not has_traces and not (has_series and has_network):
-            raise ValueError(
-                "'migrate_trace' requires either 'traces' parameter or "
-                "both 'series' and 'network' parameters"
-            )
-
-        # Validate sample_size if provided
-        sample_size = parameters.get("sample_size")
-        if sample_size is not None:
-            parse_sample_size(sample_size)
-
-        # Validate seed if provided
-        seed = parameters.get("seed")
-        if seed is not None:
-            parse_seed_workflow(seed)
-
-        # Validate output - must be .db (workflow cache)
-        output_path = parameters.get("output")
-        if output_path is not None:
-            if not str(output_path).lower().endswith(".db"):
-                raise ValueError(
-                    "migrate_trace output must be a workflow cache (.db). "
-                    f"Got: {output_path}"
-                )
 
     def _validate_merge_graphs(self, parameters: Dict[str, Any]) -> None:
         """Validate merge_graphs parameters."""
@@ -584,33 +543,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
                     f"Valid metrics are: {valid_list}"
                 )
 
-    def _validate_best_graph(self, parameters: Dict[str, Any]) -> None:
-        """Validate best_graph parameters.
-
-        UPDATE pattern: requires input cache path containing entries with
-        PDG objects. Adds DAG object to each matched entry.
-
-        When called from workflow UPDATE mode, _update_entry is passed and
-        input is handled by workflow engine.
-        """
-        # Require input only when not in UPDATE mode (workflow handles input)
-        if "_update_entry" not in parameters:
-            require_param(parameters, "input", "best_graph")
-
-        # Validate threshold if provided
-        threshold = parameters.get("threshold")
-        if threshold is not None:
-            try:
-                float(threshold)
-            except (ValueError, TypeError):
-                raise ValueError(
-                    f"'threshold' must be a number, got: {threshold}"
-                )
-
-        # Validate filter expression syntax if provided
-        filter_expr = parameters.get("filter")
-        validate_filter_expression(filter_expr)
-
     def _validate_summarise(self, parameters: Dict[str, Any]) -> None:
         """Validate summarise parameters."""
         # Require metric list
@@ -665,6 +597,29 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # their own dry-run logic that needs logger access
         return self._execute(action, parameters, mode, context, logger)
 
+    def _run_action_class(
+        self,
+        action: str,
+        parameters: Dict[str, Any],
+        mode: str,
+        context: Optional[WorkflowContext],
+        logger: Optional[WorkflowLogger],
+    ) -> ActionResult:
+        """Execute an action from the action class registry.
+
+        Args:
+            action: Action to perform.
+            parameters: Action parameter values.
+            mode: Execution mode ('dry-run', 'run' or 'compare').
+            context: Workflow context for optimisation.
+            logger: Logger for reporting.
+
+        Returns:
+            Tuple of (status, metadata, objects).
+
+        """
+        return ACTION_CLASSES[action]().run(parameters, mode, context, logger)
+
     def _execute(
         self,
         action: str,
@@ -690,140 +645,25 @@ class AnalysisActionProvider(CausalIQActionProvider):
             ActionExecutionError: If execution fails.
         """
         if action == "migrate_trace":
-            return self._run_migrate_trace(parameters, mode, context, logger)
+            return self._run_action_class(
+                action, parameters, mode, context, logger
+            )
         elif action == "merge_graphs":
             return self._run_merge_graphs(parameters, mode, context, logger)
         elif action == "evaluate_graph":
             return self._run_evaluate_graph(parameters, mode, context, logger)
         elif action == "best_graph":
-            return self._run_best_graph(parameters, mode, context, logger)
+            return self._run_action_class(
+                action, parameters, mode, context, logger
+            )
         elif action == "plot":
-            plot_action = ACTION_CLASSES["plot"]()
-            return plot_action.run(parameters, mode, context, logger)
+            return self._run_action_class(
+                action, parameters, mode, context, logger
+            )
         else:
             # action == "summarise" - must be valid since validate_parameters
             # already verified action is in supported_actions
             return self._run_summarise(parameters, mode, context, logger)
-
-    def _run_migrate_trace(
-        self,
-        parameters: Dict[str, Any],
-        mode: str,
-        context: Optional[WorkflowContext],
-        logger: Optional[WorkflowLogger],
-    ) -> ActionResult:
-        """Execute trace migration to GraphML format."""
-        try:
-            # Extract parameters
-            traces_pattern = parameters.get("traces")
-            root_dir = parameters.get("root_dir", "experiments")
-            series = parameters.get("series")
-            network = parameters.get("network")
-            sample_size_input = parameters.get("sample_size")
-            seed_input = parameters.get("seed", "")
-
-            # Build trace path pattern
-            if traces_pattern:
-                partial_id = traces_pattern.replace(".pkl.gz", "")
-            elif series and network:
-                partial_id = f"{series}/{network}"
-            else:  # pragma: no cover
-                raise ActionExecutionError(
-                    "Must provide either 'traces' or both 'series' and "
-                    "'network'"
-                )
-
-            # Parse optional filters
-            sample_size = None
-            if sample_size_input is not None:
-                sample_size = parse_sample_size(sample_size_input)
-
-            seed_tuple = parse_seed_workflow(seed_input)
-
-            # Dry-run mode
-            if mode == "dry-run":
-                if logger and logger.is_terminal_logging:
-                    print(f"Would migrate traces from {partial_id}")
-                return (
-                    "skipped",
-                    {
-                        "message": "Dry-run mode",
-                        "num_graphs": 0,
-                    },
-                    [],
-                )
-
-            # Set up logging callback
-            log_fn = None
-            if logger and logger.is_terminal_logging:
-                log_fn = print
-
-            # Run migration - returns content, does not write files
-            result = run_migrate_trace(
-                partial_id=partial_id,
-                root_dir=root_dir,
-                sample_size=sample_size,
-                seed=seed_tuple if seed_tuple else None,
-                log_fn=log_fn,
-            )
-
-            # No matching traces — skip this matrix entry.
-            if result.num_graphs == 0:
-                return (
-                    "skipped",
-                    {
-                        "message": (
-                            f"No traces for {partial_id} "
-                            f"sample_size={sample_size} "
-                            f"seed={seed_tuple}"
-                        ),
-                        "num_graphs": 0,
-                    },
-                    [],
-                )
-
-            # Build objects list for cache storage (GraphML only)
-            # Per-graph metadata at top level (flattened)
-            objects = []
-            metadata: Dict[str, Any] = {
-                "num_graphs": result.num_graphs,
-                "skipped": result.skipped,
-            }
-
-            for i, graph in enumerate(result.graphs):
-                # Use 'dag' for single graph, 'dag_N' for multiple
-                if len(result.graphs) == 1:
-                    obj_type = "dag"
-                else:
-                    obj_type = f"dag_{i}"
-
-                # Add GraphML object
-                objects.append(
-                    {
-                        "type": obj_type,
-                        "format": "graphml",
-                        "action": "migrate_trace",
-                        "content": graph.graphml,
-                    }
-                )
-
-                # Per-graph metadata: flatten for single, nest for multiple
-                graph_meta = {"trace_id": graph.trace_id, **graph.metadata}
-                if len(result.graphs) == 1:
-                    metadata.update(graph_meta)
-                else:
-                    metadata[obj_type] = graph_meta
-
-            return (
-                "success",
-                metadata,
-                objects,
-            )
-
-        except ValueError as e:
-            raise ActionExecutionError(f"Trace migration failed: {e}") from e
-        except Exception as e:
-            raise ActionExecutionError(f"Trace migration failed: {e}") from e
 
     def _run_merge_graphs(
         self,
@@ -1329,160 +1169,6 @@ class AnalysisActionProvider(CausalIQActionProvider):
             )
 
         return ("success", metadata, [])
-
-    def _run_best_graph(
-        self,
-        parameters: Dict[str, Any],
-        mode: str,
-        context: Optional[WorkflowContext],
-        logger: Optional[WorkflowLogger],
-    ) -> ActionResult:
-        """Extract optimal DAG from PDG using greedy algorithm.
-
-        UPDATE pattern action: reads PDG from cache entry, extracts
-        optimal DAG, returns it as an object to add to the entry.
-
-        Supports two modes of operation:
-
-        1. **Update mode**: When called from workflow with cache input,
-           receives entry data via '_update_entry'. Extracts PDG from
-           the pdg object in the entry.
-
-        2. **Direct mode**: When called from CLI with file path, reads PDG
-           directly from the specified GraphML file.
-
-        Args:
-            parameters: Action parameters including input, threshold
-            mode: Execution mode ('dry-run', 'run', 'compare')
-            context: Workflow context
-            logger: Optional logger
-
-        Returns:
-            ActionResult with optimal DAG object to add to entry
-        """
-        from datetime import datetime, timezone
-        from io import StringIO
-
-        from causaliq_core.graph.io import graphml
-
-        # Extract UPDATE action entry data
-        update_entry = parameters.get("_update_entry")
-        input_path = parameters.get("input")
-        threshold = float(parameters.get("threshold", 0.0))
-
-        # Detect update mode
-        is_update_mode = update_entry is not None
-
-        # Handle dry-run mode
-        if mode == "dry-run":
-            if logger and logger.is_terminal_logging:
-                if is_update_mode:
-                    assert update_entry is not None  # Type narrowing
-                    matrix_values = update_entry.get("matrix_values", {})
-                    print(
-                        f"Would extract DAG from entry {matrix_values} "
-                        f"(threshold={threshold})"
-                    )
-                else:
-                    print(
-                        f"Would extract optimal DAG from {input_path} "
-                        f"(threshold={threshold})"
-                    )
-            return (
-                "skipped",
-                {
-                    "input": input_path,
-                    "threshold": threshold,
-                    "update_mode": is_update_mode,
-                },
-                [],
-            )
-
-        # Read PDG based on mode
-        pdg = None
-        source_info: str = ""
-
-        if is_update_mode:
-            # Update mode: extract PDG from entry
-            assert update_entry is not None  # Type narrowing
-            entry = update_entry.get("entry")
-            if entry is None:
-                raise ActionExecutionError("No entry object in _update_entry")
-
-            # Find pdg object in entry
-            pdg_obj = entry.get_object("pdg")
-            if pdg_obj is None:
-                raise ActionExecutionError(
-                    "Cache entry does not contain 'pdg' object. "
-                    "Ensure input cache was created by merge_graphs action."
-                )
-
-            try:
-                pdg = graphml.read_pdg(StringIO(pdg_obj.content))
-                matrix_vals = update_entry.get("matrix_values", {})
-                source_info = f"cache entry {matrix_vals}"
-            except Exception as e:
-                raise ActionExecutionError(
-                    f"Failed to parse pdg from cache: {e}"
-                ) from e
-        else:
-            # Direct mode: read from file path
-            if not input_path:
-                raise ActionExecutionError(
-                    "best_graph requires 'input' parameter"
-                )
-
-            try:
-                pdg = graphml.read_pdg(input_path)
-                source_info = input_path
-            except FileNotFoundError:
-                raise ActionExecutionError(f"PDG file not found: {input_path}")
-            except Exception as e:
-                raise ActionExecutionError(f"Failed to read PDG: {e}") from e
-
-        # Extract optimal DAG
-        try:
-            result = pdg.to_dag_greedy(threshold=threshold)
-        except Exception as e:
-            raise ActionExecutionError(f"DAG extraction failed: {e}") from e
-
-        # Serialise DAG to GraphML
-        buffer = StringIO()
-        graphml.write(result.dag, buffer)
-        dag_graphml = buffer.getvalue()
-
-        if logger and logger.is_terminal_logging:
-            print(
-                f"Extracted DAG from {source_info}: "
-                f"{result.edges_included} edges, "
-                f"{result.edges_skipped_cycle} skipped (cycle), "
-                f"{result.tie_breaks_applied} tie-breaks"
-            )
-
-        # Build metadata
-        metadata: Dict[str, Any] = {
-            "action": "best_graph",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "input_source": input_path if input_path else "update",
-            "input": {"type": "pdg"},
-            "output": {"type": "dag", "format": "graphml"},
-            "threshold": threshold,
-            "edges_included": result.edges_included,
-            "edges_skipped_cycle": result.edges_skipped_cycle,
-            "edges_skipped_threshold": result.edges_skipped_threshold,
-            "tie_breaks_applied": result.tie_breaks_applied,
-        }
-
-        objects = [
-            {
-                "type": "dag",
-                "format": "graphml",
-                "action": "best_graph",
-                "content": dag_graphml,
-            }
-        ]
-
-        return ("success", metadata, objects)
 
     def _run_summarise(
         self,

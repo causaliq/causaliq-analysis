@@ -1,15 +1,13 @@
 """Unit tests for best_graph action with mocked dependencies."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 
-def test_best_graph_creates_dag_entry() -> None:
+def test_best_graph_creates_dag_entry(mocker: Any) -> None:
     """Test that best_graph extracts DAG and returns graphml output."""
     from io import StringIO
-    from unittest.mock import MagicMock
 
     from causaliq_core.graph import PDG, EdgeProbabilities
     from causaliq_core.graph.io import graphml
@@ -17,7 +15,7 @@ def test_best_graph_creates_dag_entry() -> None:
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     # Create a simple PDG
@@ -32,20 +30,18 @@ def test_best_graph_creates_dag_entry() -> None:
     graphml.write_pdg(pdg, buffer)
     pdg_graphml = buffer.getvalue()
 
-    with patch(
-        "causaliq_core.graph.io.graphml.read_pdg",
-    ) as mock_read:
-        mock_read.return_value = pdg
+    mock_read = mocker.patch("causaliq_core.graph.io.graphml.read_pdg")
+    mock_read.return_value = pdg
 
-        result = provider.run(
-            action="best_graph",
-            parameters={
-                "input": pdg_graphml,
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
+    result = provider.run(
+        action="best_graph",
+        parameters={
+            "input": pdg_graphml,
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
 
     assert result[0] == "success"
     # Check metadata has extraction stats
@@ -58,12 +54,12 @@ def test_best_graph_creates_dag_entry() -> None:
 
 
 # Test best_graph dry-run mode skips execution.
-def test_best_graph_dry_run_skips(capsys: Any) -> None:
+def test_best_graph_dry_run_skips(capsys: Any, mocker: Any) -> None:
     """Test that dry-run mode returns skipped without extracting."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = True
 
     result = provider.run(
@@ -78,12 +74,12 @@ def test_best_graph_dry_run_skips(capsys: Any) -> None:
 
 
 # Test best_graph requires input parameter.
-def test_best_graph_requires_input() -> None:
+def test_best_graph_requires_input(mocker: Any) -> None:
     """Test that best_graph raises error without input."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     with pytest.raises(Exception) as exc_info:
@@ -99,10 +95,9 @@ def test_best_graph_requires_input() -> None:
 
 
 # Test best_graph with threshold parameter.
-def test_best_graph_with_threshold() -> None:
+def test_best_graph_with_threshold(mocker: Any) -> None:
     """Test that best_graph respects threshold parameter."""
     from io import StringIO
-    from unittest.mock import MagicMock
 
     from causaliq_core.graph import PDG, EdgeProbabilities
     from causaliq_core.graph.io import graphml
@@ -110,7 +105,7 @@ def test_best_graph_with_threshold() -> None:
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     pdg = PDG(
@@ -124,21 +119,19 @@ def test_best_graph_with_threshold() -> None:
     graphml.write_pdg(pdg, buffer)
     pdg_graphml = buffer.getvalue()
 
-    with patch(
-        "causaliq_core.graph.io.graphml.read_pdg",
-    ) as mock_read:
-        mock_read.return_value = pdg
+    mock_read = mocker.patch("causaliq_core.graph.io.graphml.read_pdg")
+    mock_read.return_value = pdg
 
-        result = provider.run(
-            action="best_graph",
-            parameters={
-                "input": pdg_graphml,
-                "threshold": 0.5,
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
+    result = provider.run(
+        action="best_graph",
+        parameters={
+            "input": pdg_graphml,
+            "threshold": 0.5,
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
 
     assert result[0] == "success"
     # Should have skipped one edge (0.3 < 0.5)
@@ -146,59 +139,55 @@ def test_best_graph_with_threshold() -> None:
 
 
 # Test best_graph handles invalid PDG content.
-def test_best_graph_invalid_pdg() -> None:
+def test_best_graph_invalid_pdg(mocker: Any) -> None:
     """Test that best_graph handles invalid PDG content."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with patch(
-        "causaliq_core.graph.io.graphml.read_pdg",
-    ) as mock_read:
-        mock_read.side_effect = ValueError("Invalid PDG")
+    mock_read = mocker.patch("causaliq_core.graph.io.graphml.read_pdg")
+    mock_read.side_effect = ValueError("Invalid PDG")
 
-        with pytest.raises(Exception) as exc_info:
-            provider.run(
-                action="best_graph",
-                parameters={"input": "invalid content"},
-                mode="run",
-                context=None,
-                logger=mock_logger,
-            )
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="best_graph",
+            parameters={"input": "invalid content"},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
 
     assert "PDG" in str(exc_info.value)
 
 
 # Test best_graph handles FileNotFoundError.
-def test_best_graph_file_not_found() -> None:
+def test_best_graph_file_not_found(mocker: Any) -> None:
     """Test that best_graph handles FileNotFoundError."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with patch(
-        "causaliq_core.graph.io.graphml.read_pdg",
-    ) as mock_read:
-        mock_read.side_effect = FileNotFoundError("No such file")
+    mock_read = mocker.patch("causaliq_core.graph.io.graphml.read_pdg")
+    mock_read.side_effect = FileNotFoundError("No such file")
 
-        with pytest.raises(Exception) as exc_info:
-            provider.run(
-                action="best_graph",
-                parameters={"input": "/nonexistent/file.graphml"},
-                mode="run",
-                context=None,
-                logger=mock_logger,
-            )
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="best_graph",
+            parameters={"input": "/nonexistent/file.graphml"},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
 
     assert "not found" in str(exc_info.value).lower()
 
 
 # Test best_graph handles DAG extraction failure.
-def test_best_graph_dag_extraction_error() -> None:
+def test_best_graph_dag_extraction_error(mocker: Any) -> None:
     """Test that best_graph handles to_dag_greedy failure."""
     from io import StringIO
 
@@ -208,7 +197,7 @@ def test_best_graph_dag_extraction_error() -> None:
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     pdg = PDG(
@@ -219,28 +208,26 @@ def test_best_graph_dag_extraction_error() -> None:
     graphml.write_pdg(pdg, buffer)
 
     # Create a mock PDG that raises on to_dag_greedy
-    mock_pdg = MagicMock()
+    mock_pdg = mocker.MagicMock()
     mock_pdg.to_dag_greedy.side_effect = RuntimeError("Algorithm failed")
 
-    with patch(
-        "causaliq_core.graph.io.graphml.read_pdg",
-    ) as mock_read:
-        mock_read.return_value = mock_pdg
+    mock_read = mocker.patch("causaliq_core.graph.io.graphml.read_pdg")
+    mock_read.return_value = mock_pdg
 
-        with pytest.raises(Exception) as exc_info:
-            provider.run(
-                action="best_graph",
-                parameters={"input": buffer.getvalue()},
-                mode="run",
-                context=None,
-                logger=mock_logger,
-            )
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="best_graph",
+            parameters={"input": buffer.getvalue()},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
 
     assert "extraction failed" in str(exc_info.value).lower()
 
 
 # Test best_graph with terminal logging enabled.
-def test_best_graph_terminal_logging(capsys: Any) -> None:
+def test_best_graph_terminal_logging(capsys: Any, mocker: Any) -> None:
     """Test that best_graph prints progress when terminal logging enabled."""
     from io import StringIO
 
@@ -250,7 +237,7 @@ def test_best_graph_terminal_logging(capsys: Any) -> None:
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = True
 
     pdg = PDG(
@@ -264,18 +251,16 @@ def test_best_graph_terminal_logging(capsys: Any) -> None:
     graphml.write_pdg(pdg, buffer)
     pdg_graphml = buffer.getvalue()
 
-    with patch(
-        "causaliq_core.graph.io.graphml.read_pdg",
-    ) as mock_read:
-        mock_read.return_value = pdg
+    mock_read = mocker.patch("causaliq_core.graph.io.graphml.read_pdg")
+    mock_read.return_value = pdg
 
-        result = provider.run(
-            action="best_graph",
-            parameters={"input": pdg_graphml},
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
+    result = provider.run(
+        action="best_graph",
+        parameters={"input": pdg_graphml},
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
 
     assert result[0] == "success"
     captured = capsys.readouterr()
@@ -284,12 +269,12 @@ def test_best_graph_terminal_logging(capsys: Any) -> None:
 
 
 # Test best_graph dry-run with update mode (terminal logging).
-def test_best_graph_dry_run_update_mode(capsys: Any) -> None:
+def test_best_graph_dry_run_update_mode(capsys: Any, mocker: Any) -> None:
     """Test best_graph dry-run prints update mode message."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = True
 
     result = provider.run(
@@ -309,7 +294,7 @@ def test_best_graph_dry_run_update_mode(capsys: Any) -> None:
 
 
 # Test best_graph update mode with missing entry object.
-def test_best_graph_update_missing_entry() -> None:
+def test_best_graph_update_missing_entry(mocker: Any) -> None:
     """Test best_graph raises error when _update_entry has no entry object."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -317,7 +302,7 @@ def test_best_graph_update_missing_entry() -> None:
     )
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     with pytest.raises(ActionExecutionError, match="No entry object"):
@@ -334,7 +319,7 @@ def test_best_graph_update_missing_entry() -> None:
 
 
 # Test best_graph update mode with missing pdg object.
-def test_best_graph_update_missing_pdg() -> None:
+def test_best_graph_update_missing_pdg(mocker: Any) -> None:
     """Test best_graph raises error when entry lacks pdg object."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -342,11 +327,11 @@ def test_best_graph_update_missing_pdg() -> None:
     )
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     # Mock entry that returns None for get_object("pdg")
-    mock_entry = MagicMock()
+    mock_entry = mocker.MagicMock()
     mock_entry.get_object.return_value = None
 
     with pytest.raises(ActionExecutionError, match="pdg"):
@@ -366,7 +351,7 @@ def test_best_graph_update_missing_pdg() -> None:
 
 
 # Test best_graph update mode with invalid PDG content.
-def test_best_graph_update_invalid_pdg() -> None:
+def test_best_graph_update_invalid_pdg(mocker: Any) -> None:
     """Test best_graph raises error when pdg is invalid."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -374,14 +359,14 @@ def test_best_graph_update_invalid_pdg() -> None:
     )
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     # Mock entry with invalid PDG content
-    mock_obj = MagicMock()
+    mock_obj = mocker.MagicMock()
     mock_obj.content = "not valid graphml"
 
-    mock_entry = MagicMock()
+    mock_entry = mocker.MagicMock()
     mock_entry.get_object.return_value = mock_obj
 
     with pytest.raises(ActionExecutionError, match="Failed to parse"):
@@ -401,7 +386,7 @@ def test_best_graph_update_invalid_pdg() -> None:
 
 
 # Test best_graph update mode success.
-def test_best_graph_update_success() -> None:
+def test_best_graph_update_success(mocker: Any) -> None:
     """Test best_graph update mode extracts DAG from cache entry."""
     from io import StringIO
 
@@ -411,7 +396,7 @@ def test_best_graph_update_success() -> None:
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     # Create a PDG and serialize it
@@ -424,10 +409,10 @@ def test_best_graph_update_success() -> None:
     pdg_graphml = buffer.getvalue()
 
     # Mock entry with valid PDG content
-    mock_obj = MagicMock()
+    mock_obj = mocker.MagicMock()
     mock_obj.content = pdg_graphml
 
-    mock_entry = MagicMock()
+    mock_entry = mocker.MagicMock()
     mock_entry.get_object.return_value = mock_obj
 
     result = provider.run(
@@ -451,7 +436,7 @@ def test_best_graph_update_success() -> None:
 
 
 # Test best_graph direct mode without input path.
-def test_best_graph_direct_mode_no_input() -> None:
+def test_best_graph_direct_mode_no_input(mocker: Any) -> None:
     """Test best_graph raises error in direct mode without input."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -459,7 +444,7 @@ def test_best_graph_direct_mode_no_input() -> None:
     )
 
     provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
+    mock_logger = mocker.MagicMock()
     mock_logger.is_terminal_logging = False
 
     # Empty input string passes validation but fails at runtime

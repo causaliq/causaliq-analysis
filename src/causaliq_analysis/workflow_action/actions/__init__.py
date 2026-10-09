@@ -9,11 +9,24 @@ the provider can validate and execute them without knowing their details.
 from typing import Dict, Type
 
 from causaliq_analysis.workflow_action.actions.base import AnalysisAction
+from causaliq_analysis.workflow_action.actions.best_graph import (
+    BestGraphAction,
+)
+from causaliq_analysis.workflow_action.actions.migrate_trace import (
+    MigrateTraceAction,
+)
 from causaliq_analysis.workflow_action.actions.plot import PlotAction
 
-__all__ = ["ACTION_CLASSES", "PlotAction"]
+__all__ = [
+    "ACTION_CLASSES",
+    "BestGraphAction",
+    "MigrateTraceAction",
+    "PlotAction",
+]
 
 # Registry mapping action names to action classes
 ACTION_CLASSES: Dict[str, Type[AnalysisAction]] = {
+    "best_graph": BestGraphAction,
+    "migrate_trace": MigrateTraceAction,
     "plot": PlotAction,
 }

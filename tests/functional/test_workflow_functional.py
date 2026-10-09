@@ -284,7 +284,8 @@ def test_migrate_trace_general_exception(
         raise RuntimeError("Unexpected error")
 
     monkeypatch.setattr(
-        "causaliq_analysis.workflow_action.run_migrate_trace",
+        "causaliq_analysis.workflow_action.actions.migrate_trace"
+        ".run_migrate_trace",
         mock_run_migrate_trace,
     )
 
@@ -680,7 +681,8 @@ def test_migrate_trace_value_error_exception(
         raise ValueError("No traces found for pattern")
 
     monkeypatch.setattr(
-        "causaliq_analysis.workflow_action.run_migrate_trace",
+        "causaliq_analysis.workflow_action.actions.migrate_trace"
+        ".run_migrate_trace",
         mock_run_migrate_trace,
     )
 
