@@ -887,3 +887,265 @@ def test_merge_graphs_object_type_in_metadata() -> None:
 
     assert result[0] == "success"
     assert result[1]["object_type"] == "dag"
+
+
+# Test direct-mode GraphML input is read and logged.
+def test_merge_graphs_direct_graphml_input_logs(mocker: Any) -> None:
+    """Test direct mode reads a GraphML file and logs progress."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mocker.patch(
+        "causaliq_core.graph.io.graphml.read",
+        return_value=MagicMock(),
+    )
+    mocker.patch("causaliq_core.graph.io.graphml.write_pdg")
+    mocker.patch(
+        "causaliq_analysis.merge.merge_graphs",
+        return_value=MagicMock(),
+    )
+
+    result = provider.run(
+        action="merge_graphs",
+        parameters={"input": "model.graphml"},
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["num_graphs"] == 1
+    messages = [call.args[0] for call in mock_logger.log.call_args_list]
+    assert "Loaded file: model.graphml" in messages
+    assert "Merged 1 graphs into PDG" in messages
+
+
+# Test direct-mode execution without a logger.
+def test_merge_graphs_direct_mode_without_logger(mocker: Any) -> None:
+    """Test direct mode runs without a logger."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+
+    mocker.patch(
+        "causaliq_core.graph.io.graphml.read",
+        return_value=MagicMock(),
+    )
+    mocker.patch("causaliq_core.graph.io.graphml.write_pdg")
+    mocker.patch(
+        "causaliq_analysis.merge.merge_graphs",
+        return_value=MagicMock(),
+    )
+
+    result = provider.run(
+        action="merge_graphs",
+        parameters={"input": "model.graphml"},
+        mode="run",
+        context=None,
+        logger=None,
+    )
+
+    assert result[0] == "success"
+    assert "weights" not in result[1]
+
+
+# Test dry-run in direct mode reports input file count.
+def test_merge_graphs_dry_run_direct_mode(capsys: Any) -> None:
+    """Test dry-run direct mode reports the number of input files."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    result = provider.run(
+        action="merge_graphs",
+        parameters={"input": ["a.graphml", "b.graphml"]},
+        mode="dry-run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "skipped"
+    assert result[1]["aggregation_mode"] is False
+    assert result[1]["num_inputs"] == 2
+
+    captured = capsys.readouterr()
+    assert "Would merge from 2 input files" in captured.out
+
+
+# Test explicit list weights and filter in direct mode.
+def test_merge_graphs_list_weights_with_filter(mocker: Any) -> None:
+    """Test list weights are applied and the filter is recorded."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mocker.patch(
+        "causaliq_core.graph.io.graphml.read",
+        return_value=MagicMock(),
+    )
+    mocker.patch("causaliq_core.graph.io.graphml.write_pdg")
+    mock_merge = mocker.patch(
+        "causaliq_analysis.merge.merge_graphs",
+        return_value=MagicMock(),
+    )
+
+    result = provider.run(
+        action="merge_graphs",
+        parameters={
+            "input": "model.graphml",
+            "weights": [1.0],
+            "filter": "algorithm == 'pc'",
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["weights"] == [1.0]
+    assert result[1]["filter"] == "algorithm == 'pc'"
+    assert mock_merge.call_args.kwargs["weights"] == [1.0]
+
+
+# Test dict weights computed from aggregation metadata.
+def test_merge_graphs_metadata_weights(mocker: Any) -> None:
+    """Test dict weights are computed from cache entry metadata."""
+    from causaliq_analysis.workflow_action import (
+        AnalysisActionProvider,
+        helpers,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entries: List[Dict[str, Any]] = [
+        {"entry": MagicMock(), "matrix_values": {"seed": 1}},
+    ]
+    mocker.patch.object(
+        helpers,
+        "_extract_graphs_from_entries",
+        return_value=([MagicMock()], [{"algo": "PC"}], {}),
+    )
+    mocker.patch.object(
+        helpers,
+        "_compute_weights_from_metadata",
+        return_value=[1.0],
+    )
+    mocker.patch("causaliq_core.graph.io.graphml.write_pdg")
+    mocker.patch(
+        "causaliq_analysis.merge.merge_graphs",
+        return_value=MagicMock(),
+    )
+
+    weights_spec = {"algo": {"PC": 1.0}}
+    result = provider.run(
+        action="merge_graphs",
+        parameters={
+            "_aggregation_entries": entries,
+            "weights": weights_spec,
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["weights_spec"] == weights_spec
+    assert result[1]["weights_computed"] == [1.0]
+
+
+# Test ValueError during merging is wrapped as a merge failure.
+def test_merge_graphs_wraps_value_error(mocker: Any) -> None:
+    """Test a ValueError is wrapped in ActionExecutionError."""
+    from causaliq_analysis.workflow_action import (
+        AnalysisActionProvider,
+        helpers,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entries: List[Dict[str, Any]] = [
+        {"entry": MagicMock(), "matrix_values": {"seed": 1}},
+    ]
+    mocker.patch.object(
+        helpers,
+        "_extract_graphs_from_entries",
+        side_effect=ValueError("bad matrix values"),
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="merge_graphs",
+            parameters={"_aggregation_entries": entries},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "Graph merge failed: bad matrix values" in str(exc_info.value)
+
+
+# Test unexpected errors during merging are wrapped.
+def test_merge_graphs_wraps_unexpected_error(mocker: Any) -> None:
+    """Test an unexpected error is wrapped in ActionExecutionError."""
+    from causaliq_analysis.workflow_action import (
+        AnalysisActionProvider,
+        helpers,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entries: List[Dict[str, Any]] = [
+        {"entry": MagicMock(), "matrix_values": {"seed": 1}},
+    ]
+    mocker.patch.object(
+        helpers,
+        "_extract_graphs_from_entries",
+        side_effect=RuntimeError("cache exploded"),
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="merge_graphs",
+            parameters={"_aggregation_entries": entries},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "Graph merge failed: cache exploded" in str(exc_info.value)
+
+
+# Test unreadable GraphML input is reported with the file path.
+def test_merge_graphs_unreadable_graphml_file(mocker: Any) -> None:
+    """Test a GraphML read error is reported with the file path."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mocker.patch(
+        "causaliq_core.graph.io.graphml.read",
+        side_effect=FileNotFoundError("missing"),
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="merge_graphs",
+            parameters={"input": "gone.graphml"},
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "Failed to read gone.graphml" in str(exc_info.value)

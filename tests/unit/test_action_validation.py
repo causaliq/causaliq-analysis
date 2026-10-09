@@ -439,3 +439,16 @@ def test_validate_evaluate_graph_all_valid_metrics() -> None:
             ],
         },
     )
+
+
+# Test evaluate_graph accepts an empty metric list.
+def test_validate_evaluate_graph_empty_metric_list() -> None:
+    """evaluate_graph skips metric checks for an empty metric list."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    # Should not raise: an empty metric list requests no metrics
+    provider.validate_parameters(
+        "evaluate_graph",
+        {"reference": "ground_truth.graphml", "metric": []},
+    )

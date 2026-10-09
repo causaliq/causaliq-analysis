@@ -310,7 +310,7 @@ def test_evaluate_graph_accepts_pdg_content() -> None:
     mock_metrics = {"p": 0.5, "r": 0.5, "f1": 0.5, "shd": 0.5}
 
     with patch(
-        "causaliq_analysis.workflow_action.read_graph_or_pdg_file",
+        "causaliq_analysis.graph_io.read_graph_or_pdg_file",
         return_value=MagicMock(spec=PDG),
     ):
         with patch(
@@ -1935,3 +1935,19 @@ def test_evaluate_graph_edge_metrics_not_leaked() -> None:
         "reference",
         "evaluated_graph",
     }
+
+
+# Test the provider delegate for entry graph extraction.
+def test_extract_graph_from_entry_delegate() -> None:
+    """Test the provider delegate forwards to the shared helper."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_entry = create_mock_graphml_entry()
+
+    graph, graph_type = provider._extract_graph_from_entry(
+        mock_entry, "cache entry"
+    )
+
+    assert graph_type == "dag"
+    assert graph is not None
