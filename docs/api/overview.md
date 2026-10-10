@@ -32,7 +32,9 @@ during algorithm execution.
 
 Functions for drawing charts using matplotlib and Seaborn from a
 `summarise` CSV output, migrated from the legacy `experiments/plot.py`
-module.
+module. The code is split into the `plot/` package (property parsing,
+axis styling, chart builders and the `run_plot` entry point), with the
+public names re-exported from `causaliq_analysis.plot`.
 
 ### [CLI](cli.md)
 

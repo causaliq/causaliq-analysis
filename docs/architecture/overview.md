@@ -81,6 +81,19 @@ class stays thin, delegating comparison to `trace.diffs` and score
 recalculation to `trace.scores`; legacy pickle remapping lives in
 `trace.compatibility`.
 
+### Plot Package
+
+The legacy plotting code is split into a `plot/` package whose
+`__init__.py` re-exports the public names (`run_plot`, `parse_properties`,
+`relplot`, `plot_scatter`, `plot_degree_distribution`, `SUPPORTED_KINDS`)
+so existing imports from `causaliq_analysis.plot` keep working. The chart
+property parser lives in `plot.properties`, the axis-styling and
+annotation helpers in `plot.axes`, the seaborn builders in `plot.charts`
+and the `run_plot` entry point in `plot.run`. The chart builders stay thin
+by delegating the shared figure style, per-kind figure construction and
+the figure/axes/legend post-processing to module-level helpers, and
+`plot_scatter` shares those helpers with `relplot`.
+
 ### Integration Points
 
 | Component | Integration |
@@ -110,6 +123,12 @@ src/causaliq_analysis/
 ├── merge.py            # Graph merging to PDG
 ├── metrics.py          # Structural comparison metrics
 ├── migrate.py          # Trace migration utilities
+├── plot/               # Chart generation from summarise output
+│   ├── __init__.py     # Public re-exports (run_plot, parse_properties, ...)
+│   ├── axes.py         # Axis styling and box/violin annotations
+│   ├── charts.py       # Seaborn chart builders
+│   ├── properties.py   # Chart property parsing
+│   └── run.py          # run_plot entry point and CSV helpers
 ├── trace/              # Legacy Trace format support
 │   ├── __init__.py     # Public re-exports (Trace, DiffType, ...)
 │   ├── compatibility.py # Legacy pickle compatibility

@@ -1,130 +1,128 @@
-# refactor trace.py according to module and method rules
+# refactor plot.py according to module and method rules
 
-> **Status: COMPLETE (October 10, 2026).** Implemented as a `trace/` package
-> (`__init__.py`, `compatibility.py`, `diffs.py`, `scores.py`, `trace.py`).
-> Every `Trace` method now meets the module/method limits and
-> `python scripts/check_code_rules.py --strict src/causaliq_analysis/trace`
-> reports 0 breaches. All public names remain importable from
-> `causaliq_analysis.trace`.
-
-
-Please generate a plan to refactor @src/causaliq_analysis/trace.py following the policies defined by the files listed in @.clinerules.
-
-> This file previously described the `workflow_action.py` and `cli.py` refactors,
-> which are now complete (recorded in `docs/architecture/overview.md`, sections
-> "Action Classes and Registry" and "CLI Commands and Registry", and in
-> `docs/api/workflow_action.md` and `docs/api/cli.md`).
+> This file previously described the `plot.py` refactor, which is now
+> complete (committed as `refactor: plot to meet causaliq guidelines` and
+> `docs: document refactored plot API`, and recorded in
+> `docs/architecture/overview.md`, section "Plot Package", and in
+> `docs/api/plot.md`).
 >
-> The same approach is now to be applied to `trace.py`: split the module into a
-> small package whose `__init__.py` re-exports the public names, keeping the
-> `Trace` class and its methods thin by delegating to module-level helpers.
+> `plot.py` is now the `plot/` package (`properties`, `axes`, `charts` and
+> `run`) whose `__init__.py` re-exports the public names. The remaining
+> legacy breaches, listed at the end of this file, are the candidates for
+> the next refactoring task.
 
 ## Context and current breaches
 
-`trace.py` is 1,184 lines / **342 statements** and holds the compatibility
-unpickler, the `DiffType` enum and the `Trace` class. Measured with
-`python scripts/check_code_rules.py`:
+`plot.py` is the module migrated from the legacy `experiments/plot.py`. It is
+749 lines / **238 statements** and holds the chart property parsing, the
+axis-styling helpers and the seaborn chart builders (`relplot`,
+`plot_scatter`, `plot_degree_distribution`) plus the `run_plot` entry point.
+Measured with `python scripts/check_code_rules.py`:
 
 | Line | Object | Breach |
 |------|--------|--------|
-| 24 | `CompatibilityUnpickler` | — |
-| 96 | `CompatibilityUnpickler.find_class` | depth 3, 9 statements |
-| 124 | `load_with_compatibility` | — |
-| 201 | `Trace.__init__` | depth 1, 20 statements |
-| 365 | `Trace.update_scores` | depth 4, **55 statements** (over hard maximum) |
-| 575 | `Trace._read_file` | depth 2, 19 statements |
-| 684 | `Trace._blocked_same` | depth 4, 16 statements |
-| 737 | `Trace._compare_entry` | depth 2, 21 statements |
-| 862 | `Trace._merge_opposites` | depth 4, 14 statements |
-| 904 | `Trace.diffs_from` | depth 4, **46 statements** (over hard maximum) |
-| 1055 | `Trace._diffs_summary` | depth 3, 7 statements |
-| — | module | **342 statements** (target ~200) |
+| 93 | `_convert_value` | depth 2, 25 statements |
+| 137 | `_split_property` | — |
+| 163 | `parse_properties` | — |
+| 195 | `_set_axes_props` | depth 4, 23 statements |
+| 258 | `_report_boxplot_values` | depth 1, 17 statements |
+| 327 | `_plot_violin_means` | — |
+| 355 | `relplot` | depth 7, **61 statements** (over hard maximum) |
+| 558 | `plot_scatter` | depth 4, 27 statements |
+| 632 | `plot_degree_distribution` | — |
+| 653 | `run_plot` | depth 2, 23 statements |
+| — | module | **238 statements** (target ~200) |
 
 Structure worth noting while extracting:
 
-- `CompatibilityUnpickler` (with its nested `PlaceholderEnum` and `CLASS_MAPPING`)
-  and `load_with_compatibility` are independent of `Trace` and can move to a
-  compatibility module.
-- `DiffType` and the comparison helpers (`_nums_diff`, `_blocked_same`,
-  `_compare_entry`, `_update_diffs`, `_merge_opposites`, `_diffs_summary`) form a
-  self-contained diff module; `diffs_from` is their orchestrator.
-- `Trace.__init__` mixes argument validation, context-field validation and
-  initialisation; `Trace.rename` nests a `_map` helper.
-- `update_scores` and `diffs_from` are the only two over-hard-maximum methods;
-  both mix orchestration with per-entry logic that can become module-level
-  helpers.
-- Module constants `CONTEXT_FIELDS` and the `ID_PATTERN` / `ID_ANTIPATTERN*`
-  regexes are only used by the class validation paths.
+- `_convert_value`, `_split_property` and the public `parse_properties` form a
+  self-contained property-parsing group; `run_plot` and the workflow action
+  both import `parse_properties` and `SUPPORTED_KINDS`.
+- The style maps (`AXES_PROPS`, `CONTEXT_PROPS`, `SUBPLOT_ADJUST`,
+  `FACET_PROPS`, `VIOLIN_PROPS`, `SubplotInfo`) and the axis helpers
+  (`_set_axes_props`, `_report_boxplot_values`, `_plot_violin_means`) form an
+  axes/styling group.
+- `relplot` mixes per-kind figure construction (line, regression, histogram,
+  box, violin, bar) with figure-level, axes-level and legend post-processing;
+  it is the only over-hard-maximum function.
+- `plot_scatter` repeats elements of the `relplot` palette/facet/rcParams and
+  legend handling and can share module-level helpers.
+- `run_plot` mixes kind validation, CSV reading, long-form data shaping,
+  property merge/logging and dispatch to `plot_scatter`/`relplot`.
 
 ## Suggested steps
 
-1. Step 1 (Foundation): convert `trace.py` into a `trace/` package whose
-   `__init__.py` re-exports `Trace`, `CompatibilityUnpickler`, `DiffType`,
-   `load_with_compatibility` and `CONTEXT_FIELDS`, so
-   `from causaliq_analysis.trace import ...` (used by `migrate.py` and the
-   tests) and `CompatibilityUnpickler.CLASS_MAPPING`'s target
-   `"causaliq_analysis.trace"` keep resolving. Keep it a pass-through so every
-   existing trace test passes unchanged before any code is moved.
-2. Step 2 (independent modules): move `CompatibilityUnpickler` (with its
-   `PlaceholderEnum` and `CLASS_MAPPING`) and `load_with_compatibility` into
-   `trace/compatibility.py`, re-exported from `__init__.py`, and verify the
-   unpickler tests pass.
-3. Step 3 (diff helpers): move `DiffType` and the comparison helpers
-   (`_nums_diff`, `_blocked_same`, `_compare_entry`, `_update_diffs`,
-   `_merge_opposites`, `_diffs_summary`) into `trace/diffs.py` as module-level
-   functions; `Trace.diffs_from` becomes a thin method delegating to a
-   `diffs_from(...)` helper. Flatten the moved functions to **≤15 statements
-   and depth ≤2** (hard maximum 30 statements).
-4. Step 4 (Trace class): keep the `Trace` class in `trace/trace.py` and split
-   its over-limit methods — `__init__` (validation helper), `update_scores`
-   (read/score/save helpers), `_read_file`, `_blocked_same`, `_compare_entry`,
-   `_merge_opposites`, `_diffs_summary` — flattening and splitting inside the
-   move so each function meets the limits.
-5. Step 5 (final cleanup): reduce `trace/__init__.py` to re-exports only,
-   remove any duplicated helpers, keep every module ≤~200 statements, and
-   update the docs (`docs/api/trace.md`, `mkdocs.yml` nav if the structure
-   changes, and `docs/architecture/overview.md`).
+1. Step 1 (Foundation): convert `plot.py` into a `plot/` package whose
+   `__init__.py` re-exports every name currently importable — including the
+   private helpers the tests import (`_set_axes_props`,
+   `_report_boxplot_values`, `_plot_violin_means`) plus `SUPPORTED_KINDS`,
+   `parse_properties`, `plot_degree_distribution`, `plot_scatter`, `relplot`
+   and `run_plot`. Keep it a pass-through so `tests/unit/test_plot.py` and
+   `tests/functional/test_cli_plot.py` pass unchanged before any code is
+   moved.
+2. Step 2 (properties): move `_convert_value`, `_split_property`,
+   `parse_properties` and `_NOT_A_LITERAL` into `plot/properties.py`,
+   splitting `_convert_value` so it meets ≤15 statements and depth ≤2.
+3. Step 3 (axes/styling): move the style maps and `SubplotInfo` plus
+   `_set_axes_props`, `_report_boxplot_values` and `_plot_violin_means` into
+   `plot/axes.py`, splitting `_set_axes_props` and `_report_boxplot_values`
+   inside the move.
+4. Step 4 (charts): move `relplot`, `plot_scatter`, `plot_degree_distribution`
+   and `SUPPORTED_KINDS` into `plot/charts.py`; decompose `relplot` into a
+   per-kind figure helper (line, regression, histogram, box, violin, bar) plus
+   `_apply_figure_props`, `_apply_axes`, `_apply_legend` and `_save_figure`
+   helpers, and split `plot_scatter` similarly.
+5. Step 5 (runner): keep `run_plot` in `plot/run.py`, splitting it into
+   kind validation, CSV reading, long-form data shaping and dispatch helpers.
+6. Step 6 (final cleanup): reduce `plot/__init__.py` to re-exports only,
+   remove duplicated helpers (e.g. the shared palette/facet/rcParams lookups
+   used by both `relplot` and `plot_scatter`), keep every module ≤~200
+   statements, and update the docs (`docs/api/plot.md`,
+   `docs/architecture/overview.md` — whose Module Structure tree currently
+   omits `plot.py` — and `docs/roadmap.md`).
 
-## Constraints learned from the `workflow_action` and `cli` refactors
+## Constraints learned from the `workflow_action`, `cli` and `trace` refactors
 
 - **Behaviour must stay byte-identical**: public names and signatures, error
-  messages, `print` output and pickle round-trips.
+  messages, `print` output and — critically — the rendered chart. The
+  functional test
+  `tests/functional/test_cli_plot.py::test_plot_exact_replication` compares the
+  produced SVG byte-for-byte with `tests/data/functional/ord_hc_f1.svg`, so the
+  seaborn/matplotlib calls, their order, the rcParams handling and the saved
+  dpi must not change.
 - **Preserve import binding sites** — code and tests import or patch by dotted
   path:
-  - `src/causaliq_analysis/migrate.py:26` does
-    `from causaliq_analysis.trace import Trace`;
-  - the tests import `Trace`, `CompatibilityUnpickler`, `DiffType` and
-    `load_with_compatibility` from `causaliq_analysis.trace`:
-    `tests/functional/test_trace.py`,
-    `tests/functional/test_trace_edge_cases.py`,
-    `tests/functional/test_trace_rename.py`,
-    `tests/functional/test_trace_update_scores.py`,
-    `tests/unit/test_trace_diffs.py`, `tests/functional/test_migrate.py`,
-    `tests/unit/test_migrate.py` and
-    `tests/functional/test_workflow_functional.py`;
-  - `tests/functional/test_trace_edge_cases.py` monkeypatches `_nums_diff` on a
-    `Trace` instance, so `_nums_diff` must remain a method invoked via `self.`;
-  - `CompatibilityUnpickler.CLASS_MAPPING` maps `("learn.trace", "Trace")`,
-    `("learn.trace", "CONTEXT_FIELDS")` and `("learn.trace", "DiffType")` to
-    `"causaliq_analysis.trace"`, so those names must remain attributes of the
-    package `__init__`.
-  Re-export the public names from `trace/__init__.py` so all of the above keep
-  resolving, and keep imports function-local where a test patches an external
-  namespace.
+  - `src/causaliq_analysis/__init__.py:61` does
+    `from causaliq_analysis.plot import run_plot`;
+  - `src/causaliq_analysis/workflow_action/actions/plot.py` imports `run_plot`
+    at module level and imports `SUPPORTED_KINDS` and `parse_properties`
+    function-locally;
+  - `tests/unit/test_plot.py:19` imports `SUPPORTED_KINDS`,
+    `_plot_violin_means`, `_report_boxplot_values`, `_set_axes_props`,
+    `parse_properties`, `plot_degree_distribution`, `plot_scatter`, `relplot`
+    and `run_plot` from `causaliq_analysis.plot`;
+  - `tests/unit/test_action_plot.py` patches
+    `causaliq_analysis.workflow_action.actions.plot.run_plot` (the action
+    module's binding), so keep that module's top-level import;
+  - `tests/unit/test_plot.py` patches `seaborn.catplot` (external namespace),
+    so keep the seaborn calls resolving through the `seaborn` module attribute.
+  Re-export the names from `plot/__init__.py` so all of the above keep
+  resolving; do not change the function-local imports in the workflow action.
 - **No behaviour-free bulk test rewrites**: add focused `pytest-mock` tests
-  only where coverage gaps appear; keep the existing `unittest.mock` modules as
-  they are (a mock-conversion sweep is a separate task).
+  only where coverage gaps appear; keep the existing `unittest.mock`
+  (`from unittest.mock import patch`) usage in `tests/unit/test_plot.py` as it
+  is (a mock-conversion sweep is a separate task).
 
 ## Commits
 
 Stage the work as **two commits**:
 
-1. **Code and tests** — `src/causaliq_analysis/trace/` (or the equivalent
-   structure), any small `src/` edits it depends on (e.g. `migrate.py`), and the
-   test changes.
-2. **Documentation** — `docs/api/trace.md`, `mkdocs.yml`, the
-   `docs/architecture/overview.md` update, the `docs/roadmap.md` status, plus
-   this task file.
+1. **Code and tests** — `src/causaliq_analysis/plot/` (or the equivalent
+   structure), any small `src/` edits it depends on, and the test changes.
+2. **Documentation** — `docs/api/plot.md`, the
+   `docs/architecture/overview.md` update (including adding `plot/` to the
+   Module Structure tree and a "Plot Package" design note), the
+   `docs/roadmap.md` status, plus this task file.
 
 Do not mix documentation-only changes into the code commit.
 
@@ -132,43 +130,46 @@ Do not mix documentation-only changes into the code commit.
 
 `black --check src tests` · `isort --check-only src tests` ·
 `flake8 src tests` · `mypy src/` ·
-`python scripts/check_code_rules.py --strict src/causaliq_analysis/trace` ·
+`python scripts/check_code_rules.py --strict src/causaliq_analysis/plot` ·
 `python scripts/check_code_rules.py src/causaliq_analysis/` (advisory) ·
-targeted trace tests · full suite (`python -m pytest -q`) or `check_ci.ps1` ·
-docs: `python -m mkdocs build --strict` (note: CI does not build the docs).
-Maintain **100 % coverage** on the new modules.
+targeted plot tests (`tests/unit/test_plot.py`,
+`tests/unit/test_action_plot.py`, `tests/functional/test_cli_plot.py`) ·
+full suite (`python -m pytest -q`) · docs: `python -m mkdocs build --strict`
+(note: CI does not build the docs).
+Maintain **100 % coverage** on the new modules and keep the `ord_hc_f1` SVG
+replication test green.
 
 ## Test surface to watch
 
-`tests/functional/test_trace.py`,
-`tests/functional/test_trace_edge_cases.py`,
-`tests/functional/test_trace_rename.py`,
-`tests/functional/test_trace_update_scores.py`,
-`tests/unit/test_trace_diffs.py`, `tests/functional/test_migrate.py`,
-`tests/unit/test_migrate.py`, `tests/functional/test_workflow_functional.py`,
-plus `tests/integration/test_workflow_integration.py`.
+`tests/unit/test_plot.py` (imports the private helpers directly),
+`tests/unit/test_action_plot.py` (patches the action's `run_plot` binding),
+`tests/functional/test_cli_plot.py` (SVG replication and CLI behaviour),
+`tests/functional/test_workflow_functional.py` and
+`tests/integration/test_workflow_integration.py`.
 
 ## Suggested final structure (consider alternatives if they are better)
 
 ```
 causaliq_analysis/
-└── trace/
-    ├── __init__.py       # public re-exports: Trace, CompatibilityUnpickler,
-    │                     # DiffType, load_with_compatibility, CONTEXT_FIELDS
-    ├── compatibility.py  # CompatibilityUnpickler + PlaceholderEnum + loader
-    ├── diffs.py          # DiffType and the diff comparison helpers
-    └── trace.py          # Trace class and context constants
+└── plot/
+    ├── __init__.py     # public re-exports (run_plot, parse_properties,
+    │                   # SUPPORTED_KINDS, relplot, plot_scatter,
+    │                   # plot_degree_distribution, _set_axes_props, ...)
+    ├── properties.py   # _convert_value, _split_property, parse_properties
+    ├── axes.py         # style maps, SubplotInfo, _set_axes_props,
+    │                   # _report_boxplot_values, _plot_violin_means
+    ├── charts.py       # relplot (+ per-kind helpers), plot_scatter,
+    │                   # plot_degree_distribution, SUPPORTED_KINDS
+    └── run.py          # run_plot and CSV/data helpers
 ```
 
 ## Remaining legacy breaches (later tasks)
 
-After `trace.py`, the outstanding breaches are: `plot.py` (module 238;
-`relplot` 61; `_convert_value` 25, `_set_axes_props` 23,
-`_report_boxplot_values` 17, `plot_scatter` 27, `run_plot` 23), `metrics.py`
-(`pdg_compare` 57; `_graph_to_pdg` depth 3, `bayesys_metrics` 21), `merge.py`
-(`merge_graphs` 45; `_accumulate_sdg` depth 6, `_combine_noisy_or` 26,
-`_merge_per_source` depth 3), `migrate.py` (`run_migrate_trace` 27,
-`filter_traces` depth 5, `write_migrate_result` 16), `validation.py`
-(`parse_seed_workflow` 30, `parse_sample_size` depth 4,
+After `plot.py`, the outstanding breaches are: `metrics.py` (`pdg_compare` 57;
+`_graph_to_pdg` depth 3, `bayesys_metrics` 21), `merge.py` (`merge_graphs` 45;
+`_accumulate_sdg` depth 6, `_combine_noisy_or` 26, `_merge_per_source`
+depth 3), `migrate.py` (`run_migrate_trace` 27, `filter_traces` depth 5,
+`write_migrate_result` 16, `get_trace_metadata` depth 3), `validation.py`
+(`parse_seed_workflow` 30, `parse_sample_size` depth 4, `parse_seed_cli` 19,
 `validate_metric_specs` 20), and `graph_io.py` (`read_graph_or_pdg_file`
 depth 3, 14).
