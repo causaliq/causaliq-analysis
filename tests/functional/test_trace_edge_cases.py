@@ -784,7 +784,7 @@ def test_438_439_still_covered(monkeypatch, mocker):
 
     # Mock extend_pdag to raise ValueError
     monkeypatch.setattr(
-        "causaliq_analysis.trace.extend_pdag", mock_extend_pdag_error
+        "causaliq_analysis.trace.scores.extend_pdag", mock_extend_pdag_error
     )
 
     # Mock dag_score
