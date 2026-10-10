@@ -49,7 +49,7 @@ The `pdag_compare` function provides comprehensive structural comparison between
   graphs, completing the 2x2 confusion matrix
 - **Summary metrics**: precision, recall, F1 score, Structural Hamming
   Distance (SHD)
-- **Bayesys compatibility**: Optional Bayesys v1.3-v1.6 metrics
+- **Bayesys compatibility**: Optional Bayesys v1.5+ metrics
 
 The constant `EDGE_METRICS` lists all ten low-level count names and is used by
 the `evaluate_graph` CLI command and workflow action to expand the `edge` and
@@ -128,8 +128,10 @@ print(f"F1: {result['f1']}")
 ### With Bayesys Compatibility
 
 ```python
-# Include Bayesys v1.6 metrics
-result = pdag_compare(learned_graph, reference_graph, bayesys="v1.6")
+# Include Bayesys v1.5+ metrics
+result = pdag_compare(
+    learned_graph, reference_graph, bayesys="v1.5+"
+)
 print(f"Bayesys F1: {result['f1-b']}")
 print(f"BSF Score: {result['bsf']}")
 ```

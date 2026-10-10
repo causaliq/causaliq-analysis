@@ -68,7 +68,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Removed
-- Nothing yet
+- **Bayesys v1.3 compatibility**: `pdg_compare`/`pdag_compare` (and therefore
+  `bayesys_metrics`) no longer accept `bayesys="v1.3"`; `BAYESYS_VERSIONS` now
+  lists only `"v1.5+"`. Comparisons therefore always require identical node
+  sets. This removes the legacy toleration of Bayesys DAG specification files
+  that omit unconnected nodes, which produced misleading "extra edge" counts
+  when the learning graph contained nodes absent from the reference. This also
+  removes the legacy emulation of the pre-Bayesys-v1.5 precision "bug".
 
 ### Fixed
 - **Cross-platform plot replication test**: `test_plot_exact_replication`
