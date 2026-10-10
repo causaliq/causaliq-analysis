@@ -47,6 +47,8 @@ def test_metrics_pdg_value_error1():
         pdg_compare(ex_pdg.empty(), ex_pdg.empty(), "unsupported")
     with pytest.raises(ValueError):
         pdg_compare(ex_pdg.empty(), ex_pdg.empty(), "bayesys1.5")
+    with pytest.raises(ValueError):
+        pdg_compare(ex_pdg.empty(), ex_pdg.empty(), "v1.3")
 
 
 # Test ValueError for different node sets
@@ -172,19 +174,16 @@ def test_metrics_pdg_identify_edges_fractional():
     assert metrics["edges"]["edge_not_arc"] == {("A", "B")}
 
 
-# Test Bayesys v1.3 comparison with different node sets
-def test_metrics_pdg_bayesys_mismatched_nodes():
+# Test Bayesys comparison rejects mismatched node sets (v1.3 removed)
+def test_metrics_pdg_bayesys_mismatched_nodes_rejected():
     graph = ex_pdg.from_pdag(ex_dag.ab())
     reference = PDG(
         ["A", "B", "C"],
         {("A", "B"): EdgeProbabilities(forward=1.0, none=0.0)},
     )
-    metrics = pdg_compare(graph, reference, bayesys="v1.3")
 
-    assert metrics["arc_matched"] == 1
-    assert metrics["missing_matched"] == 2
-    assert metrics["f1"] == pytest.approx(1.0)
-    assert metrics["shd-b"] == pytest.approx(0.0)
+    with pytest.raises(ValueError):
+        pdg_compare(graph, reference, bayesys="v1.5+")
 
 
 # Test EDGE_METRICS lists exactly the counts pdg_compare returns

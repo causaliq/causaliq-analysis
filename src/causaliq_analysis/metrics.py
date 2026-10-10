@@ -141,25 +141,6 @@ def _graph_to_pdg(graph: Any) -> PDG:
     return PDG(nodes, edges)
 
 
-def _pair_probabilities(
-    pdg: PDG, node_a: str, node_b: str
-) -> EdgeProbabilities:
-    """Return edge probabilities for a pair, defaulting to no edge.
-
-    Args:
-        pdg: PDG to query.
-        node_a: First node.
-        node_b: Second node.
-
-    Returns:
-        Edge probabilities for the pair, or EdgeProbabilities() (no edge)
-        when either node is absent, allowing Bayesys v1.3 node mismatch.
-    """
-    if node_a not in pdg.nodes or node_b not in pdg.nodes:
-        return EdgeProbabilities()
-    return pdg.get_probabilities(node_a, node_b)
-
-
 def pdg_compare(
     graph: Any,
     reference: Any,
@@ -203,7 +184,7 @@ def pdg_compare(
     graph_pdg = _graph_to_pdg(graph)
     reference_pdg = _graph_to_pdg(reference)
 
-    if graph_pdg.nodes != reference_pdg.nodes and bayesys != "v1.3":
+    if graph_pdg.nodes != reference_pdg.nodes:
         raise ValueError("comparing two graphs with different nodes")
 
     metrics: Dict[str, Union[int, float]] = {
@@ -219,8 +200,8 @@ def pdg_compare(
     nodes = reference_pdg.nodes
     for i, node_a in enumerate(nodes):
         for node_b in nodes[i + 1 :]:
-            ref_probs = _pair_probabilities(reference_pdg, node_a, node_b)
-            graph_probs = _pair_probabilities(graph_pdg, node_a, node_b)
+            ref_probs = reference_pdg.get_probabilities(node_a, node_b)
+            graph_probs = graph_pdg.get_probabilities(node_a, node_b)
             for ref_state in _EDGE_STATES:
                 p_ref = getattr(ref_probs, ref_state)
                 if p_ref == 0.0:
@@ -296,7 +277,7 @@ def pdg_compare(
             probs.p_exist for probs in reference_pdg.edges.values()
         )
         result_metrics.update(
-            bayesys_metrics(result_metrics, max_edges, num_ref_edges, bayesys)
+            bayesys_metrics(result_metrics, max_edges, num_ref_edges)
         )
     if identify_edges and metric_edges is not None:
         # Add edges separately to avoid type conflicts
@@ -387,7 +368,6 @@ def bayesys_metrics(
     metrics: Dict[str, Union[int, float, None]],
     max_edges: int,
     num_ref_edges: float,
-    version: str,
 ) -> Dict[str, float]:
 
     # Compute true/false postive/negatives
@@ -416,14 +396,8 @@ def bayesys_metrics(
     # Precision, recall and F1 but allowing for half-matches.
 
     precision = (
-        1.0
-        if TP + TP2 + FP == 0
-        else (
-            (TP + 0.5 * TP2) / (TP + TP2 + FP)
-            if version != "v1.3"
-            else (TP + 0.5 * TP2) / (TP + 0.5 * TP2 + FP)
-        )
-    )  # bug pre Bayesys v1.5
+        1.0 if TP + TP2 + FP == 0 else (TP + 0.5 * TP2) / (TP + TP2 + FP)
+    )
     recall = (
         1.0 if TP + TP2 + FN == 0 else (TP + 0.5 * TP2) / (TP + 0.5 * TP2 + FN)
     )
