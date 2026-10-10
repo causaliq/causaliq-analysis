@@ -1,8 +1,16 @@
 """Shared fixtures and helpers for unit tests of workflow actions."""
 
+import os
 from unittest.mock import MagicMock
 
-import pytest
+os.environ.setdefault("MPLBACKEND", "Agg")
+
+import matplotlib  # noqa: E402
+
+matplotlib.use("Agg")  # noqa: E402
+
+import matplotlib.pyplot as plt  # noqa: E402
+import pytest  # noqa: E402
 
 # Valid minimal graphml for testing.
 VALID_GRAPHML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -57,3 +65,10 @@ def mock_graphml_entry() -> MagicMock:
 def valid_graphml() -> str:
     """Fixture providing valid graphml content for testing."""
     return VALID_GRAPHML
+
+
+@pytest.fixture(autouse=True)
+def _close_figures():
+    """Close any matplotlib figures after each test."""
+    yield
+    plt.close("all")
