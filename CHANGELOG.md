@@ -81,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now compares the plot CLI's SVG output with the `ord_hc_f1.svg`
   reference, which is byte-identical across platforms for a given
   matplotlib version, unlike rasterised PNG output.
+- **Warning-free plotting**: cap `pyparsing<3.3` so matplotlib 3.9 no longer
+  emits `PyparsingDeprecationWarning` during SVG export and mathtext
+  (log-scale) rendering; chart output is unchanged.
 
 ### Security
 - Nothing yet

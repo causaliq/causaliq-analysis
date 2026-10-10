@@ -1,33 +1,51 @@
-# **DIAGNOSE** why some legacy analysis tests are failing
+# Replace deprecated matplotlib options
 
-Some causaliq-analysis functionality tests are failing on  the **legacy** monolithic code base.
-The causaliq packages - e.g. causaliq-analysis - are an in-progress migration from the legacy 
-monolithic code base as well as introducing new functionality.
-
-I do not check these legacy tests after each commit so I do not know when they started failing.
-I suspect it _could_ be due to the work that was done to support evaluation of PDGs - DAG/PDAG 
-graph evaluation was changed to use PDG evaluation at that point; but it could be some other change.
-The legacy tests now largely import code from the new causaliq packages, but the tests themselves
-remain on the legacy repo; they therefore provide an extra check that the migration is correct.
-
-The legacy repo has a different Python environment from the true causaliq packages, you run the 
-failing tests with the following commands:
-
-```bash
-cd ../discovery
-venv311/scripts/activate
-pytest -v fileio/test/test_compare.py
-```
-
-The test failure output is:
+Replace deprecated matplotlib options in @src/causaliq-analysis/plot/* with current capabilities without changing functionality so that the following errors seen during pytest tests are no longer reported:
 
 ```plaintext
-============ short test summary info =============
-FAILED fileio/test/test_compare.py::test_core_metrics_compare_all_d7a_no_know_old - AssertionError: assert False is True
-FAILED fileio/test/test_compare.py::test_core_metrics_compare_all_d7at_old - AssertionError: assert False is True
-FAILED fileio/test/test_compare.py::test_core_metrics_compare_all_d8atr_old - AssertionError: assert False is True
-============ 3 failed, 7 passed in 13.21s ===============
-```
+============================== warnings summary ===============================
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:64
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:64: PyparsingDeprecationWarning: 'oneOf' deprecated - use 'one_of'
+    prop = Group((name + Suppress("=") + comma_separated(value)) | oneOf(_CONSTANTS))
 
-Could you write a plan to **diagnose why** these tests are failing. It might be that it is some legacy functionality that we no longer need to support, so the tests could be removed. Alternatively, we may need to
-fix the causaliq-analysis functionality so these tests pass.
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    parse = parser.parseString(pattern)
+
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
+venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
+    parser.resetCache()
+
+venv\py311\Lib\site-packages\matplotlib\_mathtext.py:45
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:45: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+tests/functional/test_cli_plot.py: 21 warnings
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:2170: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    result = self._expression.parseString(s)
+
+tests/functional/test_cli_plot.py: 21 warnings
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:2197: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    return self._math_expression.parseString(toks[0][1:-1], parseAll=True)
+
+tests/functional/test_cli_plot.py: 21 warnings
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\pyparsing\util.py:466: PyparsingDeprecationWarning: 'parseAll' argument is deprecated, use 'parse_all'
+    return fn(self, *args, **kwargs)
+
+tests/functional/test_cli_plot.py: 21 warnings
+  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:2178: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
+    ParserElement.resetCache()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+```
