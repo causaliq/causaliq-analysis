@@ -71,6 +71,16 @@ command objects in `COMMANDS` and registers them on the group through
 Shared, cross-command helpers live in `cli/common.py`. Adding a command
 therefore means adding one module plus one registry entry.
 
+### Trace Package
+
+The legacy trace support is split into a `trace/` package whose
+`__init__.py` re-exports the public names (`Trace`, `DiffType`,
+`CompatibilityUnpickler`, `load_with_compatibility`, `CONTEXT_FIELDS`) so
+existing imports from `causaliq_analysis.trace` keep working. The `Trace`
+class stays thin, delegating comparison to `trace.diffs` and score
+recalculation to `trace.scores`; legacy pickle remapping lives in
+`trace.compatibility`.
+
 ### Integration Points
 
 | Component | Integration |
@@ -100,7 +110,12 @@ src/causaliq_analysis/
 ├── merge.py            # Graph merging to PDG
 ├── metrics.py          # Structural comparison metrics
 ├── migrate.py          # Trace migration utilities
-├── trace.py            # Legacy Trace format support
+├── trace/              # Legacy Trace format support
+│   ├── __init__.py     # Public re-exports (Trace, DiffType, ...)
+│   ├── compatibility.py # Legacy pickle compatibility
+│   ├── diffs.py        # Trace comparison (DiffType)
+│   ├── scores.py       # Score recalculation for a trace series
+│   └── trace.py        # Trace class and context constants
 ├── validation.py       # Input validation
 └── workflow_action/    # Workflow action interface
     ├── __init__.py     # Provider class and public API

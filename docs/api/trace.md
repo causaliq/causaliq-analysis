@@ -1,8 +1,16 @@
 # CausalIQ Analysis Trace
 
-This module implements detailed tracing of structure learning processes, allowing researchers to record, analyze, and compare the step-by-step evolution of causal graphs during algorithm execution.
+This package implements detailed tracing of structure learning processes, allowing researchers to record, analyse, and compare the step-by-step evolution of causal graphs during algorithm execution.
 
 ⚠️ NOTE: these functionality will be superseded by a more open format based on csv and GraphML standards.
+
+The public names are re-exported from `causaliq_analysis.trace`, so existing
+imports are unchanged. Internally the package is split into:
+
+- `causaliq_analysis.trace.trace` — the `Trace` class and context constants;
+- `causaliq_analysis.trace.compatibility` — legacy pickle compatibility;
+- `causaliq_analysis.trace.diffs` — `DiffType` and trace comparison;
+- `causaliq_analysis.trace.scores` — score recalculation for a trace series.
 
 ## Core Classes
 
