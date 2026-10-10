@@ -186,6 +186,14 @@ def test_metrics_pdg_bayesys_mismatched_nodes_rejected():
         pdg_compare(graph, reference, bayesys="v1.5+")
 
 
+# Test Bayesys metrics tolerate a reference graph with no edges
+def test_metrics_pdg_bayesys_empty_reference():
+    metrics = pdg_compare(ex_pdg.empty(), ex_pdg.empty(), bayesys="v1.5+")
+
+    assert metrics["ddm"] == pytest.approx(0.0)
+    assert metrics["bsf"] == pytest.approx(0.0)
+
+
 # Test EDGE_METRICS lists exactly the counts pdg_compare returns
 def test_metrics_pdg_edge_metrics_constant_matches_output():
     metrics = pdg_compare(ex_pdg.ab(), ex_pdg.ab())

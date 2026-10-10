@@ -411,8 +411,16 @@ def bayesys_metrics(
     # BSF and DDM as defined by Constantinou
 
     SHD = FP + FN
-    DDM = (TP + 0.5 * TP2 - FN - FP) / num_ref_edges
-    positive_worth = 1.0 / num_ref_edges
+
+    # DDM and positive_worth divide by the number of reference edges, which
+    # is zero when the reference graph has no edges; guard that degenerate
+    # case against a divide by zero error.
+    DDM = (
+        (TP + 0.5 * TP2 - FN - FP) / num_ref_edges
+        if num_ref_edges != 0
+        else 0.0
+    )
+    positive_worth = 1.0 / num_ref_edges if num_ref_edges != 0 else 0.0
     negative_worth = (
         1.0 / (max_edges - num_ref_edges)
         if max_edges != num_ref_edges
