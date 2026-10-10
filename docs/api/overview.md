@@ -36,7 +36,10 @@ module.
 
 ### [CLI](cli.md)
 
-Command-line interface for causaliq-analysis operations.
+Command-line interface for causaliq-analysis operations. A `click` group in
+`causaliq_analysis.cli` registers each command from
+`causaliq_analysis.cli.commands`, so the individual commands are documented
+on their own pages.
 
 ### [Workflow Action](workflow_action.md)
 

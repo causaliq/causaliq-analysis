@@ -61,6 +61,16 @@ supported and that the parameters are known, then delegates validation and
 execution to the registered class. Adding an action therefore means adding one
 module plus one registry entry, and nothing else in the provider.
 
+### CLI Commands and Registry
+
+Each CLI command is implemented in its own module in `cli/commands/` as a
+`click` command with its own options. `cli/commands/__init__.py` lists the
+command objects in `COMMANDS` and registers them on the group through
+`register_commands`. The package `__init__.py` stays thin: it defines the
+`click` group `cli` and the `main` entry point, then registers the commands.
+Shared, cross-command helpers live in `cli/common.py`. Adding a command
+therefore means adding one module plus one registry entry.
+
 ### Integration Points
 
 | Component | Integration |
@@ -73,8 +83,18 @@ module plus one registry entry, and nothing else in the provider.
 
 ```
 src/causaliq_analysis/
-├── __init__.py         # Package exports
-├── cli.py              # Command-line interface
+├── __init__.py         # Package exports and version metadata
+├── cli/                # Command-line interface
+│   ├── __init__.py     # click group `cli`, `main` and public re-exports
+│   ├── common.py       # Shared metadata and summary helpers
+│   └── commands/       # Individual CLI commands
+│       ├── __init__.py # Command registry (COMMANDS)
+│       ├── best_graph.py # best-graph command
+│       ├── evaluate_graph.py # evaluate-graph command
+│       ├── merge_graphs.py # merge-graphs command
+│       ├── migrate_trace.py # migrate-trace command
+│       ├── plot.py     # plot command
+│       └── summarise.py # summarise command
 ├── graph.py            # Graph action enumerations
 ├── graph_io.py         # Graph file reading (including PDGs)
 ├── merge.py            # Graph merging to PDG
