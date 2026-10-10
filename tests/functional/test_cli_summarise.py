@@ -1156,3 +1156,37 @@ def test_summarise_duplicate_filter_rejected(cli_runner, tmp_path):
 
     assert result.exit_code != 0
     assert "specified multiple times" in result.output
+
+
+# Test _resolve_cache_filter skips cache entries missing from the cache.
+def test_resolve_cache_filter_skips_missing_entries(mocker):
+    """Test missing cache entries are skipped during random() resolve."""
+    from causaliq_analysis.cli.commands.summarise import (
+        _resolve_cache_filter,
+    )
+
+    resolve = mocker.patch(
+        "causaliq_core.utils.resolve_random_calls",
+        return_value=("resolved", {"x": 1}),
+    )
+    entry = mocker.Mock()
+    entry.metadata = {"network": "asia"}
+    cache = mocker.Mock()
+    cache.get.side_effect = [None, entry]
+    entries = [
+        {"matrix_values": {"seed": 1}},
+        {"matrix_values": {"seed": 2}},
+    ]
+
+    result = _resolve_cache_filter(entries, cache, "seed in random(3, 0)")
+
+    assert result == ("resolved", {"x": 1})
+    assert resolve.call_args[0][1] == [{"network": "asia"}]
+
+
+# Test _summary_stat returns None for an unsupported statistic.
+def test_summary_stat_unsupported_returns_none():
+    """Test _summary_stat falls back to None for unknown statistics."""
+    from causaliq_analysis.cli.commands.summarise import _summary_stat
+
+    assert _summary_stat("median", [1.0, 2.0]) is None

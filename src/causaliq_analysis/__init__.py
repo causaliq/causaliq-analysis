@@ -2,6 +2,8 @@
 causaliq-analysis: Tools for analysing and visualising causal graphs
 """
 
+from typing import Optional
+
 __version__ = "0.5.0.dev1"
 __author__ = "CausalIQ"
 __email__ = "info@causaliq.org"
@@ -28,13 +30,27 @@ def _parse_version(version_str: str) -> tuple:
     """
     parts = []
     for part in version_str.split("."):
-        # Try to parse as integer, stop at first non-integer part
-        try:
-            parts.append(int(part))
-        except ValueError:
+        value = _try_int(part)
+        if value is None:
             # Non-integer part (e.g., "dev1") - stop parsing
             break
+        parts.append(value)
     return tuple(parts)
+
+
+def _try_int(value: str) -> Optional[int]:
+    """Return the integer value of a version part, or None.
+
+    Args:
+        value: A single dot-separated version part (e.g. "3" or "dev1").
+
+    Returns:
+        The integer value, or None when the part is not an integer.
+    """
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 # Version tuple for programmatic access
