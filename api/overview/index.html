@@ -1831,7 +1831,9 @@ during algorithm execution.</p>
 <h3 id="plot"><a href="../plot/">Plot</a><a class="headerlink" href="#plot" title="Permanent link">&para;</a></h3>
 <p>Functions for drawing charts using matplotlib and Seaborn from a
 <code>summarise</code> CSV output, migrated from the legacy <code>experiments/plot.py</code>
-module.</p>
+module. The code is split into the <code>plot/</code> package (property parsing,
+axis styling, chart builders and the <code>run_plot</code> entry point), with the
+public names re-exported from <code>causaliq_analysis.plot</code>.</p>
 <h3 id="cli"><a href="../cli/">CLI</a><a class="headerlink" href="#cli" title="Permanent link">&para;</a></h3>
 <p>Command-line interface for causaliq-analysis operations. A <code>click</code> group in
 <code>causaliq_analysis.cli</code> registers each command from

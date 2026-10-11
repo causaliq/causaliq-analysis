@@ -2926,8 +2926,16 @@
 
 
 <h1 id="causaliq-analysis-trace">CausalIQ Analysis Trace<a class="headerlink" href="#causaliq-analysis-trace" title="Permanent link">&para;</a></h1>
-<p>This module implements detailed tracing of structure learning processes, allowing researchers to record, analyze, and compare the step-by-step evolution of causal graphs during algorithm execution.</p>
+<p>This package implements detailed tracing of structure learning processes, allowing researchers to record, analyse, and compare the step-by-step evolution of causal graphs during algorithm execution.</p>
 <p>⚠️ NOTE: these functionality will be superseded by a more open format based on csv and GraphML standards.</p>
+<p>The public names are re-exported from <code>causaliq_analysis.trace</code>, so existing
+imports are unchanged. Internally the package is split into:</p>
+<ul>
+<li><code>causaliq_analysis.trace.trace</code> — the <code>Trace</code> class and context constants;</li>
+<li><code>causaliq_analysis.trace.compatibility</code> — legacy pickle compatibility;</li>
+<li><code>causaliq_analysis.trace.diffs</code> — <code>DiffType</code> and trace comparison;</li>
+<li><code>causaliq_analysis.trace.scores</code> — score recalculation for a trace series.</li>
+</ul>
 <h2 id="core-classes">Core Classes<a class="headerlink" href="#core-classes" title="Permanent link">&para;</a></h2>
 
 
@@ -3178,7 +3186,7 @@
     <ul>
         <li class="doc-section-item field-body">
 <h5 id="causaliq_analysis.trace.Trace.__eq__(other)" class="doc doc-heading doc-heading-parameter">              <b><code>other</code></b>
-<a href="#causaliq_analysis.trace.Trace.__eq__(other)" class="headerlink" title="Permanent link">&para;</a></h5>              (<code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>)
+<a href="#causaliq_analysis.trace.Trace.__eq__(other)" class="headerlink" title="Permanent link">&para;</a></h5>              (<code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>)
           –
           <div class="doc-md-description">
             <p>Trace to compare with self.</p>
@@ -3245,7 +3253,7 @@
 
 
 <a href="#causaliq_analysis.trace.Trace.add" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="activity (causaliq_analysis.trace.Trace.add(activity))" href="#causaliq_analysis.trace.Trace.add(activity)">activity</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            GraphAction (causaliq_analysis.graph.GraphAction)" href="../graph/#causaliq_analysis.graph.GraphAction">GraphAction</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="details (causaliq_analysis.trace.Trace.add(details))" href="#causaliq_analysis.trace.Trace.add(details)">details</a></span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            GraphActionDetail (causaliq_analysis.graph.GraphActionDetail)" href="../graph/#causaliq_analysis.graph.GraphActionDetail">GraphActionDetail</a></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="activity (causaliq_analysis.trace.Trace.add(activity))" href="#causaliq_analysis.trace.Trace.add(activity)">activity</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            GraphAction (causaliq_analysis.graph.GraphAction)" href="../graph/#causaliq_analysis.graph.GraphAction">GraphAction</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="details (causaliq_analysis.trace.Trace.add(details))" href="#causaliq_analysis.trace.Trace.add(details)">details</a></span><span class="p">:</span> <span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            GraphActionDetail (causaliq_analysis.graph.GraphActionDetail)" href="../graph/#causaliq_analysis.graph.GraphActionDetail">GraphActionDetail</a></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3277,7 +3285,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Trace</code></b> (              <code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>
+<b><code>Trace</code></b> (              <code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>
 )          –
           <div class="doc-md-description">
             <p>Returns trace after entry added.</p>
@@ -3370,7 +3378,7 @@
 
 <a href="#causaliq_analysis.trace.Trace.diffs_from" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">diffs_from</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="ref (causaliq_analysis.trace.Trace.diffs_from(ref))" href="#causaliq_analysis.trace.Trace.diffs_from(ref)">ref</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="strict (causaliq_analysis.trace.Trace.diffs_from(strict))" href="#causaliq_analysis.trace.Trace.diffs_from(strict)">strict</a></span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="ref (causaliq_analysis.trace.Trace.diffs_from(ref))" href="#causaliq_analysis.trace.Trace.diffs_from(ref)">ref</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="strict (causaliq_analysis.trace.Trace.diffs_from(strict))" href="#causaliq_analysis.trace.Trace.diffs_from(strict)">strict</a></span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Tuple">Tuple</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">],</span> <span class="n"><span title="typing.List">List</span></span><span class="p">[</span><span class="n"><span title="int">int</span></span><span class="p">],</span> <span class="n"><span title="str">str</span></span><span class="p">]]</span>
 </span></code></pre></div>
 
@@ -3383,7 +3391,7 @@
     <ul>
         <li class="doc-section-item field-body">
 <h5 id="causaliq_analysis.trace.Trace.diffs_from(ref)" class="doc doc-heading doc-heading-parameter">              <b><code>ref</code></b>
-<a href="#causaliq_analysis.trace.Trace.diffs_from(ref)" class="headerlink" title="Permanent link">&para;</a></h5>              (<code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>)
+<a href="#causaliq_analysis.trace.Trace.diffs_from(ref)" class="headerlink" title="Permanent link">&para;</a></h5>              (<code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>)
           –
           <div class="doc-md-description">
             <p>Reference trace to compare this one to.</p>
@@ -3486,7 +3494,7 @@ textual summary) or None if identical.</p>
   </span>
 
 <a href="#causaliq_analysis.trace.Trace.read" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="partial_id (causaliq_analysis.trace.Trace.read(partial_id))" href="#causaliq_analysis.trace.Trace.read(partial_id)">partial_id</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="root_dir (causaliq_analysis.trace.Trace.read(root_dir))" href="#causaliq_analysis.trace.Trace.read(root_dir)">root_dir</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span><span class="p">]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="partial_id (causaliq_analysis.trace.Trace.read(partial_id))" href="#causaliq_analysis.trace.Trace.read(partial_id)">partial_id</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="root_dir (causaliq_analysis.trace.Trace.read(root_dir))" href="#causaliq_analysis.trace.Trace.read(root_dir)">root_dir</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="typing.Dict">Dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span><span class="p">]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3518,7 +3526,7 @@ textual summary) or None if identical.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a>]]</code>
+              <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a>]]</code>
           –
           <div class="doc-md-description">
             <p>dict or None: {key: Trace} of traces matching partial id.</p>
@@ -3673,7 +3681,7 @@ not a dictionary of traces.</p>
 
 
 <a href="#causaliq_analysis.trace.Trace.set_result" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_result</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="result (causaliq_analysis.trace.Trace.set_result(result))" href="#causaliq_analysis.trace.Trace.set_result(result)">result</a></span><span class="p">:</span> <span class="n"><span title="causaliq_core.graph.SDG">SDG</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_result</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="result (causaliq_analysis.trace.Trace.set_result(result))" href="#causaliq_analysis.trace.Trace.set_result(result)">result</a></span><span class="p">:</span> <span class="n"><span title="causaliq_core.graph.SDG">SDG</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3697,7 +3705,7 @@ not a dictionary of traces.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Trace</code></b> (              <code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>
+<b><code>Trace</code></b> (              <code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>
 )          –
           <div class="doc-md-description">
             <p>Current Trace to support chaining.</p>
@@ -3731,7 +3739,7 @@ not a dictionary of traces.</p>
 
 
 <a href="#causaliq_analysis.trace.Trace.set_treestats" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_treestats</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="treestats (causaliq_analysis.trace.Trace.set_treestats(treestats))" href="#causaliq_analysis.trace.Trace.set_treestats(treestats)">treestats</a></span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">set_treestats</span><span class="p">(</span><span class="n"><a class="autorefs autorefs-internal" title="treestats (causaliq_analysis.trace.Trace.set_treestats(treestats))" href="#causaliq_analysis.trace.Trace.set_treestats(treestats)">treestats</a></span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3755,7 +3763,7 @@ not a dictionary of traces.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Trace</code></b> (              <code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>
+<b><code>Trace</code></b> (              <code><a class="autorefs autorefs-internal" title="            Trace (causaliq_analysis.trace.trace.Trace)" href="#causaliq_analysis.trace.Trace">Trace</a></code>
 )          –
           <div class="doc-md-description">
             <p>Current Trace to support chaining.</p>

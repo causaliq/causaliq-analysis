@@ -19,7 +19,7 @@
     
     
       
-        <title>refactor cli.py according to module and method rules - causaliq-analysis</title>
+        <title>Ensure all modules meet development guidelines - causaliq-analysis</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#refactor-clipy-according-to-module-and-method-rules" class="md-skip">
+        <a href="#ensure-all-modules-meet-development-guidelines" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              refactor cli.py according to module and method rules
+              Ensure all modules meet development guidelines
             
           </span>
         </div>
@@ -1541,10 +1541,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context-and-current-breaches" class="md-nav__link">
+  <a href="#context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context and current breaches
+        Context
       
     </span>
   </a>
@@ -1552,10 +1552,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#suggested-steps" class="md-nav__link">
+  <a href="#changes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Suggested steps
+        Changes
       
     </span>
   </a>
@@ -1563,65 +1563,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#constraints-learned-from-the-workflow_action-refactor" class="md-nav__link">
+  <a href="#verification" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Constraints learned from the workflow_action refactor
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Commits
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gates-after-each-slice-as-in-scriptscheck_cips1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Gates after each slice (as in scripts/check_ci.ps1)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-surface-to-watch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test surface to watch
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#suggested-final-structure-consider-alternatives-if-they-are-better" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Suggested final structure (consider alternatives if they are better)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#remaining-legacy-breaches-later-tasks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Remaining legacy breaches (later tasks)
+        Verification
       
     </span>
   </a>
@@ -1645,192 +1590,47 @@
 
 
 
-<h1 id="refactor-clipy-according-to-module-and-method-rules">refactor cli.py according to module and method rules<a class="headerlink" href="#refactor-clipy-according-to-module-and-method-rules" title="Permanent link">&para;</a></h1>
-<p>Please generate a plan to refactor <a class="magiclink magiclink-github magiclink-repository" href="https://github.com/src/causaliq_analysis" title="GitHub Repository: src/causaliq_analysis">src/causaliq_analysis</a>/cli.py following the policies defined by the files listed in @.clinerules.</p>
-<blockquote>
-<p>This file previously described the <code>workflow_action.py</code> refactor, which is now
-complete (recorded in <code>docs/architecture/overview.md</code>, section "Action Classes
-and Registry", and in <code>docs/api/workflow_action.md</code>).</p>
-<p>The <code>cli.py</code> refactor described below is also now <strong>complete</strong>: <code>cli.py</code> was
-split into the <code>causaliq_analysis.cli</code> package — the <code>click</code> group and <code>main</code>
-in <code>cli/__init__.py</code>, shared helpers in <code>cli/common.py</code>, and one module per
-command in <code>cli/commands/</code> registered through <code>COMMANDS</code>. It is recorded in
-<code>docs/architecture/overview.md</code> (section "CLI Commands and Registry") and in
-<code>docs/api/cli.md</code>. The remaining legacy breaches listed below are left for
-later tasks.</p>
-</blockquote>
-<h2 id="context-and-current-breaches">Context and current breaches<a class="headerlink" href="#context-and-current-breaches" title="Permanent link">&para;</a></h2>
-<p><code>cli.py</code> is 1,288 lines / <strong>450 statements</strong> and holds a <code>click</code> group plus six
-commands and three module-level helpers. Measured with
-<code>python scripts/check_code_rules.py</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Line</th>
-<th>Object</th>
-<th>Breach</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>18</td>
-<td><code>cli</code> (click group)</td>
-<td>—</td>
-</tr>
-<tr>
-<td>80</td>
-<td><code>migrate_trace_cmd</code></td>
-<td>depth 2, 18 statements</td>
-</tr>
-<tr>
-<td>202</td>
-<td><code>merge_graphs_cmd</code></td>
-<td>depth 8, <strong>127 statements</strong> (over hard maximum)</td>
-</tr>
-<tr>
-<td>515</td>
-<td><code>evaluate_graph_cmd</code></td>
-<td>depth 4, <strong>86 statements</strong> (over hard maximum)</td>
-</tr>
-<tr>
-<td>716</td>
-<td><code>best_graph_cmd</code></td>
-<td>depth 2, 30 statements</td>
-</tr>
-<tr>
-<td>834</td>
-<td><code>summarise_cmd</code></td>
-<td>depth 8, <strong>120 statements</strong> (over hard maximum)</td>
-</tr>
-<tr>
-<td>1150</td>
-<td><code>plot_cmd</code></td>
-<td>(re-measure; currently within limits)</td>
-</tr>
-<tr>
-<td>1200</td>
-<td><code>_print_summary_table</code></td>
-<td>depth 1, 18 statements</td>
-</tr>
-<tr>
-<td>1234</td>
-<td><code>_flatten_metadata</code></td>
-<td>depth 6, 13 statements</td>
-</tr>
-<tr>
-<td>1261</td>
-<td><code>_get_nested_value</code></td>
-<td>(small)</td>
-</tr>
-<tr>
-<td>—</td>
-<td>module</td>
-<td><strong>450 statements</strong> (target ~200)</td>
-</tr>
-</tbody>
-</table>
-<p>Duplication worth removing while extracting:</p>
+<h1 id="ensure-all-modules-meet-development-guidelines">Ensure all modules meet development guidelines<a class="headerlink" href="#ensure-all-modules-meet-development-guidelines" title="Permanent link">&para;</a></h1>
+<p><strong>Status: complete.</strong> All modules now satisfy the limits checked by
+<code>scripts/check_code_rules.py</code>. This was a Hat 2 (refactoring) task: runtime
+behaviour and public APIs are unchanged.</p>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>Create a plan to ensure all modules in causaliq-analysis meet the development
+policy guidelines as checked by <code>scripts/check_code_rules.py</code>. Split up
+modules if they become too large.</p>
+<p>The user will commit the changes in two commits: (1) code and tests;
+(2) documentation.</p>
+<h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
+<p>The 16 legacy function breaches reported by the checker were flattened or
+split within five modules; no module exceeded the ~200-statement target, so
+none was split into a sub-package.</p>
 <ul>
-<li><code>evaluate_graph_cmd</code> nests its own <code>_read_graph_file</code> and <code>_to_cpdag</code>
-  (~L551-600) and imports metric helpers locally.</li>
-<li><code>summarise_cmd</code> defines a local <code>SUPPORTED_STATS</code> (~L874) that duplicates
-  <code>causaliq_analysis.validation.SUPPORTED_STATS</code>.</li>
-<li><code>_flatten_metadata</code> / <code>_get_nested_value</code> (~L1234, L1261) duplicate helpers
-  that already exist in <code>workflow_action/helpers.py</code>.</li>
-<li>The other remaining breach in the package is
-  <code>causaliq_analysis/__init__.py:17 _parse_version</code> (depth 3) — fold in if cheap.</li>
+<li><code>graph_io.py</code> — extracted <code>_read_text</code> so GraphML auto-detection in
+  <code>read_graph_or_pdg_file</code> no longer nests.</li>
+<li><code>merge.py</code> — <code>merge_graphs</code> delegates to validation, weight normalisation
+  and strategy helpers; the SDG accumulation cascade became a single
+  <code>_edge_state</code> lookup, and the noisy-OR combination was split into
+  existence and orientation helpers.</li>
+<li><code>metrics.py</code> — <code>pdg_compare</code> is split into argument validation, per-pair
+  accumulation, summary derivation and Bayesys attachment, and
+  <code>bayesys_metrics</code> into confusion counts and scores.</li>
+<li><code>migrate.py</code> — metadata, filtering, logging, graph generation and file
+  writing were extracted into helpers, with a shared logger factory.</li>
+<li><code>validation.py</code> — the CLI and workflow seed parsers share range helpers,
+  and sample-size and metric-spec parsing were split.</li>
+<li><code>tests/unit/test_validation.py</code> — added a case covering the non-list
+  metric-spec branch.</li>
 </ul>
-<h2 id="suggested-steps">Suggested steps<a class="headerlink" href="#suggested-steps" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Step 1 (Foundation): convert <code>cli.py</code> into a <code>cli/</code> package whose
-   <code>__init__.py</code> re-exports the <code>click</code> group <code>cli</code> and <code>main</code>, so
-   <code>causaliq_analysis.cli:main</code> (the <code>[project.scripts]</code> entry points) and
-   <code>causaliq_analysis.cli.cli</code> (patched by tests) keep resolving. Introduce a
-   shared module for cross-command helpers (option parsing, metadata
-   flattening, nested-value lookup, summary table). Keep it a pass-through so
-   every existing CLI test passes unchanged before any command is moved.</li>
-<li>Step 2 (single command slice): extract the smallest command first
-   (<code>migrate_trace_cmd</code>, then <code>best_graph_cmd</code>) into
-   <code>cli/commands/&lt;name&gt;.py</code>, register it on the group, and verify the CLI tests
-   pass.</li>
-<li>Step 3 (iterative extraction): move the remaining commands one at a time —
-   <code>plot_cmd</code>, <code>evaluate_graph_cmd</code>, <code>summarise_cmd</code>, and finally
-   <code>merge_graphs_cmd</code> — splitting each into helpers of <strong>≤15 statements and
-   depth ≤2</strong> (hard maximum 30 statements) and reusing existing helpers instead
-   of local copies. Run the gate set after each slice.</li>
-<li>Step 4 (final cleanup): reduce the package to the group plus command
-   registration (module ~≤200 statements), delete duplicated helpers, and
-   update the docs (<code>docs/api/cli.md</code>, <code>mkdocs.yml</code> nav if the structure
-   changes, and <code>docs/architecture/overview.md</code>).</li>
-</ol>
-<h2 id="constraints-learned-from-the-workflow_action-refactor">Constraints learned from the <code>workflow_action</code> refactor<a class="headerlink" href="#constraints-learned-from-the-workflow_action-refactor" title="Permanent link">&para;</a></h2>
+<h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>CLI behaviour must stay byte-identical</strong>: command names, option names,
-  help text, output formatting, exit codes and error messages.</li>
-<li><strong>Preserve import binding sites</strong> — tests patch or import by dotted path:</li>
-<li><code>tests/unit/test_cli.py:40</code> and <code>tests/functional/test_cli_main.py:30</code>
-    monkeypatch <code>causaliq_analysis.cli.cli</code>;</li>
-<li><code>tests/unit/test_cli.py:366</code> patches <code>causaliq_analysis.cli.WorkflowCache</code>,
-    even though <code>WorkflowCache</code> is imported <em>inside</em> functions today (~L273,
-    ~L904) — verify what that test currently exercises before moving the code;</li>
-<li><code>tests/unit/test_cli.py</code> (~L2255-2282) and
-    <code>tests/functional/test_cli_summarise.py</code> (~L893-920) import
-    <code>_get_nested_value</code> from <code>causaliq_analysis.cli</code>;</li>
-<li>functional CLI tests monkeypatch external namespaces
-    (e.g. <code>causaliq_core.graph.io.read_graph</code>,
-    <code>causaliq_core.graph.convert.pdag_to_cpdag</code>).
-  Keep module-level imports where a test patches the module namespace, and keep
-  function-local imports where a test patches the external namespace.</li>
-<li><strong>No behaviour-free bulk test rewrites</strong>: add focused <code>pytest-mock</code> tests
-  only where coverage gaps appear; keep the existing <code>unittest.mock</code> modules as
-  they are (a mock-conversion sweep is a separate task).</li>
+<li><code>python scripts/check_code_rules.py --strict src/causaliq_analysis</code> —
+  zero breaches.</li>
+<li><code>pytest</code> full suite — passes with 100 % coverage.</li>
+<li><code>black</code>, <code>isort</code>, <code>flake8</code> and <code>mypy</code> — clean.</li>
 </ul>
-<h2 id="commits">Commits<a class="headerlink" href="#commits" title="Permanent link">&para;</a></h2>
-<p>Stage the work as <strong>two commits</strong>:</p>
-<ol>
-<li><strong>Code and tests</strong> — <code>src/causaliq_analysis/cli/</code> (or the equivalent
-   structure), any small <code>src/</code> edits it depends on, and the test changes.</li>
-<li><strong>Documentation</strong> — <code>docs/api/cli.md</code>, <code>mkdocs.yml</code>, and the
-   <code>docs/architecture/overview.md</code> update, plus this task file.</li>
-</ol>
-<p>Do not mix documentation-only changes into the code commit.</p>
-<h2 id="gates-after-each-slice-as-in-scriptscheck_cips1">Gates after each slice (as in <code>scripts/check_ci.ps1</code>)<a class="headerlink" href="#gates-after-each-slice-as-in-scriptscheck_cips1" title="Permanent link">&para;</a></h2>
-<p><code>black --check src tests</code> · <code>isort --check-only src tests</code> ·
-<code>flake8 src tests</code> · <code>mypy src/</code> ·
-<code>python scripts/check_code_rules.py --strict src/causaliq_analysis/cli</code> ·
-<code>python scripts/check_code_rules.py src/causaliq_analysis/</code> (advisory) ·
-targeted CLI tests · full suite (<code>python -m pytest -q</code>) or <code>check_ci.ps1</code> ·
-docs: <code>python -m mkdocs build --strict</code> (note: CI does not build the docs).
-Maintain <strong>100 % coverage</strong> on the new modules.</p>
-<h2 id="test-surface-to-watch">Test surface to watch<a class="headerlink" href="#test-surface-to-watch" title="Permanent link">&para;</a></h2>
-<p><code>tests/unit/test_cli.py</code> (large), <code>tests/functional/test_cli.py</code>,
-<code>tests/functional/test_cli_main.py</code>,
-<code>tests/functional/test_cli_migrate_trace.py</code>,
-<code>tests/functional/test_cli_merge_graphs.py</code>,
-<code>tests/functional/test_cli_evaluate_graph.py</code>,
-<code>tests/functional/test_cli_best_graph.py</code>,
-<code>tests/functional/test_cli_summarise.py</code>, <code>tests/functional/test_cli_plot.py</code>,
-plus <code>tests/integration/test_workflow_integration.py</code>.</p>
-<h2 id="suggested-final-structure-consider-alternatives-if-they-are-better">Suggested final structure (consider alternatives if they are better)<a class="headerlink" href="#suggested-final-structure-consider-alternatives-if-they-are-better" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>causaliq_analysis/
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── cli/
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── __init__.py          # click group `cli`, `main`, public re-exports
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── common.py            # shared option parsing and metadata helpers
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    └── commands/
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ├── __init__.py      # registers each command on the group
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ├── migrate_trace.py # migrate-trace command
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ├── merge_graphs.py  # merge-graphs command
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── evaluate_graph.py# evaluate-graph command
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ├── best_graph.py    # best-graph command
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        ├── summarise.py     # summarise command
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        └── plot.py          # plot command
-</span></code></pre></div>
-<h2 id="remaining-legacy-breaches-later-tasks">Remaining legacy breaches (later tasks)<a class="headerlink" href="#remaining-legacy-breaches-later-tasks" title="Permanent link">&para;</a></h2>
-<p>After <code>cli.py</code>, the outstanding breaches are: <code>trace.py</code> (module 342;
-<code>update_scores</code> 55, <code>diffs_from</code> 46), <code>plot.py</code> (module 238; <code>relplot</code> 61),
-<code>metrics.py</code> (<code>pdg_compare</code> 57), <code>merge.py</code> (<code>merge_graphs</code> 45), <code>migrate.py</code>
-(<code>run_migrate_trace</code> 27), <code>validation.py</code> (<code>parse_seed_workflow</code> 30),
-<code>graph_io.py</code> (<code>read_graph_or_pdg_file</code> depth 3, 14).</p>
+<p>The completed design is recorded in <code>docs/architecture/overview.md</code> (section
+"Merge, Metrics, Migration and Validation Modules") and the status in
+<code>docs/roadmap.md</code>.</p>
 
 
 

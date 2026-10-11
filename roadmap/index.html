@@ -1813,7 +1813,7 @@
 
 
 <h1 id="causaliq-analysis-development-roadmap">CausalIQ Analysis - Development Roadmap<a class="headerlink" href="#causaliq-analysis-development-roadmap" title="Permanent link">&para;</a></h1>
-<p><strong>Last updated</strong>: October 9, 2026</p>
+<p><strong>Last updated</strong>: October 10, 2026</p>
 <p>This project roadmap fits into the
 <a href="https://causaliq.org/projects/ecosystem_roadmap/">overall ecosystem roadmap</a>.</p>
 <h2 id="under-development-october-2026">🚧 Under Development [October 2026]<a class="headerlink" href="#under-development-october-2026" title="Permanent link">&para;</a></h2>
@@ -1827,7 +1827,13 @@
 <li>✅ develop pdg_compare based on 9 edge comparison counts</li>
 <li>✅ Refactor workflow_action to make modules smaller and clearer</li>
 <li>✅ Refactor cli.py to make modules smaller and clearer</li>
+<li>✅ Refactor trace.py to make modules smaller and clearer</li>
+<li>✅ <a href="../refactor/">Refactor plot.py to make modules smaller and clearer</a></li>
+<li>✅ Diagnose failing legacy tests</li>
+<li>✅ Replace deprecated matplotlib warnings (cap <code>pyparsing&lt;3.3</code>)</li>
+<li>✅ <a href="../current_task/">Ensure all modules meet development guidelines</a></li>
 <li>📊 Support Python 3.10-14, with 3.12 as default, and badge as <a href="https://scientific-python.org/specs/spec-0000/"><img alt="SPEC 0 — Minimum Supported Dependencies" src="https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&amp;color=%235CA038" /></a></li>
+<li>🛣️ When Python 3.9 support is dropped, move to matplotlib <code>&gt;=3.10.7</code> (removes the pyparsing cap; requires re-blessing the <code>ord_hc_f1</code> SVG reference)</li>
 <li>🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster</li>
 </ol>
 <h2 id="implemented-releases">✅ Implemented Releases<a class="headerlink" href="#implemented-releases" title="Permanent link">&para;</a></h2>
