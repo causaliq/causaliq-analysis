@@ -236,6 +236,13 @@ def test_validate_metric_specs_string_input():
     assert result == [("f1", "mean")]
 
 
+# Test validate_metric_specs rejects non-string/non-list input.
+def test_validate_metric_specs_invalid_type():
+    """Non-string, non-list metric specs raise ValueError."""
+    with pytest.raises(ValueError, match="must be a string or list"):
+        validate_metric_specs(123)
+
+
 # Test validate_metric_specs rejects empty list.
 def test_validate_metric_specs_empty():
     """Empty metric specs raise ValueError."""

@@ -20,6 +20,22 @@ def is_pdg_graphml(content: str) -> bool:
     return '<key id="p_forward"' in content
 
 
+def _read_text(path: str) -> str:
+    """Return the text of a file, or an empty string when unreadable.
+
+    Args:
+        path: Path to the file to read.
+
+    Returns:
+        The file contents, or "" when the file cannot be read.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
 def read_graph_or_pdg_file(path: str) -> Any:
     """Read a graph file, auto-detecting PDG GraphML and other formats.
 
@@ -38,12 +54,6 @@ def read_graph_or_pdg_file(path: str) -> Any:
     suffix = path.lower().split(".")[-1]
     if suffix in ("xdsl", "dsc"):
         return read_bn(path).dag
-    if suffix == "graphml":
-        try:
-            with open(path, encoding="utf-8") as handle:
-                content = handle.read()
-        except OSError:
-            content = ""
-        if is_pdg_graphml(content):
-            return graphml.read_pdg(path)
+    if suffix == "graphml" and is_pdg_graphml(_read_text(path)):
+        return graphml.read_pdg(path)
     return read_graph(path)

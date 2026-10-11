@@ -3,7 +3,8 @@
 #   and networks
 #
 
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from itertools import combinations
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from causaliq_core.graph import (
     BAYESYS_VERSIONS,
@@ -113,6 +114,30 @@ def _oriented_key(node_a: str, node_b: str, state: str) -> Tuple[str, str]:
     return (node_b, node_a) if state == "backward" else (node_a, node_b)
 
 
+def _positive_edge_probs(
+    graph: PDAG,
+    nodes: List[str],
+) -> Dict[Tuple[str, str], EdgeProbabilities]:
+    """Return probabilities for node pairs that may have an edge.
+
+    Args:
+        graph: Deterministic graph to convert.
+        nodes: Node names in canonical order.
+
+    Returns:
+        Mapping of node pairs to their non-zero edge probabilities.
+    """
+    probs_by_pair = {
+        (node_a, node_b): source_probabilities(graph, node_a, node_b)
+        for node_a, node_b in combinations(nodes, 2)
+    }
+    return {
+        pair: probs
+        for pair, probs in probs_by_pair.items()
+        if probs.p_exist > 0.0
+    }
+
+
 def _graph_to_pdg(graph: Any) -> PDG:
     """Convert a deterministic graph or PDG to a PDG.
 
@@ -130,15 +155,8 @@ def _graph_to_pdg(graph: Any) -> PDG:
         return graph
     if not isinstance(graph, PDAG):
         raise TypeError("bad arg type for compared_to")
-
     nodes = list(graph.nodes)
-    edges: Dict[Tuple[str, str], EdgeProbabilities] = {}
-    for i, node_a in enumerate(nodes):
-        for node_b in nodes[i + 1 :]:
-            probs = source_probabilities(graph, node_a, node_b)
-            if probs.p_exist > 0.0:
-                edges[(node_a, node_b)] = probs
-    return PDG(nodes, edges)
+    return PDG(nodes, _positive_edge_probs(graph, nodes))
 
 
 def pdg_compare(
@@ -172,120 +190,341 @@ def pdg_compare(
     Returns:
         dict: structural comparison metrics
     """
-    # Validation logic from compared_to method
+    _validate_compare_args(reference, bayesys)
+    graph_pdg, reference_pdg = _convert_pair(graph, reference)
+    metrics = _new_metric_counters()
+    metric_edges = _new_metric_edges(metrics, identify_edges)
+    nodes = reference_pdg.nodes
+    _accumulate_pair_metrics(
+        reference_pdg, graph_pdg, nodes, metrics, metric_edges
+    )
+    result_metrics, max_edges = _summary_metrics(metrics, nodes)
+    if bayesys is not None:
+        _attach_bayesys(result_metrics, reference_pdg, max_edges)
+    if identify_edges and metric_edges is not None:
+        return _with_edges(result_metrics, metric_edges)
+    return result_metrics
+
+
+def _validate_compare_args(reference: Any, bayesys: Optional[str]) -> None:
+    """Validate reference graph and Bayesys arguments for comparison.
+
+    Args:
+        reference: Reference graph supplied by the caller.
+        bayesys: Requested Bayesys version, or None.
+
+    Raises:
+        TypeError: If reference or bayesys has an invalid type.
+        ValueError: If the Bayesys version is unknown.
+    """
     if not isinstance(reference, (PDAG, PDG)) or (
         not isinstance(bayesys, str) and bayesys is not None
     ):
         raise TypeError("bad arg type for compared_to")
-
     if bayesys is not None and bayesys not in BAYESYS_VERSIONS:
         raise ValueError("bad bayesys value for compared_to")
 
+
+def _convert_pair(graph: Any, reference: Any) -> Tuple[PDG, PDG]:
+    """Convert both graphs to PDGs and check they share a node set.
+
+    Args:
+        graph: Graph being compared.
+        reference: Reference graph.
+
+    Returns:
+        Tuple of (graph PDG, reference PDG).
+
+    Raises:
+        ValueError: If the graphs have different node sets.
+    """
     graph_pdg = _graph_to_pdg(graph)
     reference_pdg = _graph_to_pdg(reference)
-
     if graph_pdg.nodes != reference_pdg.nodes:
         raise ValueError("comparing two graphs with different nodes")
+    return graph_pdg, reference_pdg
 
-    metrics: Dict[str, Union[int, float]] = {
-        name: 0 for name in EDGE_METRICS if name != "missing_matched"
-    }
-    metric_edges: Optional[Dict[str, Set[Any]]] = (
-        {m: set() for m in metrics} if identify_edges else None
-    )
 
-    # Combine the four edge-state probabilities of each node pair in the
-    # reference and graph, accumulating the sixteen fractional products.
+def _new_metric_counters() -> Dict[str, Union[int, float]]:
+    """Return zeroed low-level edge metric counters.
 
-    nodes = reference_pdg.nodes
-    for i, node_a in enumerate(nodes):
-        for node_b in nodes[i + 1 :]:
-            ref_probs = reference_pdg.get_probabilities(node_a, node_b)
-            graph_probs = graph_pdg.get_probabilities(node_a, node_b)
-            for ref_state in _EDGE_STATES:
-                p_ref = getattr(ref_probs, ref_state)
-                if p_ref == 0.0:
-                    continue
-                for graph_state in _EDGE_STATES:
-                    p_graph = getattr(graph_probs, graph_state)
-                    if p_graph == 0.0:
-                        continue
-                    metric = _STATE_METRICS[(ref_state, graph_state)]
-                    if metric == "missing_matched":
-                        continue
-                    metrics[metric] += p_ref * p_graph
-                    if metric_edges is not None:
-                        state = (
-                            graph_state
-                            if metric in _GRAPH_KEYED_METRICS
-                            else ref_state
-                        )
-                        key = _oriented_key(node_a, node_b, state)
-                        metric_edges[metric].add(key)
+    Returns:
+        Dictionary mapping each low-level metric name to zero.
+    """
+    return {name: 0 for name in EDGE_METRICS if name != "missing_matched"}
 
-    # Deterministic comparisons keep integer counts for compatibility.
-    metrics = {name: _as_number(value) for name, value in metrics.items()}
 
-    max_edges = int(0.5 * len(nodes) * (len(nodes) - 1))
-    missing = max_edges - sum(metrics.values())
-    metrics["missing_matched"] = _as_number(missing)
+def _new_metric_edges(
+    metrics: Dict[str, Union[int, float]],
+    identify_edges: bool,
+) -> Optional[Dict[str, Set[Any]]]:
+    """Return per-metric edge sets when edge identification is requested.
 
-    # compute standard and edge SHD metrics and perform sanity check
+    Args:
+        metrics: Low-level metric counters that define the metric names.
+        identify_edges: Whether edges should be identified.
 
+    Returns:
+        Mapping of metric name to an empty set, or None.
+    """
+    if not identify_edges:
+        return None
+    return {name: set() for name in metrics}
+
+
+def _accumulate_pair_metrics(
+    reference_pdg: PDG,
+    graph_pdg: PDG,
+    nodes: List[str],
+    metrics: Dict[str, Union[int, float]],
+    metric_edges: Optional[Dict[str, Set[Any]]],
+) -> None:
+    """Accumulate fractional edge metrics over all node pairs.
+
+    Args:
+        reference_pdg: Reference graph.
+        graph_pdg: Graph being compared.
+        nodes: Graph node names.
+        metrics: Accumulator updated in place.
+        metric_edges: Optional per-metric edge sets updated in place.
+    """
+    for node_a, node_b in combinations(nodes, 2):
+        ref_probs = reference_pdg.get_probabilities(node_a, node_b)
+        graph_probs = graph_pdg.get_probabilities(node_a, node_b)
+        _accumulate_pair_states(
+            node_a, node_b, ref_probs, graph_probs, metrics, metric_edges
+        )
+
+
+def _accumulate_pair_states(
+    node_a: str,
+    node_b: str,
+    ref_probs: EdgeProbabilities,
+    graph_probs: EdgeProbabilities,
+    metrics: Dict[str, Union[int, float]],
+    metric_edges: Optional[Dict[str, Set[Any]]],
+) -> None:
+    """Accumulate the edge-state products for one node pair.
+
+    Args:
+        node_a: First node.
+        node_b: Second node.
+        ref_probs: Reference edge probabilities.
+        graph_probs: Graph edge probabilities.
+        metrics: Accumulator updated in place.
+        metric_edges: Optional per-metric edge sets updated in place.
+    """
+    for ref_state in _EDGE_STATES:
+        p_ref = getattr(ref_probs, ref_state)
+        if p_ref == 0.0:
+            continue
+        _accumulate_graph_states(
+            node_a,
+            node_b,
+            ref_state,
+            p_ref,
+            graph_probs,
+            metrics,
+            metric_edges,
+        )
+
+
+def _accumulate_graph_states(
+    node_a: str,
+    node_b: str,
+    ref_state: str,
+    p_ref: float,
+    graph_probs: EdgeProbabilities,
+    metrics: Dict[str, Union[int, float]],
+    metric_edges: Optional[Dict[str, Set[Any]]],
+) -> None:
+    """Accumulate the graph edge states for one reference edge state.
+
+    Args:
+        node_a: First node.
+        node_b: Second node.
+        ref_state: Reference edge state.
+        p_ref: Reference probability for the state.
+        graph_probs: Graph edge probabilities.
+        metrics: Accumulator updated in place.
+        metric_edges: Optional per-metric edge sets updated in place.
+    """
+    for graph_state in _EDGE_STATES:
+        p_graph = getattr(graph_probs, graph_state)
+        if p_graph == 0.0:
+            continue
+        metric = _STATE_METRICS[(ref_state, graph_state)]
+        if metric == "missing_matched":
+            continue
+        metrics[metric] += p_ref * p_graph
+        _record_metric_edge(
+            metric_edges, metric, node_a, node_b, graph_state, ref_state
+        )
+
+
+def _record_metric_edge(
+    metric_edges: Optional[Dict[str, Set[Any]]],
+    metric: str,
+    node_a: str,
+    node_b: str,
+    graph_state: str,
+    ref_state: str,
+) -> None:
+    """Record the identified edge for a metric, when requested.
+
+    Args:
+        metric_edges: Optional per-metric edge sets updated in place.
+        metric: Low-level metric name.
+        node_a: First node.
+        node_b: Second node.
+        graph_state: Graph edge state.
+        ref_state: Reference edge state.
+    """
+    if metric_edges is None:
+        return
+    state = graph_state if metric in _GRAPH_KEYED_METRICS else ref_state
+    metric_edges[metric].add(_oriented_key(node_a, node_b, state))
+
+
+def _structural_hamming_distance(
+    metrics: Dict[str, Union[int, float]],
+) -> float:
+    """Return the structural Hamming distance from edge metrics.
+
+    Args:
+        metrics: Accumulated low-level edge metrics.
+
+    Returns:
+        The structural Hamming distance.
+    """
     shd_e = (
         metrics["arc_extra"]
         + metrics["edge_extra"]
         + metrics["arc_missing"]
         + metrics["edge_missing"]
     )
-    shd = (
+    return (
         shd_e
         + metrics["arc_reversed"]
         + metrics["arc_not_edge"]
         + metrics["edge_not_arc"]
     )
-    tp = metrics["arc_matched"] + metrics["edge_matched"]
 
-    # Alternative computation allowing weighting of reversed and edge/arc
-    # to be varied more easily.
 
+def _error_terms(
+    metrics: Dict[str, Union[int, float]],
+) -> Tuple[float, float]:
+    """Return the false positive and false negative counts.
+
+    Reversed arcs and edge/arc mismatches are weighted equally in both
+    terms so the weighting can be varied in one place.
+
+    Args:
+        metrics: Accumulated low-level edge metrics.
+
+    Returns:
+        Tuple of (false positives, false negatives).
+    """
     mis = (
         1.0 * (metrics["arc_not_edge"] + metrics["edge_not_arc"])
         + 1.0 * metrics["arc_reversed"]
     )
     fp = metrics["arc_extra"] + metrics["edge_extra"] + mis
     fn = metrics["arc_missing"] + metrics["edge_missing"] + mis
+    return fp, fn
+
+
+def _precision_recall_f1(
+    tp: float,
+    fp: float,
+    fn: float,
+) -> Tuple[Optional[float], Optional[float], float]:
+    """Return precision, recall and F1 from confusion counts.
+
+    Args:
+        tp: True positives (half-matches counted once).
+        fp: False positives.
+        fn: False negatives.
+
+    Returns:
+        Tuple of (precision, recall, f1). Precision and recall are None
+        when there are no positive predictions or references.
+    """
     p = tp / (tp + fp) if tp + fp > 0 else None
     r = tp / (tp + fn) if tp + fn > 0 else None
-    f1 = (
-        0.0
-        if p is None or r is None or (p == 0 and r == 0)
-        else 2 * p * r / (p + r)
-    )
+    if p is None or r is None or (p == 0 and r == 0):
+        return p, r, 0.0
+    return p, r, 2 * p * r / (p + r)
+
+
+def _summary_metrics(
+    metrics: Dict[str, Union[int, float]],
+    nodes: List[str],
+) -> Tuple[Dict[str, Union[int, float, None]], int]:
+    """Finalise edge metrics and derive SHD, precision, recall and F1.
+
+    Args:
+        metrics: Accumulated low-level edge metrics.
+        nodes: Graph node names.
+
+    Returns:
+        Tuple of (result metrics, number of possible node pairs).
+
+    Raises:
+        RuntimeError: If the SHD sanity check fails.
+    """
+    max_edges = int(0.5 * len(nodes) * (len(nodes) - 1))
+    metrics = {name: _as_number(value) for name, value in metrics.items()}
+    missing = max_edges - sum(metrics.values())
+    metrics["missing_matched"] = _as_number(missing)
+    shd = _structural_hamming_distance(metrics)
+    tp = metrics["arc_matched"] + metrics["edge_matched"]
+    fp, fn = _error_terms(metrics)
+    p, r, f1 = _precision_recall_f1(tp, fp, fn)
     total = tp + metrics["missing_matched"] + shd
     if abs(total - max_edges) > _SHD_TOL * max(1, max_edges):
         raise RuntimeError("SHD sanity check: {}".format(metrics))
+    result: Dict[str, Union[int, float, None]] = dict(metrics)
+    result.update({"shd": shd, "p": p, "r": r, "f1": f1})
+    return result, max_edges
 
-    # Create base metrics dict with correct types
-    result_metrics: Dict[str, Union[int, float, None]] = dict(metrics)
-    result_metrics.update({"shd": shd, "p": p, "r": r, "f1": f1})
 
-    # add in Bayesys metrics and edge details if required
+def _attach_bayesys(
+    result_metrics: Dict[str, Union[int, float, None]],
+    reference_pdg: PDG,
+    max_edges: int,
+) -> None:
+    """Add Bayesys metrics to a result dictionary in place.
 
-    if bayesys is not None:
-        num_ref_edges = sum(
-            probs.p_exist for probs in reference_pdg.edges.values()
-        )
-        result_metrics.update(
-            bayesys_metrics(result_metrics, max_edges, num_ref_edges)
-        )
-    if identify_edges and metric_edges is not None:
-        # Add edges separately to avoid type conflicts
-        final_result: Dict[str, Any] = dict(result_metrics)
-        final_result["edges"] = metric_edges
-        return final_result
+    Args:
+        result_metrics: Metrics dictionary updated in place.
+        reference_pdg: Reference graph.
+        max_edges: Number of possible node pairs.
+    """
+    num_ref_edges = sum(
+        probs.p_exist for probs in reference_pdg.edges.values()
+    )
+    result_metrics.update(
+        bayesys_metrics(result_metrics, max_edges, num_ref_edges)
+    )
 
-    return result_metrics
+
+def _with_edges(
+    result_metrics: Dict[str, Union[int, float, None]],
+    metric_edges: Dict[str, Set[Any]],
+) -> Dict[str, Any]:
+    """Return the result metrics with the identified edges attached.
+
+    Args:
+        result_metrics: Derived metrics dictionary.
+        metric_edges: Per-metric identified edge sets.
+
+    Returns:
+        The metrics dictionary with an added "edges" entry.
+    """
+    final_result: Dict[str, Any] = dict(result_metrics)
+    final_result["edges"] = metric_edges
+    return final_result
 
 
 def pdag_compare(
@@ -369,16 +608,41 @@ def bayesys_metrics(
     max_edges: int,
     num_ref_edges: float,
 ) -> Dict[str, float]:
+    """Compute Bayesys-compatible metrics from structural metrics.
 
-    # Compute true/false postive/negatives
-    # If reference has an edge but graph has arc this is considered a match
-    # Bayesys comparison introduces concept of a "half-match" when graph has
-    # an edge, or an oppositely orientated arc compared to reference.
-    # Note edge_matched is not counted as TP giving incorrectly high shd-b for
-    # CPDAG comparisons
-    # This implementation has extra protection against divide by zero errors
+    If the reference has an edge but the graph has an arc this is counted
+    as a match, and a "half-match" is recorded when the graph has an edge,
+    or an oppositely oriented arc, compared to the reference. Note that
+    edge_matched is not counted as a true positive, which would otherwise
+    give an incorrectly high shd-b for CPDAG comparisons.
 
-    # Ensure we get numeric values from metrics (they should all be int/float)
+    Args:
+        metrics: Low-level edge metrics from a PDG comparison.
+        max_edges: Number of possible node pairs.
+        num_ref_edges: Number of edges in the reference graph.
+
+    Returns:
+        Dictionary of Bayesys-compatible metrics.
+    """
+    tp, tp2, fp, tn, fn = _bayesys_confusion(metrics, max_edges, num_ref_edges)
+    return _bayesys_scores(tp, tp2, fp, tn, fn, max_edges, num_ref_edges)
+
+
+def _bayesys_confusion(
+    metrics: Dict[str, Union[int, float, None]],
+    max_edges: int,
+    num_ref_edges: float,
+) -> Tuple[float, float, float, float, float]:
+    """Return Bayesys true/false positive/negative counts.
+
+    Args:
+        metrics: Low-level edge metrics from a PDG comparison.
+        max_edges: Number of possible node pairs.
+        num_ref_edges: Number of edges in the reference graph.
+
+    Returns:
+        Tuple of (tp, tp2, fp, tn, fn), where tp2 counts half-matches.
+    """
     arc_matched = float(metrics["arc_matched"] or 0)
     arc_not_edge = float(metrics["arc_not_edge"] or 0)
     edge_matched = float(metrics["edge_matched"] or 0)
@@ -386,37 +650,55 @@ def bayesys_metrics(
     edge_not_arc = float(metrics["edge_not_arc"] or 0)
     arc_extra = float(metrics["arc_extra"] or 0)
     edge_extra = float(metrics["edge_extra"] or 0)
+    tp = float(arc_matched + arc_not_edge + edge_matched)
+    tp2 = float(arc_reversed + edge_not_arc)
+    fp = float(arc_extra + edge_extra)
+    tn = max_edges - num_ref_edges - fp
+    fn = num_ref_edges - tp - 0.5 * tp2
+    return tp, tp2, fp, tn, fn
 
-    TP = float(arc_matched + arc_not_edge + edge_matched)
-    TP2 = float(arc_reversed + edge_not_arc)
-    FP = float(arc_extra + edge_extra)
-    TN = max_edges - num_ref_edges - FP
-    FN = num_ref_edges - TP - 0.5 * TP2
 
-    # Precision, recall and F1 but allowing for half-matches.
+def _bayesys_scores(
+    tp: float,
+    tp2: float,
+    fp: float,
+    tn: float,
+    fn: float,
+    max_edges: int,
+    num_ref_edges: float,
+) -> Dict[str, float]:
+    """Compute Bayesys precision, recall, F1, SHD, DDM and BSF.
 
+    DDM and positive_worth divide by the number of reference edges, which
+    is zero when the reference graph has no edges; the degenerate case is
+    guarded against a divide by zero error.
+
+    Args:
+        tp: True positives (half-matches counted once).
+        tp2: Half-match count (reversed or edge/arc mismatches).
+        fp: False positives.
+        tn: True negatives.
+        fn: False negatives.
+        max_edges: Number of possible node pairs.
+        num_ref_edges: Number of edges in the reference graph.
+
+    Returns:
+        Dictionary of Bayesys-compatible metrics.
+    """
     precision = (
-        1.0 if TP + TP2 + FP == 0 else (TP + 0.5 * TP2) / (TP + TP2 + FP)
+        1.0 if tp + tp2 + fp == 0 else (tp + 0.5 * tp2) / (tp + tp2 + fp)
     )
     recall = (
-        1.0 if TP + TP2 + FN == 0 else (TP + 0.5 * TP2) / (TP + 0.5 * TP2 + FN)
+        1.0 if tp + tp2 + fn == 0 else (tp + 0.5 * tp2) / (tp + 0.5 * tp2 + fn)
     )
     f1 = (
         2 * precision * recall / (precision + recall)
         if precision + recall > 0
         else 0.0
-    )  # Bayesys code sets this to 1.0!
-
-    # SHD computed as usual but now includes half-matches
-    # BSF and DDM as defined by Constantinou
-
-    SHD = FP + FN
-
-    # DDM and positive_worth divide by the number of reference edges, which
-    # is zero when the reference graph has no edges; guard that degenerate
-    # case against a divide by zero error.
-    DDM = (
-        (TP + 0.5 * TP2 - FN - FP) / num_ref_edges
+    )
+    shd = fp + fn
+    ddm = (
+        (tp + 0.5 * tp2 - fn - fp) / num_ref_edges
         if num_ref_edges != 0
         else 0.0
     )
@@ -426,23 +708,22 @@ def bayesys_metrics(
         if max_edges != num_ref_edges
         else 1.0
     )
-    BSF = 0.5 * (
-        (TP + 0.5 * TP2) * positive_worth
-        + TN * negative_worth
-        - FP * negative_worth
-        - FN * positive_worth
+    bsf = 0.5 * (
+        (tp + 0.5 * tp2) * positive_worth
+        + tn * negative_worth
+        - fp * negative_worth
+        - fn * positive_worth
     )
-
     return {
-        "tp-b": TP,
-        "tp2-b": TP2,
-        "fp-b": FP,
-        "tn-b": TN,
-        "fn-b": FN,
+        "tp-b": tp,
+        "tp2-b": tp2,
+        "fp-b": fp,
+        "tn-b": tn,
+        "fn-b": fn,
         "p-b": precision,
         "r-b": recall,
         "f1-b": f1,
-        "shd-b": SHD,
-        "ddm": DDM,
-        "bsf": BSF,
+        "shd-b": shd,
+        "ddm": ddm,
+        "bsf": bsf,
     }

@@ -139,20 +139,26 @@ def get_trace_metadata(trace: Trace) -> Dict[str, Any]:
     """
     if not isinstance(trace, Trace):
         raise TypeError("get_trace_metadata() requires a Trace object")
-
     result: Dict[str, Any] = {}
     for field in _METADATA_FIELDS:
         if field in trace.context:
-            value = trace.context[field]
-            # Special handling for params dict - serialise values
-            if field == "params" and isinstance(value, dict):
-                result[field] = {
-                    k: _json_serialise(v) for k, v in value.items()
-                }
-            else:
-                result[field] = value
-
+            result[field] = _metadata_value(field, trace.context[field])
     return result
+
+
+def _metadata_value(field: str, value: Any) -> Any:
+    """Return a metadata value, serialising param dictionaries.
+
+    Args:
+        field: Metadata field name.
+        value: Raw value from the trace context.
+
+    Returns:
+        The value, with param dictionaries serialised to plain values.
+    """
+    if field == "params" and isinstance(value, dict):
+        return {k: _json_serialise(v) for k, v in value.items()}
+    return value
 
 
 def trace_to_dag(trace: Trace) -> DAG:
@@ -405,32 +411,59 @@ def filter_traces(
         Filtered dictionary of traces.
     """
     filtered: Dict[str, Trace] = {}
-
     for trace_id, trace in traces.items():
-        # Filter by sample_size
-        if sample_size is not None:
-            trace_n = trace.context.get("N")
-            if trace_n != sample_size:
-                continue
-
-        # Filter by seed (extract seed from trace_id)
-        if seed:
-            parts = trace_id.split("_")
-            seed_found = False
-            for part in parts:
-                try:
-                    seed_val = int(part)
-                    if seed_val in seed:
-                        seed_found = True
-                        break
-                except ValueError:
-                    continue
-            if not seed_found:
-                continue
-
+        if not _matches_sample_size(trace, sample_size):
+            continue
+        if not _matches_seed(trace_id, seed):
+            continue
         filtered[trace_id] = trace
-
     return filtered
+
+
+def _matches_sample_size(trace: Trace, sample_size: Optional[int]) -> bool:
+    """Return True when a trace satisfies the sample-size filter.
+
+    Args:
+        trace: Trace to test.
+        sample_size: Required sample size, or None for no filter.
+
+    Returns:
+        True when the trace matches the filter.
+    """
+    if sample_size is None:
+        return True
+    return trace.context.get("N") == sample_size
+
+
+def _matches_seed(trace_id: str, seed: Optional[Tuple[int, ...]]) -> bool:
+    """Return True when a trace id contains an accepted seed.
+
+    Args:
+        trace_id: Trace identifier to search.
+        seed: Seeds to accept, or None/empty for no filter.
+
+    Returns:
+        True when the trace matches the filter.
+    """
+    if not seed:
+        return True
+    return any(_matches_seed_part(part, seed) for part in trace_id.split("_"))
+
+
+def _matches_seed_part(part: str, seed: Tuple[int, ...]) -> bool:
+    """Return True when a trace id part parses to an accepted seed.
+
+    Args:
+        part: One underscore-delimited part of a trace id.
+        seed: Seeds to accept.
+
+    Returns:
+        True when the part is an integer in the seed set.
+    """
+    try:
+        return int(part) in seed
+    except ValueError:
+        return False
 
 
 def run_migrate_trace(
@@ -469,20 +502,12 @@ def run_migrate_trace(
         10
     """
 
-    def _log(msg: str) -> None:
-        if log_fn:
-            log_fn(msg)
-
+    _log = _make_logger(log_fn)
     _log(f"Loading traces from {partial_id}...")
-
-    # Load traces
     traces = Trace.read(partial_id=partial_id, root_dir=root_dir)
     if traces is None:
         raise ValueError(f"No traces found for {partial_id} in {root_dir}")
-
-    # Filter traces
     filtered_traces = filter_traces(traces, sample_size, seed)
-
     if not filtered_traces:
         _log(
             f"No traces match filters: "
@@ -490,37 +515,83 @@ def run_migrate_trace(
             f"- skipping"
         )
         return MigrateTraceResult(graphs=[], skipped=0)
-
     _log(f"Found {len(filtered_traces)} matching traces")
+    result = _build_migrate_result(filtered_traces, _log)
+    _log(f"Migration complete: {len(result.graphs)} graphs generated")
+    return result
 
-    # Generate content for each trace
+
+def _no_log(message: str) -> None:
+    """Discard a log message when no callback is supplied."""
+
+
+def _make_logger(
+    log_fn: Optional[Callable[[str], None]],
+) -> Callable[[str], None]:
+    """Return a logging callable that is a no-op when none is supplied.
+
+    Args:
+        log_fn: Optional logging callback.
+
+    Returns:
+        A callable that logs when log_fn is provided, else does nothing.
+    """
+    if log_fn is None:
+        return _no_log
+    return log_fn
+
+
+def _build_migrate_result(
+    filtered_traces: Dict[str, Trace],
+    log_fn: Callable[[str], None],
+) -> MigrateTraceResult:
+    """Generate migrated graphs for each filtered trace.
+
+    Args:
+        filtered_traces: Traces to migrate.
+        log_fn: Logging callback.
+
+    Returns:
+        Migration result with the generated graphs.
+    """
     graphs: List[MigratedGraph] = []
     skipped = 0
-
     for trace_id, trace in filtered_traces.items():
-        if trace.result is None:
-            _log(f"Skipping {trace_id}: no result graph")
+        migrated = _migrate_single_trace(trace_id, trace, log_fn)
+        if migrated is None:
             skipped += 1
             continue
-
-        # Generate GraphML
-        graphml_str = trace_to_graphml(trace)
-        metadata = get_trace_metadata(trace)
-        metadata["trace_id"] = trace_id
-        metadata["graph_type"] = type(trace.result).__name__
-
-        graphs.append(
-            MigratedGraph(
-                trace_id=trace_id,
-                graphml=graphml_str,
-                metadata=metadata,
-            )
-        )
-        _log(f"Generated content for {trace_id}")
-
-    _log(f"Migration complete: {len(graphs)} graphs generated")
-
+        graphs.append(migrated)
+        log_fn(f"Generated content for {trace_id}")
     return MigrateTraceResult(graphs=graphs, skipped=skipped)
+
+
+def _migrate_single_trace(
+    trace_id: str,
+    trace: Trace,
+    log_fn: Callable[[str], None],
+) -> Optional[MigratedGraph]:
+    """Generate the migrated graph for one trace, or None to skip it.
+
+    Args:
+        trace_id: Trace identifier.
+        trace: Trace to migrate.
+        log_fn: Logging callback.
+
+    Returns:
+        The migrated graph, or None when the trace has no result graph.
+    """
+    if trace.result is None:
+        log_fn(f"Skipping {trace_id}: no result graph")
+        return None
+    metadata = get_trace_metadata(trace)
+    metadata["trace_id"] = trace_id
+    metadata["graph_type"] = type(trace.result).__name__
+    return MigratedGraph(
+        trace_id=trace_id,
+        graphml=trace_to_graphml(trace),
+        metadata=metadata,
+    )
 
 
 def write_migrate_result(
@@ -547,33 +618,34 @@ def write_migrate_result(
         10
     """
 
-    def _log(msg: str) -> None:
-        if log_fn:
-            log_fn(msg)
-
+    _log = _make_logger(log_fn)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-
     output_files: List[str] = []
-
     for graph in result.graphs:
-        # Sanitise trace_id for filename
-        safe_id = graph.trace_id.replace("/", "_").replace("\\", "_")
-
-        # Write GraphML file
-        graphml_file = output_path / f"{safe_id}.graphml"
-        graphml_file.write_text(graph.graphml, encoding="utf-8")
-
-        # Write metadata file
-        metadata_file = output_path / f"{safe_id}.metadata.json"
-        metadata_file.write_text(
-            json.dumps(graph.metadata, indent=2, default=_json_serialise),
-            encoding="utf-8",
-        )
-
+        graphml_file = _write_graph_files(graph, output_path)
         output_files.append(str(graphml_file))
         _log(f"Wrote {graph.trace_id} -> {graphml_file}")
-
     _log(f"Wrote {len(output_files)} files to {output_dir}")
-
     return output_files
+
+
+def _write_graph_files(graph: MigratedGraph, output_path: Path) -> Path:
+    """Write the GraphML and metadata files for one migrated graph.
+
+    Args:
+        graph: Migrated graph to write.
+        output_path: Directory to write into.
+
+    Returns:
+        Path of the written GraphML file.
+    """
+    safe_id = graph.trace_id.replace("/", "_").replace("\\", "_")
+    graphml_file = output_path / f"{safe_id}.graphml"
+    graphml_file.write_text(graph.graphml, encoding="utf-8")
+    metadata_file = output_path / f"{safe_id}.metadata.json"
+    metadata_file.write_text(
+        json.dumps(graph.metadata, indent=2, default=_json_serialise),
+        encoding="utf-8",
+    )
+    return graphml_file

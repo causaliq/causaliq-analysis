@@ -183,7 +183,7 @@ def _python_files(targets: Iterable[str]) -> List[Path]:
 def _print_summary(checked: int, breaches: int, strict: bool) -> None:
     """Print the summary line and the advisory note."""
     mode = "strict" if strict else "advisory"
-    print(f"code rules ({mode}): {breaches} breaches in {checked} modules")
+    print(f"rules ({mode}): {breaches} breaches across all {checked} modules")
     if not strict and breaches:
         print("Advisory mode: legacy breaches are quarantined.")
 

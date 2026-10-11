@@ -75,27 +75,66 @@ def parse_sample_size(size_input: Union[str, int]) -> int:
     """
     if isinstance(size_input, int):
         return size_input
-
     if not isinstance(size_input, str):
         raise ValueError(f"Invalid sample size type: {type(size_input)}")
-
     size_str = str(size_input).strip().lower()
+    return _parse_size_string(size_str)
 
+
+def _parse_size_string(size_str: str) -> int:
+    """Parse a sample-size string with an optional k/m suffix.
+
+    Args:
+        size_str: Normalised (lowercased, stripped) size string.
+
+    Returns:
+        The parsed sample size.
+
+    Raises:
+        ValueError: If the format is invalid.
+    """
     if size_str.endswith("k"):
-        try:
-            return int(float(size_str[:-1]) * 1000)
-        except ValueError:
-            raise ValueError(f"Invalid sample size format: {size_str}")
-    elif size_str.endswith("m"):
-        try:
-            return int(float(size_str[:-1]) * 1000000)
-        except ValueError:
-            raise ValueError(f"Invalid sample size format: {size_str}")
-    else:
-        try:
-            return int(size_str)
-        except ValueError:
-            raise ValueError(f"Invalid sample size format: {size_str}")
+        return _parse_scaled_size(size_str, 1000)
+    if size_str.endswith("m"):
+        return _parse_scaled_size(size_str, 1000000)
+    return _parse_plain_size(size_str)
+
+
+def _parse_scaled_size(size_str: str, multiplier: int) -> int:
+    """Return a suffixed size string scaled by a multiplier.
+
+    Args:
+        size_str: Normalised size string with a k/m suffix.
+        multiplier: Scale factor (1000 or 1000000).
+
+    Returns:
+        The parsed sample size.
+
+    Raises:
+        ValueError: If the value is not numeric.
+    """
+    try:
+        return int(float(size_str[:-1]) * multiplier)
+    except ValueError:
+        raise ValueError(f"Invalid sample size format: {size_str}")
+
+
+def _parse_plain_size(size_str: str) -> int:
+    """Return an integer parsed from a plain size string.
+
+    Args:
+        size_str: Normalised size string without a suffix.
+
+    Returns:
+        The parsed sample size.
+
+    Raises:
+        ValueError: If the value is not an integer.
+    """
+    try:
+        return int(size_str)
+    except ValueError:
+        raise ValueError(f"Invalid sample size format: {size_str}")
 
 
 def parse_seed_cli(seed_str: str) -> Tuple[int, ...]:
@@ -122,38 +161,66 @@ def parse_seed_cli(seed_str: str) -> Tuple[int, ...]:
     """
     if not seed_str or seed_str.strip() == "":
         return ()
-
     seed_str = seed_str.strip()
-
-    # Detect comma-separated (common mistake)
-    if "," in seed_str:
-        raise ValueError(
-            f"Invalid seed format '{seed_str}': use hyphen for range "
-            "(e.g., '0-24') not comma"
-        )
-
+    _reject_comma(seed_str, "use hyphen for range (e.g., '0-24') not comma")
     try:
-        if "-" in seed_str:
-            # Range: start-end inclusive
-            parts = seed_str.split("-")
-            if len(parts) != 2:
-                raise ValueError(
-                    f"Invalid range format '{seed_str}': use 'start-end'"
-                )
-            start, end = int(parts[0].strip()), int(parts[1].strip())
-            if start > end:
-                raise ValueError(
-                    f"Invalid range: start ({start}) > end ({end})"
-                )
-            return tuple(range(start, end + 1))
-        else:
-            # Single seed
-            return (int(seed_str),)
-
-    except ValueError as e:
-        if "invalid literal" in str(e):
+        return _parse_seed_expression(seed_str)
+    except ValueError as error:
+        if "invalid literal" in str(error):
             raise ValueError(f"Invalid seed format: {seed_str}")
         raise
+
+
+def _reject_comma(seed_str: str, hint: str) -> None:
+    """Raise when a seed string contains a comma.
+
+    Args:
+        seed_str: Seed string to check.
+        hint: Guidance appended to the error message.
+
+    Raises:
+        ValueError: If the seed string contains a comma.
+    """
+    if "," in seed_str:
+        raise ValueError(f"Invalid seed format '{seed_str}': {hint}")
+
+
+def _parse_seed_expression(seed_str: str) -> Tuple[int, ...]:
+    """Parse a seed string into a tuple of ints, supporting ranges.
+
+    Args:
+        seed_str: Seed string such as "5" or "0-24".
+
+    Returns:
+        Tuple of seed integers.
+
+    Raises:
+        ValueError: If the format is invalid.
+    """
+    if "-" in seed_str:
+        return _parse_seed_range(seed_str)
+    return (int(seed_str),)
+
+
+def _parse_seed_range(seed_str: str) -> Tuple[int, ...]:
+    """Parse a start-end seed range into an inclusive tuple.
+
+    Args:
+        seed_str: Range string such as "0-24".
+
+    Returns:
+        Tuple covering the inclusive range.
+
+    Raises:
+        ValueError: If the range is malformed or empty.
+    """
+    parts = seed_str.split("-")
+    if len(parts) != 2:
+        raise ValueError(f"Invalid range format '{seed_str}': use 'start-end'")
+    start, end = int(parts[0].strip()), int(parts[1].strip())
+    if start > end:
+        raise ValueError(f"Invalid range: start ({start}) > end ({end})")
+    return tuple(range(start, end + 1))
 
 
 def parse_seed_workflow(seed_input: Any) -> Tuple[int, ...]:
@@ -183,52 +250,43 @@ def parse_seed_workflow(seed_input: Any) -> Tuple[int, ...]:
     """
     if seed_input is None:
         return ()
-
     if isinstance(seed_input, tuple):
         return seed_input
-
     if isinstance(seed_input, list):
         return tuple(seed_input)
-
     if isinstance(seed_input, int):
         return (seed_input,)
-
     if isinstance(seed_input, str):
-        seed_str = seed_input.strip()
-        if not seed_str:
-            return ()
-
-        # Detect comma-separated (common YAML mistake)
-        if "," in seed_str:
-            raise ValueError(
-                f"Invalid seed format '{seed_str}': contains comma. "
-                "Use YAML list syntax: seed: [0, 1, 2] or range: seed: 0-24"
-            )
-
-        try:
-            if "-" in seed_str:
-                # Range: start-end inclusive
-                parts = seed_str.split("-")
-                if len(parts) != 2:
-                    raise ValueError(
-                        f"Invalid range format '{seed_str}': use 'start-end'"
-                    )
-                start = int(parts[0].strip())
-                end = int(parts[1].strip())
-                if start > end:
-                    raise ValueError(
-                        f"Invalid range: start ({start}) > end ({end})"
-                    )
-                return tuple(range(start, end + 1))
-            else:
-                # Single seed as string
-                return (int(seed_str),)
-        except ValueError as e:
-            if "invalid literal" in str(e):
-                raise ValueError(f"Invalid seed format: {seed_str}")
-            raise
-
+        return _parse_seed_string(seed_input)
     raise ValueError(f"Invalid seed type: {type(seed_input)}")
+
+
+def _parse_seed_string(seed_str: str) -> Tuple[int, ...]:
+    """Parse a workflow seed string into a tuple of ints.
+
+    Args:
+        seed_str: Seed string such as "5" or "0-24".
+
+    Returns:
+        Tuple of seed integers.
+
+    Raises:
+        ValueError: If the format is invalid.
+    """
+    seed_str = seed_str.strip()
+    if not seed_str:
+        return ()
+    _reject_comma(
+        seed_str,
+        "contains comma. Use YAML list syntax: seed: [0, 1, 2] "
+        "or range: seed: 0-24",
+    )
+    try:
+        return _parse_seed_expression(seed_str)
+    except ValueError as error:
+        if "invalid literal" in str(error):
+            raise ValueError(f"Invalid seed format: {seed_str}")
+        raise
 
 
 def validate_filter_expression(filter_expr: Optional[str]) -> None:
@@ -285,44 +343,69 @@ def validate_metric_specs(
     """
     if supported_stats is None:
         supported_stats = SUPPORTED_STATS
+    specs = _normalise_metric_specs(metric_specs)
+    return [_parse_metric_spec(spec, supported_stats) for spec in specs]
 
-    # Normalise metric_specs to a list (accept string or list)
+
+def _normalise_metric_specs(metric_specs: Union[str, List[str]]) -> List[str]:
+    """Normalise metric specifications to a non-empty list of strings.
+
+    Args:
+        metric_specs: A single spec string or a list of spec strings.
+
+    Returns:
+        List of metric specification strings.
+
+    Raises:
+        ValueError: If the value is not a string/list or the list is empty.
+    """
     if isinstance(metric_specs, str):
-        metric_specs = [metric_specs]
-    elif not isinstance(metric_specs, list):
+        return [metric_specs]
+    if not isinstance(metric_specs, list):
         raise ValueError(
             f"'metric' must be a string or list, "
             f"got {type(metric_specs).__name__}"
         )
-
     if not metric_specs:
         raise ValueError(
             "At least one metric specification required "
             "(e.g., ['f1.mean', 'shd.sd'])"
         )
+    return metric_specs
 
-    parsed: List[Tuple[str, str]] = []
-    for spec in metric_specs:
-        # Detect comma-separated string (common YAML mistake)
-        if "," in spec:
-            raise ValueError(
-                f"Invalid metric spec '{spec}': contains comma. "
-                "Use YAML list syntax instead: metric: [f1.mean, shd.sd]"
-            )
-        if "." not in spec:
-            raise ValueError(
-                f"Invalid metric spec '{spec}': must be <field>.<stat>"
-            )
-        parts = spec.rsplit(".", 1)
-        field, stat = parts[0], parts[1]
-        if stat not in supported_stats:
-            raise ValueError(
-                f"Unknown statistic '{stat}' in '{spec}'. "
-                f"Supported: {', '.join(sorted(supported_stats))}"
-            )
-        parsed.append((field, stat))
 
-    return parsed
+def _parse_metric_spec(
+    spec: str,
+    supported_stats: FrozenSet[str],
+) -> Tuple[str, str]:
+    """Validate and parse one '<field>.<stat>' metric specification.
+
+    Args:
+        spec: Metric specification string.
+        supported_stats: Set of valid statistic names.
+
+    Returns:
+        Tuple of (field, stat).
+
+    Raises:
+        ValueError: If the specification is invalid.
+    """
+    if "," in spec:
+        raise ValueError(
+            f"Invalid metric spec '{spec}': contains comma. "
+            "Use YAML list syntax instead: metric: [f1.mean, shd.sd]"
+        )
+    if "." not in spec:
+        raise ValueError(
+            f"Invalid metric spec '{spec}': must be <field>.<stat>"
+        )
+    field, stat = spec.rsplit(".", 1)
+    if stat not in supported_stats:
+        raise ValueError(
+            f"Unknown statistic '{stat}' in '{spec}'. "
+            f"Supported: {', '.join(sorted(supported_stats))}"
+        )
+    return field, stat
 
 
 def require_param(
