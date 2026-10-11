@@ -94,6 +94,19 @@ by delegating the shared figure style, per-kind figure construction and
 the figure/axes/legend post-processing to module-level helpers, and
 `plot_scatter` shares those helpers with `relplot`.
 
+### Merge, Metrics, Migration and Validation Modules
+
+`merge.py`, `metrics.py`, `migrate.py` and `validation.py` remain single
+modules, but each public entry point stays small by delegating to private
+helpers. Graph validation, weight normalisation and the average and
+per-source merge strategies are separated in `merge.py`; the PDG comparison,
+summary metrics and Bayesys scores are computed by dedicated helpers in
+`metrics.py`; trace filtering, graph generation, logging and file writing
+are split in `migrate.py`; and the CLI and workflow seed parsing share range
+helpers in `validation.py`. Graph file auto-detection in `graph_io.py` reads
+file text through a helper so its nesting stays shallow. Public names are
+unchanged, so existing imports from these modules keep working.
+
 ### Integration Points
 
 | Component | Integration |

@@ -1,51 +1,47 @@
-# Replace deprecated matplotlib options
+# Ensure all modules meet development guidelines
 
-Replace deprecated matplotlib options in @src/causaliq-analysis/plot/* with current capabilities without changing functionality so that the following errors seen during pytest tests are no longer reported:
+**Status: complete.** All modules now satisfy the limits checked by
+`scripts/check_code_rules.py`. This was a Hat 2 (refactoring) task: runtime
+behaviour and public APIs are unchanged.
 
-```plaintext
-============================== warnings summary ===============================
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:64
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:64: PyparsingDeprecationWarning: 'oneOf' deprecated - use 'one_of'
-    prop = Group((name + Suppress("=") + comma_separated(value)) | oneOf(_CONSTANTS))
+## Context
 
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:85: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
-    parse = parser.parseString(pattern)
+Create a plan to ensure all modules in causaliq-analysis meet the development
+policy guidelines as checked by `scripts/check_code_rules.py`. Split up
+modules if they become too large.
 
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
-venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_fontconfig_pattern.py:89: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
-    parser.resetCache()
+The user will commit the changes in two commits: (1) code and tests;
+(2) documentation.
 
-venv\py311\Lib\site-packages\matplotlib\_mathtext.py:45
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:45: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
-    ParserElement.enablePackrat()
+## Changes
 
-tests/functional/test_cli_plot.py: 21 warnings
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:2170: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
-    result = self._expression.parseString(s)
+The 16 legacy function breaches reported by the checker were flattened or
+split within five modules; no module exceeded the ~200-statement target, so
+none was split into a sub-package.
 
-tests/functional/test_cli_plot.py: 21 warnings
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:2197: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
-    return self._math_expression.parseString(toks[0][1:-1], parseAll=True)
+- `graph_io.py` — extracted `_read_text` so GraphML auto-detection in
+  `read_graph_or_pdg_file` no longer nests.
+- `merge.py` — `merge_graphs` delegates to validation, weight normalisation
+  and strategy helpers; the SDG accumulation cascade became a single
+  `_edge_state` lookup, and the noisy-OR combination was split into
+  existence and orientation helpers.
+- `metrics.py` — `pdg_compare` is split into argument validation, per-pair
+  accumulation, summary derivation and Bayesys attachment, and
+  `bayesys_metrics` into confusion counts and scores.
+- `migrate.py` — metadata, filtering, logging, graph generation and file
+  writing were extracted into helpers, with a shared logger factory.
+- `validation.py` — the CLI and workflow seed parsers share range helpers,
+  and sample-size and metric-spec parsing were split.
+- `tests/unit/test_validation.py` — added a case covering the non-list
+  metric-spec branch.
 
-tests/functional/test_cli_plot.py: 21 warnings
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\pyparsing\util.py:466: PyparsingDeprecationWarning: 'parseAll' argument is deprecated, use 'parse_all'
-    return fn(self, *args, **kwargs)
+## Verification
 
-tests/functional/test_cli_plot.py: 21 warnings
-  C:\dev\causaliq\causaliq-analysis\venv\py311\Lib\site-packages\matplotlib\_mathtext.py:2178: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
-    ParserElement.resetCache()
+- `python scripts/check_code_rules.py --strict src/causaliq_analysis` —
+  zero breaches.
+- `pytest` full suite — passes with 100 % coverage.
+- `black`, `isort`, `flake8` and `mypy` — clean.
 
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=============================== tests coverage ================================
-```
+The completed design is recorded in `docs/architecture/overview.md` (section
+"Merge, Metrics, Migration and Validation Modules") and the status in
+`docs/roadmap.md`.

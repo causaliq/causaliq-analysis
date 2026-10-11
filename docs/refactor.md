@@ -8,8 +8,8 @@
 >
 > `plot.py` is now the `plot/` package (`properties`, `axes`, `charts` and
 > `run`) whose `__init__.py` re-exports the public names. The remaining
-> legacy breaches, listed at the end of this file, are the candidates for
-> the next refactoring task.
+> legacy breaches listed at the end of this file were subsequently resolved
+> by the module refactor recorded in `docs/current_task.md`.
 
 ## Context and current breaches
 
@@ -163,13 +163,18 @@ causaliq_analysis/
     └── run.py          # run_plot and CSV/data helpers
 ```
 
-## Remaining legacy breaches (later tasks)
+## Remaining legacy breaches (resolved)
 
-After `plot.py`, the outstanding breaches are: `metrics.py` (`pdg_compare` 57;
-`_graph_to_pdg` depth 3, `bayesys_metrics` 21), `merge.py` (`merge_graphs` 45;
-`_accumulate_sdg` depth 6, `_combine_noisy_or` 26, `_merge_per_source`
-depth 3), `migrate.py` (`run_migrate_trace` 27, `filter_traces` depth 5,
-`write_migrate_result` 16, `get_trace_metadata` depth 3), `validation.py`
-(`parse_seed_workflow` 30, `parse_sample_size` depth 4, `parse_seed_cli` 19,
-`validate_metric_specs` 20), and `graph_io.py` (`read_graph_or_pdg_file`
-depth 3, 14).
+After `plot.py`, the outstanding breaches were: `metrics.py` (`pdg_compare`
+57; `_graph_to_pdg` depth 3, `bayesys_metrics` 21), `merge.py`
+(`merge_graphs` 45; `_accumulate_sdg` depth 6, `_combine_noisy_or` 26,
+`_merge_per_source` depth 3), `migrate.py` (`run_migrate_trace` 27,
+`filter_traces` depth 5, `write_migrate_result` 16, `get_trace_metadata`
+depth 3), `validation.py` (`parse_seed_workflow` 30, `parse_sample_size`
+depth 4, `parse_seed_cli` 19, `validate_metric_specs` 20), and `graph_io.py`
+(`read_graph_or_pdg_file` depth 3, 14).
+
+These functions were flattened and split within their modules by the module
+refactor recorded in `docs/current_task.md`, so
+`python scripts/check_code_rules.py --strict src/causaliq_analysis` now
+reports zero breaches.
