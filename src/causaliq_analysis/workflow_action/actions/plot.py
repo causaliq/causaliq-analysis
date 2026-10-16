@@ -1,9 +1,10 @@
 """
 Plot workflow action.
 
-Generates a publication-ready chart from a summarise CSV output. The action
-is stateless, so validation and execution delegate to module-level helpers
-and each step stays within the module and method limits.
+Generates a publication-ready chart from a summarise CSV output or a
+metrics workflow cache. The action writes no cache, so it runs once. The
+action is stateless, so validation and execution delegate to module-level
+helpers and each step stays within the module and method limits.
 """
 
 from typing import Any, Dict, Optional
@@ -35,7 +36,7 @@ class PlotAction(AnalysisAction):
     """
 
     action_name = "plot"
-    pattern = ActionPattern.NOCACHES
+    pattern = ActionPattern.AGGREGATE
 
     def validate(self, parameters: Dict[str, Any]) -> None:
         """Validate plot parameters before execution.
@@ -48,7 +49,7 @@ class PlotAction(AnalysisAction):
                 converts this to an ActionValidationError.
 
         """
-        _require_csv_input(parameters)
+        _require_input(parameters)
         _require_image_output(parameters)
         _require_column_parameters(parameters)
         _require_known_kind(parameters)
@@ -91,24 +92,25 @@ class PlotAction(AnalysisAction):
             raise ActionExecutionError(f"Plot failed: {e}") from e
 
 
-def _require_csv_input(parameters: Dict[str, Any]) -> None:
-    """Require a CSV input path.
+def _require_input(parameters: Dict[str, Any]) -> None:
+    """Require a CSV or metrics-cache input path.
 
     Args:
         parameters: Action parameter values.
 
     Raises:
-        ValueError: If 'input' is missing or is not a CSV file.
+        ValueError: If 'input' is missing or is not a CSV or cache file.
 
     """
     input_path = parameters.get("input")
     if input_path is None:
         raise ValueError(
-            "plot requires 'input' parameter with a .csv file path."
+            "plot requires 'input' parameter with a .csv or .db path."
         )
-    if not str(input_path).lower().endswith(".csv"):
+    if not str(input_path).lower().endswith((".csv", ".db")):
         raise ValueError(
-            f"plot input must be a CSV file (.csv). Got: {input_path}"
+            "plot input must be a summarise CSV (.csv) or metrics "
+            f"cache (.db). Got: {input_path}"
         )
 
 
@@ -219,7 +221,7 @@ def _plot_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
 
     """
     request = {
-        "input_csv": parameters.get("input"),
+        "input_path": parameters.get("input"),
         "output": parameters.get("output"),
         "kind": parameters.get("type", "line"),
         "subplot": parameters.get("subplot"),
@@ -242,7 +244,7 @@ def _require_string_request(request: Dict[str, Any]) -> None:
         AssertionError: If a required value is not a string.
 
     """
-    assert isinstance(request["input_csv"], str)
+    assert isinstance(request["input_path"], str)
     assert isinstance(request["output"], str)
     assert isinstance(request["kind"], str)
     assert isinstance(request["subplot"], str)
@@ -267,14 +269,14 @@ def _dry_run_result(
     """
     if logger and logger.is_terminal_logging:
         print(
-            f"Would plot {request['kind']} from {request['input_csv']} "
+            f"Would plot {request['kind']} from {request['input_path']} "
             f"to {request['output']}"
         )
     return (
         "skipped",
         {
             "message": "Dry-run mode",
-            "input": str(request["input_csv"]),
+            "input": str(request["input_path"]),
             "output": str(request["output"]),
             "type": request["kind"],
         },

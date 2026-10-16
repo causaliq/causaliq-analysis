@@ -1,10 +1,11 @@
-"""Entry point for generating a chart from a summarise CSV output.
+"""Entry point for generating a chart from workflow results.
 
-``run_plot`` stays thin, delegating kind validation, CSV reading,
-long-form data shaping, property logging and dispatch to module-level
-helpers.
+``run_plot`` stays thin, delegating kind validation, input reading (a
+``summarise`` CSV or a metrics workflow cache), long-form data shaping,
+property logging and dispatch to module-level helpers.
 """
 
+import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -21,7 +22,7 @@ __all__ = ["run_plot"]
 
 
 def run_plot(
-    input_csv: str,
+    input_path: str,
     output: str,
     kind: str = "line",
     subplot: str = "",
@@ -31,14 +32,15 @@ def run_plot(
     properties: Optional[Union[str, List[str]]] = None,
     log_fn: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
-    """Generate a chart from a ``summarise`` CSV output.
+    """Generate a chart from summarise output or a metrics cache.
 
-    The input CSV contains one row per subplot, x value and group
-    combination (as produced by the ``summarise`` action). The chart is
-    generated using the migrated legacy plotting functions.
+    The input is either a ``summarise`` CSV (one row per subplot, x value
+    and group combination) or a metrics workflow cache (``.db``) whose
+    entries carry a ``metrics`` object. The chart is generated using the
+    migrated legacy plotting functions.
 
     Args:
-        input_csv: path of the input CSV file.
+        input_path: path of the input CSV file or metrics cache.
         output: path of the output chart file (e.g. ``.png`` or ``.jpg``).
         kind: type of plot required, e.g. ``line`` or ``bar``.
         subplot: column name defining the subplot.
@@ -56,8 +58,8 @@ def run_plot(
         ValueError: If the kind, columns or input file are invalid.
     """
     _validate_kind(kind)
-    _log_start(log_fn, kind, input_csv, output)
-    frame = _read_frame(input_csv)
+    _log_start(log_fn, kind, input_path, output)
+    frame = _load_frame(input_path)
     _require_columns(frame, (subplot, group, x, y))
     data = _build_long_form(frame, subplot, group, x, y)
 
@@ -68,7 +70,7 @@ def run_plot(
     _dispatch(kind, data, props, output)
 
     return {
-        "input": str(input_csv),
+        "input": str(input_path),
         "output": str(output),
         "type": kind,
         "columns": {"subplot": subplot, "group": group, "x": x, "y": y},
@@ -87,15 +89,22 @@ def _validate_kind(kind: str) -> None:
 def _log_start(
     log_fn: Optional[Callable[[str], None]],
     kind: str,
-    input_csv: str,
+    input_path: str,
     output: str,
 ) -> None:
     """Log the start of a plot run when a log function is provided."""
     if log_fn:
-        log_fn(f"Plotting {kind} from {input_csv} to {output}")
+        log_fn(f"Plotting {kind} from {input_path} to {output}")
 
 
-def _read_frame(input_csv: str) -> DataFrame:
+def _load_frame(input_path: str) -> DataFrame:
+    """Load the input frame from a CSV file or a metrics cache."""
+    if str(input_path).lower().endswith(".db"):
+        return _read_metrics_frame(input_path)
+    return _read_csv_frame(input_path)
+
+
+def _read_csv_frame(input_csv: str) -> DataFrame:
     """Read the input CSV and normalise its column names."""
     try:
         frame = read_csv(input_csv)
@@ -105,12 +114,63 @@ def _read_frame(input_csv: str) -> DataFrame:
     return frame
 
 
+def _read_metrics_frame(cache_path: str) -> DataFrame:
+    """Read a metrics workflow cache into a one-row-per-entry frame.
+
+    Each row combines the entry's matrix values with the metric values
+    stored in its ``metrics`` object, so the plotted columns are the
+    matrix keys plus the metric names.
+    """
+    rows = _metrics_rows(cache_path)
+    if not rows:
+        raise ValueError(f"No metric entries found in cache: {cache_path}")
+    return DataFrame(rows)
+
+
+def _metrics_rows(cache_path: str) -> List[Dict[str, Any]]:
+    """Build the flat metric rows held by a metrics workflow cache."""
+    from causaliq_workflow.cache import WorkflowCache
+
+    with WorkflowCache(cache_path) as cache:
+        return _read_cache_rows(cache)
+
+
+def _read_cache_rows(cache: Any) -> List[Dict[str, Any]]:
+    """Read the metric rows from an open workflow cache."""
+    rows: List[Dict[str, Any]] = []
+    for entry_info in cache.list_entries():
+        matrix_values = entry_info.get("matrix_values", {})
+        entry = cache.get(matrix_values)
+        metrics = _entry_metrics(entry)
+        if metrics is None:
+            continue
+        rows.append({**matrix_values, **metrics})
+    return rows
+
+
+def _entry_metrics(entry: Any) -> Optional[Dict[str, Any]]:
+    """Return the metric values of a cache entry, or None.
+
+    Entries with no ``metrics`` object, or with the empty placeholder
+    object written for a failed run, contribute no metric values.
+    """
+    if entry is None:
+        return None
+    metrics = entry.get_object("metrics")
+    if metrics is None or metrics.is_empty:
+        return None
+    parsed = json.loads(metrics.content)
+    if not isinstance(parsed, dict):
+        return None
+    return parsed
+
+
 def _require_columns(frame: DataFrame, columns: Tuple[str, ...]) -> None:
     """Raise ValueError when required columns are missing."""
     missing = [c for c in columns if c not in frame.columns]
     if missing:
         raise ValueError(
-            f"Input CSV missing required column(s): {', '.join(missing)}"
+            f"Input missing required column(s): {', '.join(missing)}"
         )
 
 

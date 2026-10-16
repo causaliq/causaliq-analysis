@@ -34,9 +34,9 @@ def test_concrete_action_name() -> None:
     assert _StubAction().action_name == "stub"
 
 
-# Test the default action pattern is NOCACHES
+# Test the default action pattern is CREATE
 def test_base_action_pattern_default() -> None:
-    assert _StubAction().pattern == ActionPattern.NOCACHES
+    assert _StubAction().pattern == ActionPattern.CREATE
 
 
 # Test validate accepts parameters providing all required values

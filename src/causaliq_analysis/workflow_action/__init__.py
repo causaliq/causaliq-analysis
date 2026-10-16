@@ -109,7 +109,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "evaluate_graph": ActionPattern.AGGREGATE,
         "best_graph": ActionPattern.AGGREGATE,
         "summarise": ActionPattern.AGGREGATE,
-        "plot": ActionPattern.NOCACHES,
+        "plot": ActionPattern.AGGREGATE,
     }
 
     # Input specifications

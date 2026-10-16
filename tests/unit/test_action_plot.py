@@ -111,16 +111,16 @@ def test_plot_rejects_invalid_type() -> None:
         )
 
 
-# Plot action rejects non-CSV input files.
-def test_plot_rejects_non_csv_input() -> None:
-    """Test plot raises error when input is not a CSV file."""
+# Plot action rejects input files that are neither CSV nor cache.
+def test_plot_rejects_unknown_input_extension() -> None:
+    """Test plot raises error when input is not a CSV or cache file."""
     from causaliq_core import ActionValidationError
 
     provider = AnalysisActionProvider()
     parameters = _valid_parameters()
-    parameters["input"] = "results.db"
+    parameters["input"] = "results.txt"
 
-    with pytest.raises(ActionValidationError, match="must be a CSV file"):
+    with pytest.raises(ActionValidationError, match="must be a summarise CSV"):
         provider.run(
             action="plot",
             parameters=parameters,
@@ -128,6 +128,17 @@ def test_plot_rejects_non_csv_input() -> None:
             context=None,
             logger=_make_logger(),
         )
+
+
+# Plot action accepts a metrics cache (.db) input.
+def test_plot_accepts_metrics_cache_input() -> None:
+    """Test plot validation accepts a metrics cache input."""
+    from causaliq_analysis.workflow_action.actions.plot import PlotAction
+
+    parameters = _valid_parameters()
+    parameters["input"] = "metrics.db"
+
+    PlotAction().validate(parameters)
 
 
 # Plot action rejects non-image output files.
@@ -306,7 +317,7 @@ def test_plot_action_pattern() -> None:
     from causaliq_core import ActionPattern
 
     provider = AnalysisActionProvider()
-    assert provider.action_patterns["plot"] == ActionPattern.NOCACHES
+    assert provider.action_patterns["plot"] == ActionPattern.AGGREGATE
     assert "plot" in provider.supported_actions
     assert "plot_file" in provider.outputs
 

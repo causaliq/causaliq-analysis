@@ -29,7 +29,7 @@ class AnalysisAction(ABC):
     """
 
     action_name: str = ""
-    pattern: ActionPattern = ActionPattern.NOCACHES
+    pattern: ActionPattern = ActionPattern.CREATE
     required_parameters: Tuple[str, ...] = ()
 
     def validate(self, parameters: Dict[str, Any]) -> None:
