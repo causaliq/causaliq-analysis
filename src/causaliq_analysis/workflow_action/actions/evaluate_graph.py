@@ -2,11 +2,14 @@
 Evaluate_graph workflow action.
 
 Compares a learned graph against a ground-truth reference and returns
-structural metrics as action metadata. The action is stateless, so
-validation and execution delegate to module-level helpers and each step
-stays within the module and method limits.
+structural metrics. The action reads the matched entries of the input
+graph cache (AGGREGATE pattern) and writes a single ``metrics`` object to
+the output cache. The action is stateless, so validation and execution
+delegate to module-level helpers and each step stays within the module and
+method limits.
 """
 
+import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from causaliq_analysis import graph_io
@@ -46,7 +49,7 @@ class EvaluateGraphAction(AnalysisAction):
     """
 
     action_name = "evaluate_graph"
-    pattern = ActionPattern.UPDATE
+    pattern = ActionPattern.AGGREGATE
 
     def validate(self, parameters: Dict[str, Any]) -> None:
         """Validate evaluate_graph parameters before execution.
@@ -62,6 +65,7 @@ class EvaluateGraphAction(AnalysisAction):
         require_param(parameters, "reference", "evaluate_graph")
         require_param(parameters, "metric", "evaluate_graph")
         _require_valid_metrics(parameters)
+        _require_cache_output(parameters)
 
     def run(
         self,
@@ -70,10 +74,10 @@ class EvaluateGraphAction(AnalysisAction):
         context: Optional[Any] = None,
         logger: Optional[Any] = None,
     ) -> ActionResult:
-        """Evaluate the entry graph against the reference graph.
+        """Evaluate the matched entry graph against the reference graph.
 
-        UPDATE pattern action: the graph to evaluate arrives via the
-        '_update_entry' parameter, and the reference may be a single
+        AGGREGATE pattern action: the graph to evaluate arrives via the
+        '_aggregation_entries' parameter, and the reference may be a single
         ground-truth graph file or a workflow cache (.db) whose entries
         share the input cache's key structure.
 
@@ -152,17 +156,23 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters: Action parameter values.
 
     Returns:
-        Request holding the update entry, reference path and metrics.
+        Request holding the matched entry, reference path and metrics.
 
     Raises:
-        ActionExecutionError: If a required parameter is missing.
+        ActionExecutionError: If a required parameter is missing or more
+            than one entry matches the current matrix combination.
 
     """
-    update_entry = parameters.get("_update_entry")
-    if not update_entry:
+    entries = parameters.get("_aggregation_entries") or []
+    if not entries:
         raise ActionExecutionError(
-            "evaluate_graph requires _update_entry parameter "
-            "(UPDATE pattern action)"
+            "evaluate_graph requires '_aggregation_entries' parameter "
+            "(AGGREGATE pattern action)"
+        )
+    if len(entries) != 1:
+        raise ActionExecutionError(
+            "evaluate_graph expects exactly one matching entry per job, "
+            f"found {len(entries)}. Add a matrix key to distinguish them."
         )
 
     reference_path = parameters.get("reference")
@@ -175,7 +185,7 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     # Type assertion: metric is required, so this is always a list
     assert metrics is not None, "metric is required"
     return {
-        "update_entry": update_entry,
+        "entry": entries[0],
         "reference": reference_path,
         "metrics": metrics,
     }
@@ -195,7 +205,7 @@ def _dry_run_result(
         ActionResult tuple with status "skipped".
 
     """
-    matrix_values = request["update_entry"].get("matrix_values", {})
+    matrix_values = request["entry"].get("matrix_values", {})
     if logger and logger.is_terminal_logging:
         print(
             f"Would evaluate graph {matrix_values} "
@@ -223,7 +233,7 @@ def _evaluate(
     """
     graph, graph_type = _entry_graph(request)
     reference = _resolve_reference_graph(
-        request["reference"], request["update_entry"]
+        request["reference"], request["entry"]
     )
     metrics = _compute_metrics(graph, reference)
     equiv_metrics = _equiv_metrics(
@@ -231,11 +241,11 @@ def _evaluate(
     )
     metadata = _metric_metadata(request, metrics, equiv_metrics, graph_type)
     _log_evaluation(logger, graph_type, metrics)
-    return ("success", metadata, [])
+    return ("success", metadata, _metrics_objects(metadata))
 
 
 def _entry_graph(request: Dict[str, Any]) -> Tuple[Any, str]:
-    """Extract the graph to evaluate from the update entry.
+    """Extract the graph to evaluate from the matched entry.
 
     Args:
         request: Evaluation request.
@@ -247,9 +257,9 @@ def _entry_graph(request: Dict[str, Any]) -> Tuple[Any, str]:
         ActionExecutionError: If the entry holds no evaluable graph.
 
     """
-    entry = request["update_entry"].get("entry")
+    entry = request["entry"].get("entry")
     if entry is None:
-        raise ActionExecutionError("No entry object in _update_entry")
+        raise ActionExecutionError("No entry object in _aggregation_entries")
     return helpers._extract_graph_from_entry(entry, "cache entry")
 
 
@@ -403,7 +413,7 @@ def _to_cpdag(graph: Any) -> Any:
 
 def _resolve_reference_graph(
     reference_path: str,
-    update_entry: Dict[str, Any],
+    entry: Dict[str, Any],
 ) -> Any:
     """Resolve the reference graph from a file or workflow cache.
 
@@ -416,8 +426,8 @@ def _resolve_reference_graph(
     Args:
         reference_path: Path to a reference graph file or a workflow
             cache (.db) containing reference graphs.
-        update_entry: UPDATE action entry data containing the
-            'matrix_values' for the current input entry.
+        entry: Matched aggregation entry holding the 'matrix_values' for
+            the current input entry.
 
     Returns:
         The parsed reference graph.
@@ -428,7 +438,7 @@ def _resolve_reference_graph(
     """
     if not str(reference_path).lower().endswith(".db"):
         return _reference_from_file(reference_path)
-    return _reference_from_cache(reference_path, update_entry)
+    return _reference_from_cache(reference_path, entry)
 
 
 def _reference_from_file(reference_path: str) -> Any:
@@ -458,13 +468,13 @@ def _reference_from_file(reference_path: str) -> Any:
 
 def _reference_from_cache(
     reference_path: str,
-    update_entry: Dict[str, Any],
+    entry: Dict[str, Any],
 ) -> Any:
     """Resolve a reference graph from a reference workflow cache.
 
     Args:
         reference_path: Path to the reference workflow cache (.db).
-        update_entry: UPDATE action entry data.
+        entry: Matched aggregation entry data.
 
     Returns:
         The parsed reference graph.
@@ -475,7 +485,7 @@ def _reference_from_cache(
     """
     from causaliq_workflow.cache import WorkflowCache
 
-    matrix_values = update_entry.get("matrix_values", {})
+    matrix_values = entry.get("matrix_values", {})
     try:
         with WorkflowCache(reference_path) as ref_cache:
             return _reference_cache_entry(
@@ -665,3 +675,47 @@ def _log_evaluation(
             f"Evaluated {graph_type}: F1={metrics['f1']:.3f}, "
             f"SHD={metrics['shd']}"
         )
+
+
+def _require_cache_output(parameters: Dict[str, Any]) -> None:
+    """Validate the output path when one is provided.
+
+    Args:
+        parameters: Action parameter values.
+
+    Raises:
+        ValueError: If the output path is not a workflow cache.
+
+    """
+    output_path = parameters.get("output")
+    if output_path is None:
+        return
+    if not str(output_path).lower().endswith(".db"):
+        raise ValueError(
+            "evaluate_graph output must be a workflow cache (.db). "
+            f"Got: {output_path}"
+        )
+
+
+def _metrics_objects(metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Build the metrics object written to the output cache.
+
+    The metric values are also returned in the action metadata as a
+    transitional bridge: ``summarise`` still reads metrics from metadata
+    and is migrated to the typed metrics object in a later change.
+
+    Args:
+        metadata: Evaluation metadata holding the metric values.
+
+    Returns:
+        Single-element list holding the metrics object.
+
+    """
+    return [
+        {
+            "type": "metrics",
+            "format": "json",
+            "action": "evaluate_graph",
+            "content": json.dumps(metadata),
+        }
+    ]

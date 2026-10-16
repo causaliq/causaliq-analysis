@@ -53,7 +53,8 @@ def test_evaluate_graph_returns_metrics() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1", "shd", "precision", "recall"],
                 },
@@ -88,7 +89,8 @@ def test_evaluate_graph_dry_run_skips(capsys: Any) -> None:
     result = provider.run(
         action="evaluate_graph",
         parameters={
-            "_update_entry": update_entry,
+            "_aggregation_entries": [update_entry],
+            "output": "metrics.db",
             "reference": "ref.graphml",
             "metric": ["f1"],
         },
@@ -102,9 +104,9 @@ def test_evaluate_graph_dry_run_skips(capsys: Any) -> None:
     assert "Would evaluate graph" in captured.out
 
 
-# Test evaluate_graph requires _update_entry parameter.
-def test_evaluate_graph_requires_update_entry() -> None:
-    """Test error when _update_entry is not provided."""
+# Test evaluate_graph requires _aggregation_entries parameter.
+def test_evaluate_graph_requires_aggregation_entries() -> None:
+    """Test error when _aggregation_entries is not provided."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -119,7 +121,7 @@ def test_evaluate_graph_requires_update_entry() -> None:
             context=None,
             logger=mock_logger,
         )
-    assert "_update_entry" in str(exc_info.value)
+    assert "_aggregation_entries" in str(exc_info.value)
 
 
 # Test evaluate_graph requires reference parameter.
@@ -140,7 +142,11 @@ def test_evaluate_graph_requires_reference() -> None:
     with pytest.raises(Exception) as exc_info:
         provider.run(
             action="evaluate_graph",
-            parameters={"_update_entry": update_entry, "metric": ["f1"]},
+            parameters={
+                "_aggregation_entries": [update_entry],
+                "output": "metrics.db",
+                "metric": ["f1"],
+            },
             mode="run",
             context=None,
             logger=mock_logger,
@@ -167,7 +173,8 @@ def test_evaluate_graph_requires_metric() -> None:
         provider.run(
             action="evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
+                "output": "metrics.db",
                 "reference": "ref.graphml",
             },
             mode="run",
@@ -196,7 +203,8 @@ def test_evaluate_graph_no_entry_object() -> None:
         provider.run(
             action="evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
+                "output": "metrics.db",
                 "reference": "ref.graphml",
                 "metric": ["f1"],
             },
@@ -229,7 +237,8 @@ def test_evaluate_graph_no_graphml_in_entry() -> None:
         provider.run(
             action="evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
+                "output": "metrics.db",
                 "reference": "ref.graphml",
                 "metric": ["f1"],
             },
@@ -268,7 +277,8 @@ def test_evaluate_graph_rejects_pdg_only() -> None:
         provider.run(
             action="evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
+                "output": "metrics.db",
                 "reference": "ref.graphml",
                 "metric": ["f1"],
             },
@@ -322,7 +332,8 @@ def test_evaluate_graph_accepts_pdg_content() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1"],
                 },
@@ -364,7 +375,8 @@ def test_evaluate_graph_invalid_graphml() -> None:
         provider.run(
             action="evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
+                "output": "metrics.db",
                 "reference": "ref.graphml",
                 "metric": ["f1"],
             },
@@ -411,7 +423,8 @@ def test_evaluate_graph_reference_not_found() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "nonexistent.graphml",
                     "metric": ["f1"],
                 },
@@ -454,7 +467,8 @@ def test_evaluate_graph_reference_read_error() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "corrupt.graphml",
                     "metric": ["f1"],
                 },
@@ -494,7 +508,8 @@ def test_evaluate_graph_metric_failure() -> None:
                 provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["f1"],
                     },
@@ -540,7 +555,8 @@ def test_evaluate_graph_logs_result(capsys: Any) -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1", "shd"],
                 },
@@ -605,7 +621,8 @@ def test_evaluate_graph_skips_non_graphml() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1"],
                 },
@@ -655,7 +672,8 @@ def test_evaluate_graph_uses_dag_not_pdg() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1", "shd"],
                 },
@@ -707,7 +725,8 @@ def test_evaluate_graph_skips_unknown_object_types() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1"],
                 },
@@ -766,7 +785,8 @@ def test_evaluate_graph_skips_none_object() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1"],
                 },
@@ -817,7 +837,8 @@ def test_evaluate_graph_xdsl_reference() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "networks/asia/asia.xdsl",
                     "metric": ["f1"],
                 },
@@ -871,7 +892,8 @@ def test_evaluate_graph_dsc_reference() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "networks/asia/asia.dsc",
                     "metric": ["f1"],
                 },
@@ -920,7 +942,8 @@ def test_evaluate_graph_metric_filter() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": "f1",
                 },
@@ -975,7 +998,8 @@ def test_evaluate_graph_metric_filter_list() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1", "shd"],
                 },
@@ -1034,7 +1058,8 @@ def test_evaluate_graph_equiv_f1() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["equiv.f1"],
                     },
@@ -1090,7 +1115,8 @@ def test_evaluate_graph_equiv_shd() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["equiv.shd"],
                     },
@@ -1146,7 +1172,8 @@ def test_evaluate_graph_mixed_metrics() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["f1", "shd", "equiv.f1", "equiv.shd"],
                     },
@@ -1201,7 +1228,8 @@ def test_evaluate_graph_equiv_pdag_not_extendable() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["equiv.f1"],
                     },
@@ -1247,7 +1275,8 @@ def test_evaluate_graph_equiv_unsupported_graph_type() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["equiv.f1"],
                 },
@@ -1302,7 +1331,8 @@ def test_evaluate_graph_equiv_skip_logs_warning(capsys: Any) -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["equiv.f1"],
                     },
@@ -1355,7 +1385,8 @@ def test_evaluate_graph_equiv_computation_failure() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["equiv.f1"],
                     },
@@ -1416,7 +1447,8 @@ def test_evaluate_graph_cache_reference_returns_metrics() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "results/legacy.db",
                         "metric": ["f1", "shd"],
                     },
@@ -1469,7 +1501,8 @@ def test_evaluate_graph_cache_reference_key_structure_mismatch() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "legacy.db",
                     "metric": ["f1"],
                 },
@@ -1512,7 +1545,8 @@ def test_evaluate_graph_cache_reference_empty() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "legacy.db",
                     "metric": ["f1"],
                 },
@@ -1555,7 +1589,8 @@ def test_evaluate_graph_cache_reference_no_matching_entry() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "legacy.db",
                     "metric": ["f1"],
                 },
@@ -1602,7 +1637,8 @@ def test_evaluate_graph_cache_reference_no_graph() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "legacy.db",
                     "metric": ["f1"],
                 },
@@ -1659,7 +1695,8 @@ def test_evaluate_graph_cache_reference_pdg() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "legacy.db",
                     "metric": ["f1"],
                 },
@@ -1697,7 +1734,8 @@ def test_evaluate_graph_cache_reference_read_error() -> None:
             provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "legacy.db",
                     "metric": ["f1"],
                 },
@@ -1746,7 +1784,8 @@ def test_evaluate_graph_edge_metrics() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["edge"],
                 },
@@ -1811,7 +1850,8 @@ def test_evaluate_graph_equiv_edge_metrics() -> None:
                 result = provider.run(
                     action="evaluate_graph",
                     parameters={
-                        "_update_entry": update_entry,
+                        "_aggregation_entries": [update_entry],
+                        "output": "metrics.db",
                         "reference": "ref.graphml",
                         "metric": ["equiv.edge"],
                     },
@@ -1867,7 +1907,8 @@ def test_evaluate_graph_edge_with_standard_metric() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["f1", "edge"],
                 },
@@ -1921,7 +1962,8 @@ def test_evaluate_graph_edge_metrics_not_leaked() -> None:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
-                    "_update_entry": update_entry,
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
                     "reference": "ref.graphml",
                     "metric": ["precision"],
                 },
@@ -1951,3 +1993,46 @@ def test_extract_graph_from_entry_helper() -> None:
 
     assert graph_type == "dag"
     assert graph is not None
+
+
+# Test evaluate_graph rejects more than one matched aggregation entry.
+def test_evaluate_graph_rejects_multiple_entries() -> None:
+    """Test evaluate_graph raises when several entries match one job."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    with pytest.raises(ActionExecutionError, match="exactly one"):
+        provider.run(
+            action="evaluate_graph",
+            parameters={
+                "reference": "ref.graphml",
+                "metric": ["f1"],
+                "_aggregation_entries": [{}, {}],
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+
+
+# Test evaluate_graph rejects a non-cache output path.
+def test_evaluate_graph_rejects_non_cache_output() -> None:
+    """Test evaluate_graph validate rejects a non-.db output."""
+    from causaliq_analysis.workflow_action.actions.evaluate_graph import (
+        EvaluateGraphAction,
+    )
+
+    with pytest.raises(ValueError, match="must be a workflow cache"):
+        EvaluateGraphAction().validate(
+            {
+                "reference": "ref.graphml",
+                "metric": ["f1"],
+                "output": "metrics.csv",
+            }
+        )

@@ -1,9 +1,11 @@
 """
 Best_graph workflow action.
 
-Extracts the optimal DAG from a PDG with the greedy algorithm. The action is
-stateless, so validation and execution delegate to module-level helpers and
-each step stays within the module and method limits.
+Extracts the optimal DAG from a PDG with the greedy algorithm. The action
+reads the matched PDG cache entries (AGGREGATE pattern) and writes a single
+``dag`` object to the output cache. The action is stateless, so validation
+and execution delegate to module-level helpers and each step stays within
+the module and method limits.
 """
 
 from datetime import datetime, timezone
@@ -34,7 +36,7 @@ class BestGraphAction(AnalysisAction):
     """
 
     action_name = "best_graph"
-    pattern = ActionPattern.UPDATE
+    pattern = ActionPattern.AGGREGATE
 
     def validate(self, parameters: Dict[str, Any]) -> None:
         """Validate best_graph parameters before execution.
@@ -47,9 +49,10 @@ class BestGraphAction(AnalysisAction):
                 converts this to an ActionValidationError.
 
         """
-        _require_input_unless_update(parameters)
+        require_param(parameters, "input", "best_graph")
         _require_numeric_threshold(parameters)
         _require_valid_filter(parameters)
+        _require_cache_output(parameters)
 
     def run(
         self,
@@ -60,9 +63,9 @@ class BestGraphAction(AnalysisAction):
     ) -> ActionResult:
         """Execute optimal DAG extraction from a PDG.
 
-        Reads the PDG from the workflow cache entry (UPDATE mode) or from a
-        GraphML file (direct mode), extracts the optimal DAG and returns it
-        as a GraphML object.
+        Reads the PDG from the matched workflow cache entry (AGGREGATE
+        pattern), extracts the optimal DAG and returns it as a GraphML
+        object for the output cache.
 
         Args:
             parameters: Action parameter values.
@@ -86,18 +89,24 @@ class BestGraphAction(AnalysisAction):
         return _success_result(request, result, content)
 
 
-def _require_input_unless_update(parameters: Dict[str, Any]) -> None:
-    """Require an input path unless the workflow supplies the cache entry.
+def _require_cache_output(parameters: Dict[str, Any]) -> None:
+    """Validate the output path when one is provided.
 
     Args:
         parameters: Action parameter values.
 
     Raises:
-        ValueError: If 'input' is missing outside UPDATE mode.
+        ValueError: If the output path is not a workflow cache.
 
     """
-    if "_update_entry" not in parameters:
-        require_param(parameters, "input", "best_graph")
+    output_path = parameters.get("output")
+    if output_path is None:
+        return
+    if not str(output_path).lower().endswith(".db"):
+        raise ValueError(
+            "best_graph output must be a workflow cache (.db). "
+            f"Got: {output_path}"
+        )
 
 
 def _require_numeric_threshold(parameters: Dict[str, Any]) -> None:
@@ -147,21 +156,55 @@ def _require_valid_filter(parameters: Dict[str, Any]) -> None:
 def _best_graph_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Build the extraction request from action parameters.
 
+    Aggregation mode reads the PDG from the single matched cache entry
+    passed via '_aggregation_entries'; direct mode reads the PDG from the
+    'input' GraphML file (CLI use).
+
     Args:
         parameters: Action parameter values.
 
     Returns:
-        Request holding the input path, threshold and UPDATE entry data.
+        Request holding the input path, threshold and matched entry (or
+        None in direct mode).
+
+    Raises:
+        ActionExecutionError: If more than one entry matches the current
+            matrix combination.
 
     """
-    update_entry = parameters.get("_update_entry")
+    entry = _single_entry(parameters)
     request: Dict[str, Any] = {
         "input": parameters.get("input"),
         "threshold": float(parameters.get("threshold", 0.0)),
-        "update_entry": update_entry,
-        "is_update": update_entry is not None,
+        "entry": entry,
     }
     return request
+
+
+def _single_entry(parameters: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return the single matched aggregation entry, or None.
+
+    Args:
+        parameters: Action parameter values.
+
+    Returns:
+        The matched entry, or None when no cache entries were supplied.
+
+    Raises:
+        ActionExecutionError: If more than one entry matches the current
+            matrix combination.
+
+    """
+    entries = parameters.get("_aggregation_entries") or []
+    if not entries:
+        return None
+    if len(entries) != 1:
+        raise ActionExecutionError(
+            "best_graph expects exactly one matching entry per job, "
+            f"found {len(entries)}. Add a matrix key to distinguish them."
+        )
+    entry: Dict[str, Any] = entries[0]
+    return entry
 
 
 def _dry_run_result(
@@ -183,7 +226,7 @@ def _dry_run_result(
     metadata: Dict[str, Any] = {
         "input": request["input"],
         "threshold": request["threshold"],
-        "update_mode": request["is_update"],
+        "cache_input": request["entry"] is not None,
     }
     return ("skipped", metadata, [])
 
@@ -195,30 +238,30 @@ def _print_dry_run(request: Dict[str, Any]) -> None:
         request: Extraction request.
 
     """
-    if request["is_update"]:
-        matrix_values = _entry_matrix_values(request["update_entry"])
+    if request["entry"] is not None:
+        matrix_values = _entry_matrix_values(request["entry"])
         print(
             f"Would extract DAG from entry {matrix_values} "
             f"(threshold={request['threshold']})"
         )
-    else:
-        print(
-            f"Would extract optimal DAG from {request['input']} "
-            f"(threshold={request['threshold']})"
-        )
+        return
+    print(
+        f"Would extract optimal DAG from {request['input']} "
+        f"(threshold={request['threshold']})"
+    )
 
 
-def _entry_matrix_values(update_entry: Dict[str, Any]) -> Dict[str, Any]:
+def _entry_matrix_values(entry: Dict[str, Any]) -> Dict[str, Any]:
     """Return the matrix values recorded on a workflow cache entry.
 
     Args:
-        update_entry: UPDATE action entry data.
+        entry: Matched aggregation entry data.
 
     Returns:
         Matrix variable values of the entry.
 
     """
-    matrix_values: Dict[str, Any] = update_entry.get("matrix_values", {})
+    matrix_values: Dict[str, Any] = entry.get("matrix_values", {})
     return matrix_values
 
 
@@ -235,16 +278,16 @@ def _read_request_pdg(request: Dict[str, Any]) -> Tuple[Any, str]:
         ActionExecutionError: If the PDG cannot be read or parsed.
 
     """
-    if request["is_update"]:
-        return _read_pdg_from_entry(request["update_entry"])
+    if request["entry"] is not None:
+        return _read_pdg_from_entry(request["entry"])
     return _read_pdg_from_file(request["input"])
 
 
-def _read_pdg_from_entry(update_entry: Dict[str, Any]) -> Tuple[Any, str]:
+def _read_pdg_from_entry(entry_dict: Dict[str, Any]) -> Tuple[Any, str]:
     """Read the PDG from a workflow cache entry.
 
     Args:
-        update_entry: UPDATE action entry data.
+        entry_dict: Matched aggregation entry data.
 
     Returns:
         Tuple of (PDG, description of the cache entry).
@@ -253,10 +296,10 @@ def _read_pdg_from_entry(update_entry: Dict[str, Any]) -> Tuple[Any, str]:
         ActionExecutionError: If the entry carries no parseable PDG.
 
     """
-    entry = update_entry.get("entry")
-    if entry is None:
-        raise ActionExecutionError("No entry object in _update_entry")
-    pdg_object = entry.get_object("pdg")
+    cache_entry = entry_dict.get("entry")
+    if cache_entry is None:
+        raise ActionExecutionError("No entry object in _aggregation_entries")
+    pdg_object = cache_entry.get_object("pdg")
     if pdg_object is None:
         raise ActionExecutionError(
             "Cache entry does not contain 'pdg' object. "
@@ -264,7 +307,7 @@ def _read_pdg_from_entry(update_entry: Dict[str, Any]) -> Tuple[Any, str]:
         )
     try:
         pdg = _parse_pdg(pdg_object.content)
-        return pdg, f"cache entry {_entry_matrix_values(update_entry)}"
+        return pdg, f"cache entry {_entry_matrix_values(entry_dict)}"
     except Exception as e:
         raise ActionExecutionError(
             f"Failed to parse pdg from cache: {e}"
@@ -396,7 +439,7 @@ def _success_metadata(
     metadata: Dict[str, Any] = {
         "action": "best_graph",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "input_source": input_path if input_path else "update",
+        "input_source": input_path if input_path else "aggregation",
         "input": {"type": "pdg"},
         "output": {"type": "dag", "format": "graphml"},
         "threshold": request["threshold"],

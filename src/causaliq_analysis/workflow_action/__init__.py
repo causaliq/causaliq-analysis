@@ -106,8 +106,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
     action_patterns = {
         "migrate_trace": ActionPattern.CREATE,
         "merge_graphs": ActionPattern.AGGREGATE,
-        "evaluate_graph": ActionPattern.UPDATE,
-        "best_graph": ActionPattern.UPDATE,
+        "evaluate_graph": ActionPattern.AGGREGATE,
+        "best_graph": ActionPattern.AGGREGATE,
         "summarise": ActionPattern.AGGREGATE,
         "plot": ActionPattern.NOCACHES,
     }
@@ -388,13 +388,15 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "filter",
             "metric",
             "reference",
-            "_update_entry",  # Internal workflow parameter
+            "output",
+            "_aggregation_entries",  # Internal workflow parameter
         },
         "best_graph": {
             "input",
             "threshold",
             "filter",
-            "_update_entry",  # Internal workflow parameter
+            "output",
+            "_aggregation_entries",  # Internal workflow parameter
         },
         "summarise": {
             "metric",

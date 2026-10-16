@@ -268,9 +268,9 @@ def test_best_graph_terminal_logging(capsys: Any, mocker: Any) -> None:
     assert "edges" in captured.out
 
 
-# Test best_graph dry-run with update mode (terminal logging).
-def test_best_graph_dry_run_update_mode(capsys: Any, mocker: Any) -> None:
-    """Test best_graph dry-run prints update mode message."""
+# Test best_graph dry-run with aggregation mode (terminal logging).
+def test_best_graph_dry_run_aggregation_mode(capsys: Any, mocker: Any) -> None:
+    """Test best_graph dry-run prints aggregation mode message."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -281,7 +281,7 @@ def test_best_graph_dry_run_update_mode(capsys: Any, mocker: Any) -> None:
         action="best_graph",
         parameters={
             "input": "cache.db",
-            "_update_entry": {"matrix_values": {"network": "asia"}},
+            "_aggregation_entries": [{"matrix_values": {"network": "asia"}}],
         },
         mode="dry-run",
         context=None,
@@ -293,9 +293,9 @@ def test_best_graph_dry_run_update_mode(capsys: Any, mocker: Any) -> None:
     assert "Would extract DAG from entry" in captured.out
 
 
-# Test best_graph update mode with missing entry object.
-def test_best_graph_update_missing_entry(mocker: Any) -> None:
-    """Test best_graph raises error when _update_entry has no entry object."""
+# Test best_graph aggregation mode with missing entry object.
+def test_best_graph_aggregation_missing_entry(mocker: Any) -> None:
+    """Test best_graph raises error when the matched entry has no entry."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
         AnalysisActionProvider,
@@ -310,7 +310,9 @@ def test_best_graph_update_missing_entry(mocker: Any) -> None:
             action="best_graph",
             parameters={
                 "input": "cache.db",
-                "_update_entry": {"matrix_values": {"network": "asia"}},
+                "_aggregation_entries": [
+                    {"matrix_values": {"network": "asia"}}
+                ],
             },
             mode="run",
             context=None,
@@ -318,8 +320,8 @@ def test_best_graph_update_missing_entry(mocker: Any) -> None:
         )
 
 
-# Test best_graph update mode with missing pdg object.
-def test_best_graph_update_missing_pdg(mocker: Any) -> None:
+# Test best_graph aggregation mode with missing pdg object.
+def test_best_graph_aggregation_missing_pdg(mocker: Any) -> None:
     """Test best_graph raises error when entry lacks pdg object."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -339,10 +341,9 @@ def test_best_graph_update_missing_pdg(mocker: Any) -> None:
             action="best_graph",
             parameters={
                 "input": "cache.db",
-                "_update_entry": {
-                    "matrix_values": {"network": "asia"},
-                    "entry": mock_entry,
-                },
+                "_aggregation_entries": [
+                    {"matrix_values": {"network": "asia"}, "entry": mock_entry}
+                ],
             },
             mode="run",
             context=None,
@@ -350,8 +351,8 @@ def test_best_graph_update_missing_pdg(mocker: Any) -> None:
         )
 
 
-# Test best_graph update mode with invalid PDG content.
-def test_best_graph_update_invalid_pdg(mocker: Any) -> None:
+# Test best_graph aggregation mode with invalid PDG content.
+def test_best_graph_aggregation_invalid_pdg(mocker: Any) -> None:
     """Test best_graph raises error when pdg is invalid."""
     from causaliq_analysis.workflow_action import (
         ActionExecutionError,
@@ -374,10 +375,9 @@ def test_best_graph_update_invalid_pdg(mocker: Any) -> None:
             action="best_graph",
             parameters={
                 "input": "cache.db",
-                "_update_entry": {
-                    "matrix_values": {"network": "asia"},
-                    "entry": mock_entry,
-                },
+                "_aggregation_entries": [
+                    {"matrix_values": {"network": "asia"}, "entry": mock_entry}
+                ],
             },
             mode="run",
             context=None,
@@ -385,9 +385,9 @@ def test_best_graph_update_invalid_pdg(mocker: Any) -> None:
         )
 
 
-# Test best_graph update mode success.
-def test_best_graph_update_success(mocker: Any) -> None:
-    """Test best_graph update mode extracts DAG from cache entry."""
+# Test best_graph aggregation mode success.
+def test_best_graph_aggregation_success(mocker: Any) -> None:
+    """Test best_graph aggregation mode extracts DAG from cache entry."""
     from io import StringIO
 
     from causaliq_core.graph import PDG, EdgeProbabilities
@@ -419,10 +419,9 @@ def test_best_graph_update_success(mocker: Any) -> None:
         action="best_graph",
         parameters={
             "input": "cache.db",
-            "_update_entry": {
-                "matrix_values": {"network": "asia"},
-                "entry": mock_entry,
-            },
+            "_aggregation_entries": [
+                {"matrix_values": {"network": "asia"}, "entry": mock_entry}
+            ],
         },
         mode="run",
         context=None,
@@ -458,4 +457,39 @@ def test_best_graph_direct_mode_no_input(mocker: Any) -> None:
             mode="run",
             context=None,
             logger=mock_logger,
+        )
+
+
+# Test best_graph rejects a non-cache output path.
+def test_best_graph_rejects_non_cache_output() -> None:
+    """Test best_graph validate rejects a non-.db output."""
+    from causaliq_analysis.workflow_action.actions.best_graph import (
+        BestGraphAction,
+    )
+
+    with pytest.raises(ValueError, match="must be a workflow cache"):
+        BestGraphAction().validate(
+            {"input": "pdg.graphml", "output": "dag.csv"}
+        )
+
+
+# Test best_graph rejects more than one matched aggregation entry.
+def test_best_graph_rejects_multiple_entries(mocker: Any) -> None:
+    """Test best_graph raises when several entries match one job."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    provider = AnalysisActionProvider()
+    with pytest.raises(ActionExecutionError, match="exactly one"):
+        provider.run(
+            action="best_graph",
+            parameters={
+                "input": "cache.db",
+                "_aggregation_entries": [{}, {}],
+            },
+            mode="run",
+            context=None,
+            logger=mocker.MagicMock(),
         )

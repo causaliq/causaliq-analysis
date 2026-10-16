@@ -1110,7 +1110,7 @@ def test_evaluate_graph_cache_reference_end_to_end(
     status, metadata, objects = action.run(
         "evaluate_graph",
         parameters={
-            "_update_entry": update_entry,
+            "_aggregation_entries": [update_entry],
             "reference": str(ref_path),
             "metric": ["f1", "shd"],
         },
@@ -1122,7 +1122,7 @@ def test_evaluate_graph_cache_reference_end_to_end(
     assert metadata["shd"] == 0
     assert metadata["reference"] == str(ref_path)
     assert metadata["evaluated_graph"] == "dag"
-    assert objects == []
+    assert objects[0]["type"] == "metrics"
 
     # Simulate the workflow engine persisting metrics into the input cache
     with WorkflowCache(input_path) as cache:
@@ -1187,7 +1187,7 @@ def test_evaluate_graph_cache_reference_key_mismatch_functional(
         action.run(
             "evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
                 "reference": str(ref_path),
                 "metric": ["f1"],
             },
@@ -1240,7 +1240,7 @@ def test_evaluate_graph_cache_reference_no_graph_functional(
         action.run(
             "evaluate_graph",
             parameters={
-                "_update_entry": update_entry,
+                "_aggregation_entries": [update_entry],
                 "reference": str(ref_path),
                 "metric": ["f1"],
             },
