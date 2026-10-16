@@ -6,7 +6,7 @@ is stateless, so validation and execution delegate to module-level helpers and
 each step stays within the module and method limits.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from causaliq_analysis.migrate import run_migrate_trace
 from causaliq_analysis.validation import (
@@ -60,8 +60,10 @@ class MigrateTraceAction(AnalysisAction):
     ) -> ActionResult:
         """Execute trace migration to GraphML graphs.
 
-        Migrates the matched trace files, returning one GraphML object per
-        graph together with the flattened cache metadata.
+        Migrates the matched trace files, returning exactly one GraphML
+        object together with the flattened cache metadata. More than one
+        matched graph is an error because the workflow matrix omitted a
+        distinguishing dimension.
 
         Args:
             parameters: Action parameter values.
@@ -317,99 +319,12 @@ def _no_traces_result(
     return ("skipped", metadata, [])
 
 
-def _graph_objects(result: Any) -> List[Dict[str, Any]]:
-    """Build the GraphML objects for a migration result.
-
-    Args:
-        result: Migration result holding the migrated graphs.
-
-    Returns:
-        One GraphML object per migrated graph.
-
-    """
-    total = len(result.graphs)
-    return [
-        _graph_object(index, graph, total)
-        for index, graph in enumerate(result.graphs)
-    ]
-
-
-def _graph_object(index: int, graph: Any, total: int) -> Dict[str, Any]:
-    """Build the GraphML object for a single migrated graph.
-
-    Args:
-        index: Position of the graph in the result.
-        graph: Migrated graph holding the GraphML content.
-        total: Total number of graphs in the result.
-
-    Returns:
-        Cache object holding the GraphML document.
-
-    """
-    return {
-        "type": _object_type(index, total),
-        "format": "graphml",
-        "action": "migrate_trace",
-        "content": graph.graphml,
-    }
-
-
-def _object_type(index: int, total: int) -> str:
-    """Return the cache object type for a migrated graph.
-
-    Args:
-        index: Position of the graph in the result.
-        total: Total number of graphs in the result.
-
-    Returns:
-        'dag' for a single graph, 'dag_<index>' otherwise.
-
-    """
-    return "dag" if total == 1 else f"dag_{index}"
-
-
-def _graph_metadata(result: Any) -> Dict[str, Any]:
-    """Build the per-graph metadata for a migration result.
-
-    Args:
-        result: Migration result holding the migrated graphs.
-
-    Returns:
-        Flattened metadata for a single graph, nested metadata otherwise.
-
-    """
-    metadata: Dict[str, Any] = {}
-    total = len(result.graphs)
-    for index, graph in enumerate(result.graphs):
-        graph_meta = {"trace_id": graph.trace_id, **graph.metadata}
-        object_type = _object_type(index, total)
-        _add_graph_metadata(metadata, object_type, graph_meta, total)
-    return metadata
-
-
-def _add_graph_metadata(
-    metadata: Dict[str, Any],
-    object_type: str,
-    graph_meta: Dict[str, Any],
-    total: int,
-) -> None:
-    """Add the metadata of a single graph to the result metadata.
-
-    Args:
-        metadata: Metadata being built.
-        object_type: Cache object type of the graph.
-        graph_meta: Metadata of a single graph.
-        total: Total number of graphs in the result.
-
-    """
-    if total == 1:
-        metadata.update(graph_meta)
-    else:
-        metadata[object_type] = graph_meta
-
-
 def _success_result(result: Any) -> ActionResult:
     """Build the successful action result.
+
+    Exactly one graph is returned for a cache key. More than one matched
+    graph means the workflow matrix omitted a distinguishing dimension,
+    which is reported rather than lumped into a single cache entry.
 
     Args:
         result: Migration result holding the graphs and counters.
@@ -417,10 +332,53 @@ def _success_result(result: Any) -> ActionResult:
     Returns:
         ActionResult tuple with status "success".
 
+    Raises:
+        ValueError: If more than one graph matched the cache key.
+
     """
+    graphs = result.graphs
+    if len(graphs) != 1:
+        raise ValueError(_multiple_graphs_message(len(graphs)))
+    graph = graphs[0]
     metadata: Dict[str, Any] = {
-        "num_graphs": result.num_graphs,
+        "num_graphs": 1,
         "skipped": result.skipped,
+        "trace_id": graph.trace_id,
+        **graph.metadata,
     }
-    metadata.update(_graph_metadata(result))
-    return ("success", metadata, _graph_objects(result))
+    return ("success", metadata, [_graph_object(graph)])
+
+
+def _graph_object(graph: Any) -> Dict[str, Any]:
+    """Build the GraphML object for the migrated graph.
+
+    Args:
+        graph: Migrated graph holding the GraphML content.
+
+    Returns:
+        Cache object holding the GraphML document.
+
+    """
+    return {
+        "type": "dag",
+        "format": "graphml",
+        "action": "migrate_trace",
+        "content": graph.graphml,
+    }
+
+
+def _multiple_graphs_message(count: int) -> str:
+    """Build the error message for several graphs matching one key.
+
+    Args:
+        count: Number of graphs matched for the cache key.
+
+    Returns:
+        Guidance to distinguish the graphs with a matrix key.
+
+    """
+    return (
+        f"migrate_trace matched {count} graphs for one cache key. "
+        "Add a matrix key (for example 'sample_size' or 'seed') to "
+        "distinguish them."
+    )

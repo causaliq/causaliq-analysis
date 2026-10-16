@@ -93,6 +93,7 @@ def test_migrate_trace_functional():
         "series": "TABU/STD",
         "network": "asia",
         "root_dir": "tests/data/functional/trace",
+        "sample_size": 1000,  # One graph per cache key
     }
 
     status, metadata, objects = action.run(
@@ -100,21 +101,20 @@ def test_migrate_trace_functional():
     )
 
     assert status == "success"
-    assert metadata["num_graphs"] > 0
+    assert metadata["num_graphs"] == 1
 
     # Check objects returned for cache storage (GraphML only, no JSON)
     graphml_objects = [o for o in objects if o["format"] == "graphml"]
     json_objects = [o for o in objects if o.get("format") == "json"]
 
-    assert len(graphml_objects) > 0
+    assert len(graphml_objects) == 1
     assert (
         len(json_objects) == 0
     )  # Per-graph metadata in metadata dict, not objects
 
-    # Check per-graph metadata is in metadata dict keyed by object type
-    for obj in graphml_objects:
-        assert obj["type"] in metadata
-        assert "N" in metadata[obj["type"]]
+    # The single graph's metadata is flattened into the entry metadata
+    assert graphml_objects[0]["type"] == "dag"
+    assert metadata["N"] == 1000
 
 
 # Test migrate_trace with sample_size filter.
@@ -203,6 +203,7 @@ def test_migrate_trace_with_traces_pattern() -> None:
     parameters = {
         "traces": "TABU/STD/asia.pkl.gz",  # Use traces pattern
         "root_dir": "tests/data/functional/trace",
+        "sample_size": 1000,  # One graph per cache key
     }
 
     status, metadata, objects = action.run(
@@ -210,7 +211,29 @@ def test_migrate_trace_with_traces_pattern() -> None:
     )
 
     assert status == "success"
-    assert metadata["num_graphs"] > 0
+    assert metadata["num_graphs"] == 1
+
+
+# Test migrate_trace rejects several graphs matching one cache key.
+def test_migrate_trace_rejects_multiple_graphs() -> None:
+    """Test migrate_trace errors when the matrix omits a dimension."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
+
+    action = AnalysisActionProvider()
+
+    with pytest.raises(ActionExecutionError, match="one cache key"):
+        action.run(
+            "migrate_trace",
+            {
+                "series": "TABU/STD",
+                "network": "asia",
+                "root_dir": "tests/data/functional/trace",
+            },
+            mode="run",
+        )
 
 
 # Test migrate_trace dry-run with terminal logging.
@@ -255,6 +278,7 @@ def test_migrate_trace_run_with_logger(capsys: pytest.CaptureFixture) -> None:
         "series": "TABU/STD",
         "network": "asia",
         "root_dir": "tests/data/functional/trace",
+        "sample_size": 1000,  # One graph per cache key
     }
 
     status, metadata, objects = action.run(
