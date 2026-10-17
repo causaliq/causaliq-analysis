@@ -68,9 +68,7 @@ else:
         # Stub for ActionPattern enum
         class ActionPattern:  # type: ignore[no-redef]
             CREATE = "create"
-            UPDATE = "update"
             AGGREGATE = "aggregate"
-            NOCACHES = "nocaches"
 
         class WorkflowContext:
             pass

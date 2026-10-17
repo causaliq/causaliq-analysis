@@ -311,9 +311,9 @@ def test_plot_re_raises_execution_error(mocker) -> None:
         )
 
 
-# Plot action is registered as a nocaches pattern.
+# Plot action is registered as an aggregate pattern.
 def test_plot_action_pattern() -> None:
-    """Test plot is registered with the nocaches action pattern."""
+    """Test plot is registered with the aggregate action pattern."""
     from causaliq_core import ActionPattern
 
     provider = AnalysisActionProvider()
