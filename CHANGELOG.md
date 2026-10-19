@@ -57,6 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     shared by the CLI and workflow action
 
 ### Changed
+- **Metrics live only in the metrics object**: `evaluate_graph` no longer
+  duplicates metric values into entry metadata. The entry holds the `metrics`
+  object (JSON) plus provenance (`status`, `reference`, `evaluated_graph`), and
+  `summarise` reads fields from that object, so summaries and filters see the
+  same values without a copy in metadata.
+- **Failures are recorded, not scored**: a failed input run holds provenance
+  only (no object), so `evaluate_graph` writes a provenance-only entry to the
+  metrics cache with `status: "input_failed"` and the upstream error. Every
+  attempted job therefore has an entry, so failure cases can be analysed by
+  sample size or algorithm, but no `f1`, `precision` or `shd` value is ever
+  produced for a failed run. Reference cache entries must still hold an
+  evaluable graph.
 - **Python-typed plot properties**: `plot` property strings now use the
   `<name>=<value>` format where `<value>` is Python literal syntax, so
   integers, floats, quoted strings, tuples, lists, dicts and sets can
@@ -68,6 +80,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Removed
+- **`UPDATE` and `NOCACHES` action patterns**: both are gone, along with the
+  `plot` action's NOCACHES declaration. `evaluate_graph`, `plot`, `best_graph`,
+  `merge_graphs` and `summarise` are AGGREGATE actions that read and write
+  typed workflow caches, and steps writing plain files run once under the
+  output-driven run-once rule. A cache now holds one object type with at most
+  one object per entry — exactly one for a successful run and none for a
+  failure — so evaluation metrics live in their own cache rather than as
+  metadata on the graph entry.
 - **Bayesys v1.3 compatibility**: `pdg_compare`/`pdag_compare` (and therefore
   `bayesys_metrics`) no longer accept `bayesys="v1.3"`; `BAYESYS_VERSIONS` now
   lists only `"v1.5+"`. Comparisons therefore always require identical node

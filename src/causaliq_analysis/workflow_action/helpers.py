@@ -63,6 +63,13 @@ def _extract_graph_from_entry(
         if parsed is not None:
             return parsed
 
+    if not entry.object_types():
+        raise ActionExecutionError(
+            f"No evaluable graph object found in {source_label}: the entry "
+            "holds no objects and records no error. A cache predating the "
+            "typed object model records metadata only; re-run the "
+            "producing step with --mode force to regenerate it."
+        )
     raise ActionExecutionError(
         f"No evaluable graph object found in {source_label}. "
         "evaluate_graph requires a 'dag', 'pdag', 'cpdag' or 'pdg' "

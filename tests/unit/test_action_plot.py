@@ -34,6 +34,16 @@ def _valid_parameters() -> Dict[str, Any]:
     }
 
 
+# Plot accepts the internal aggregation parameter injected by the engine.
+def test_plot_accepts_aggregation_entries() -> None:
+    """Test plot validates parameters injected for AGGREGATE steps."""
+    provider = AnalysisActionProvider()
+    parameters = _valid_parameters()
+    parameters["_aggregation_entries"] = []
+
+    provider.validate_parameters("plot", parameters)
+
+
 # Plot action requires the input parameter.
 def test_plot_requires_input() -> None:
     """Test plot raises error without the input parameter."""

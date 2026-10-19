@@ -163,11 +163,17 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
             than one entry matches the current matrix combination.
 
     """
-    entries = parameters.get("_aggregation_entries") or []
-    if not entries:
+    entries = parameters.get("_aggregation_entries")
+    if entries is None:
         raise ActionExecutionError(
             "evaluate_graph requires '_aggregation_entries' parameter "
             "(AGGREGATE pattern action)"
+        )
+    if not entries:
+        raise ActionExecutionError(
+            "evaluate_graph matched no cache entries for this job. "
+            f"Check that the input cache '{parameters.get('input')}' "
+            "exists and contains entries matching the matrix values."
         )
     if len(entries) != 1:
         raise ActionExecutionError(
@@ -225,12 +231,17 @@ def _evaluate(
         logger: Logger for reporting.
 
     Returns:
-        ActionResult tuple with status "success".
+        ActionResult tuple with status "success", or "error" when the
+        input run failed (so the metrics cache records the failure).
 
     Raises:
         ActionExecutionError: If evaluation fails.
 
     """
+    failure = _input_failure(request["entry"])
+    if failure is not None:
+        _log_input_failure(logger, failure)
+        return ("error", {"status": "input_failed", "error": failure}, [])
     graph, graph_type = _entry_graph(request)
     reference = _resolve_reference_graph(
         request["reference"], request["entry"]
@@ -239,9 +250,44 @@ def _evaluate(
     equiv_metrics = _equiv_metrics(
         graph, reference, request["metrics"], logger
     )
-    metadata = _metric_metadata(request, metrics, equiv_metrics, graph_type)
+    metadata = _evaluation_provenance(request, graph_type)
     _log_evaluation(logger, graph_type, metrics)
-    return ("success", metadata, _metrics_objects(metadata))
+    return (
+        "success",
+        metadata,
+        _metrics_objects(_metric_values(request, metrics, equiv_metrics)),
+    )
+
+
+def _input_failure(entry_data: Dict[str, Any]) -> Optional[str]:
+    """Return the recorded error of a failed run, or None.
+
+    A failed run holds provenance only: no object exists to evaluate, and
+    its entry is recorded in the metrics cache as a failure instead.
+
+    Args:
+        entry_data: Aggregation entry data (entry plus its metadata).
+
+    Returns:
+        The recorded error message, or None when the run succeeded.
+
+    """
+    metadata = entry_data.get("metadata") or {}
+    for provider in metadata.values():
+        if not isinstance(provider, dict):
+            continue
+        message = _provider_error(provider)
+        if message is not None:
+            return message
+    return None
+
+
+def _provider_error(provider: Dict[str, Any]) -> Optional[str]:
+    """Return the first recorded error in one provider's metadata."""
+    for action in provider.values():
+        if isinstance(action, dict) and action.get("error"):
+            return str(action["error"])
+    return None
 
 
 def _entry_graph(request: Dict[str, Any]) -> Tuple[Any, str]:
@@ -261,6 +307,18 @@ def _entry_graph(request: Dict[str, Any]) -> Tuple[Any, str]:
     if entry is None:
         raise ActionExecutionError("No entry object in _aggregation_entries")
     return helpers._extract_graph_from_entry(entry, "cache entry")
+
+
+def _log_input_failure(logger: Optional[Any], error: str) -> None:
+    """Report an input failure when terminal logging is enabled.
+
+    Args:
+        logger: Logger for reporting.
+        error: Recorded error of the input run.
+
+    """
+    if logger and logger.is_terminal_logging:
+        print(f"Recording input failure: {error}")
 
 
 def _compute_metrics(graph: Any, reference: Any) -> Dict[str, Any]:
@@ -561,32 +619,49 @@ def _require_matching_keys(
             )
 
 
-def _metric_metadata(
+def _evaluation_provenance(
+    request: Dict[str, Any],
+    graph_type: str,
+) -> Dict[str, Any]:
+    """Build the provenance metadata for a successful evaluation.
+
+    Metric values belong to the metrics object, so the metadata records
+    only how the result was produced.
+
+    Args:
+        request: Evaluation request.
+        graph_type: Object type of the evaluated graph.
+
+    Returns:
+        Provenance metadata.
+
+    """
+    return {
+        "status": "ok",
+        "reference": request["reference"],
+        "evaluated_graph": graph_type,
+    }
+
+
+def _metric_values(
     request: Dict[str, Any],
     metrics: Dict[str, Any],
     equiv_metrics: Dict[str, Any],
-    graph_type: str,
 ) -> Dict[str, Any]:
-    """Build the result metadata for an evaluation.
+    """Return the requested metric values for the metrics object.
 
     Args:
         request: Evaluation request.
         metrics: Raw comparison metrics.
         equiv_metrics: Computed equivalence-class metrics.
-        graph_type: Object type of the evaluated graph.
 
     Returns:
-        Action metadata holding the requested metrics.
+        Mapping of requested metric names to values.
 
     """
     wanted = _wanted_metrics(request["metrics"])
     all_metrics = _all_metrics(metrics, equiv_metrics, wanted)
-    filtered = {k: v for k, v in all_metrics.items() if k in wanted}
-    return {
-        **filtered,
-        "reference": request["reference"],
-        "evaluated_graph": graph_type,
-    }
+    return {k: v for k, v in all_metrics.items() if k in wanted}
 
 
 def _all_metrics(
@@ -697,15 +772,11 @@ def _require_cache_output(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _metrics_objects(metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _metrics_objects(values: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Build the metrics object written to the output cache.
 
-    The metric values are also returned in the action metadata as a
-    transitional bridge: ``summarise`` still reads metrics from metadata
-    and is migrated to the typed metrics object in a later change.
-
     Args:
-        metadata: Evaluation metadata holding the metric values.
+        values: Requested metric values.
 
     Returns:
         Single-element list holding the metrics object.
@@ -716,6 +787,6 @@ def _metrics_objects(metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
             "type": "metrics",
             "format": "json",
             "action": "evaluate_graph",
-            "content": json.dumps(metadata),
+            "content": json.dumps(values),
         }
     ]

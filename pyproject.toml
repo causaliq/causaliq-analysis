@@ -31,7 +31,7 @@ classifiers = [
 keywords = ["causaliq"]
 requires-python = ">=3.9"
 dependencies = [
-    "causaliq-workflow>=0.6.0.dev6",
+    "causaliq-workflow>=0.6.0.dev7",
     "click>=8.0.0",
     "causaliq-core>=0.8.0.dev6",
     "causaliq-data",
@@ -67,7 +67,7 @@ test = [
     "pytest-mock>=3.10.0",
 ]
 workflow = [
-    "causaliq-workflow>=0.6.0.dev6",
+    "causaliq-workflow>=0.6.0.dev7",
 ]
 docs = [
     "mkdocs>=1.5.0,<2.0.0",

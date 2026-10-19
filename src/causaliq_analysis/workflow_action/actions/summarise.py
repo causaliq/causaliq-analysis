@@ -8,6 +8,7 @@ and each step stays within the module and method limits.
 """
 
 import csv
+import json
 import statistics
 from datetime import datetime, timezone
 from pathlib import Path
@@ -375,20 +376,55 @@ def _values_from_entries(
 
 
 def _entry_metadata(entry_dict: Dict[str, Any]) -> Tuple[Any, Dict[str, Any]]:
-    """Return the matrix values and flattened metadata of an entry.
+    """Return the matrix values and flattened values of an entry.
+
+    Metric values live in the entry's typed JSON object; metadata supplies
+    the provenance fields used by filters.
 
     Args:
         entry_dict: Pre-scanned cache entry descriptor.
 
     Returns:
-        Tuple of (matrix values, flattened metadata).
+        Tuple of (matrix values, flattened values).
 
     """
     matrix_values = entry_dict.get("matrix_values", {})
     flat_meta = helpers._flatten_entry_metadata(
         matrix_values, entry_dict.get("metadata", {})
     )
+    flat_meta.update(_object_values(entry_dict))
     return matrix_values, flat_meta
+
+
+def _object_values(entry_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the values held in an entry's JSON object.
+
+    Args:
+        entry_dict: Pre-scanned cache entry descriptor.
+
+    Returns:
+        Mapping of object fields, empty when no JSON object is present.
+
+    """
+    entry = entry_dict.get("entry")
+    if entry is None:
+        return {}
+    values: Dict[str, Any] = {}
+    for name in entry.object_types():
+        obj = entry.get_object(name)
+        if obj is None or obj.format != "json":
+            continue
+        values.update(_parse_json_object(obj.content))
+    return values
+
+
+def _parse_json_object(content: Any) -> Dict[str, Any]:
+    """Parse a JSON object's content, returning {} for non-mappings."""
+    try:
+        data = json.loads(content or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _log_entry(log_fn: Optional[Any], matrix_values: Any) -> None:

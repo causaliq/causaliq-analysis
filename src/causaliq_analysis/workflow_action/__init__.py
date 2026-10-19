@@ -414,6 +414,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "x",
             "y",
             "properties",
+            "_aggregation_entries",  # Internal workflow parameter
         },
     }
 

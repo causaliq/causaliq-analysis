@@ -1,5 +1,6 @@
 """Unit tests for evaluate_graph action with mocked dependencies."""
 
+import json
 from typing import Any
 from unittest.mock import MagicMock, call, patch
 
@@ -12,6 +13,16 @@ from .conftest import (
     VALID_PDG_GRAPHML,
     create_mock_graphml_entry,
 )
+
+
+def _metric(result: Any, name: str) -> Any:
+    """Return a metric value from the returned metrics object."""
+    return json.loads(result[2][0]["content"])[name]
+
+
+def _metric_keys(result: Any) -> set:
+    """Return the metric names held in the returned metrics object."""
+    return set(json.loads(result[2][0]["content"]))
 
 
 def test_evaluate_graph_returns_metrics() -> None:
@@ -64,10 +75,10 @@ def test_evaluate_graph_returns_metrics() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["precision"] == 1.0
-    assert result[1]["recall"] == 1.0
-    assert result[1]["f1"] == 1.0
-    assert result[1]["shd"] == 0
+    assert _metric(result, "precision") == 1.0
+    assert _metric(result, "recall") == 1.0
+    assert _metric(result, "f1") == 1.0
+    assert _metric(result, "shd") == 0
     assert result[1]["reference"] == "ref.graphml"
 
 
@@ -122,6 +133,157 @@ def test_evaluate_graph_requires_aggregation_entries() -> None:
             logger=mock_logger,
         )
     assert "_aggregation_entries" in str(exc_info.value)
+
+
+# Test evaluate_graph reports an empty input match clearly.
+def test_evaluate_graph_reports_empty_aggregation_entries() -> None:
+    """Test error names the input cache when no entries matched."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    with pytest.raises(Exception) as exc_info:
+        provider.run(
+            action="evaluate_graph",
+            parameters={
+                "_aggregation_entries": [],
+                "input": "results/learn.db",
+                "reference": "ref.graphml",
+                "metric": ["f1"],
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+    assert "matched no cache entries" in str(exc_info.value)
+    assert "results/learn.db" in str(exc_info.value)
+
+
+# Test evaluate_graph records a failed input run as a failure.
+def test_evaluate_graph_records_input_failure() -> None:
+    """A failed input run is recorded, not evaluated."""
+    from causaliq_workflow.cache import CacheEntry
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    update_entry = {
+        "matrix_values": {"network": "asia"},
+        "metadata": {
+            "causaliq-discovery": {
+                "learn_graph": {"status": "input_error", "error": "boom"}
+            }
+        },
+        "entry": CacheEntry(),
+    }
+
+    result = provider.run(
+        action="evaluate_graph",
+        parameters={
+            "_aggregation_entries": [update_entry],
+            "output": "metrics.db",
+            "reference": "ref.graphml",
+            "metric": ["f1"],
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "error"
+    assert result[1]["status"] == "input_failed"
+    assert result[1]["error"] == "boom"
+    assert result[2] == []
+
+
+# Test evaluate_graph ignores metadata that records no error.
+def test_evaluate_graph_ignores_metadata_without_errors() -> None:
+    """Test only a recorded error marks an input run as failed."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    mock_entry = create_mock_graphml_entry()
+
+    update_entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {
+            "causaliq-discovery": "ok",
+            "causaliq-analysis": {"evaluate_graph": {"status": "ok"}},
+        },
+        "entry": mock_entry,
+    }
+
+    mock_metrics = {"p": 1.0, "r": 1.0, "f1": 1.0, "shd": 0}
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch("causaliq_core.graph.io.graphml.read") as mock_read:
+            mock_read.return_value = MagicMock()
+
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_aggregation_entries": [update_entry],
+                    "output": "metrics.db",
+                    "reference": "ref.graphml",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+
+
+# Test evaluate_graph reports an input failure to the terminal.
+def test_evaluate_graph_logs_input_failure(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test the recorded failure is logged when terminal logging is on."""
+    from causaliq_workflow.cache import CacheEntry
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = True
+
+    update_entry = {
+        "matrix_values": {"network": "asia"},
+        "metadata": {
+            "causaliq-discovery": {
+                "learn_graph": {"status": "input_error", "error": "boom"}
+            }
+        },
+        "entry": CacheEntry(),
+    }
+
+    result = provider.run(
+        action="evaluate_graph",
+        parameters={
+            "_aggregation_entries": [update_entry],
+            "output": "metrics.db",
+            "reference": "ref.graphml",
+            "metric": ["f1"],
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "error"
+    assert "Recording input failure: boom" in capsys.readouterr().out
 
 
 # Test evaluate_graph requires reference parameter.
@@ -247,6 +409,7 @@ def test_evaluate_graph_no_graphml_in_entry() -> None:
             logger=mock_logger,
         )
     assert "No evaluable graph object found" in str(exc_info.value)
+    assert "--mode force" in str(exc_info.value)
 
 
 # Test evaluate_graph rejects PDG-only entries.
@@ -344,7 +507,7 @@ def test_evaluate_graph_accepts_pdg_content() -> None:
 
     assert result[0] == "success"
     assert result[1]["evaluated_graph"] == "pdg"
-    assert result[1]["f1"] == 0.5
+    assert _metric(result, "f1") == 0.5
 
 
 # Test evaluate_graph handles invalid graphml in entry.
@@ -953,14 +1116,9 @@ def test_evaluate_graph_metric_filter() -> None:
             )
 
     assert result[0] == "success"
-    # Should only contain f1, not precision/recall/shd
-    assert "f1" in result[1]
-    assert "precision" not in result[1]
-    assert "recall" not in result[1]
-    assert "shd" not in result[1]
-    # Reference info always included
-    assert "reference" in result[1]
-    assert "evaluated_graph" in result[1]
+    # The metrics object holds only f1; metadata holds provenance only
+    assert _metric_keys(result) == {"f1"}
+    assert set(result[1]) == {"status", "reference", "evaluated_graph"}
 
 
 # Test evaluate_graph accepts list of metrics.
@@ -1010,10 +1168,7 @@ def test_evaluate_graph_metric_filter_list() -> None:
 
     assert result[0] == "success"
     # Should contain f1 and shd, not precision/recall
-    assert "f1" in result[1]
-    assert "shd" in result[1]
-    assert "precision" not in result[1]
-    assert "recall" not in result[1]
+    assert _metric_keys(result) == {"f1", "shd"}
 
 
 # Test evaluate_graph computes equiv.f1 metric.
@@ -1069,8 +1224,7 @@ def test_evaluate_graph_equiv_f1() -> None:
                 )
 
     assert result[0] == "success"
-    assert "equiv.f1" in result[1]
-    assert result[1]["equiv.f1"] == 0.87
+    assert _metric(result, "equiv.f1") == 0.87
     # Should have converted both graphs to CPDAG
     assert mock_to_cpdag.call_count == 2
 
@@ -1126,8 +1280,7 @@ def test_evaluate_graph_equiv_shd() -> None:
                 )
 
     assert result[0] == "success"
-    assert "equiv.shd" in result[1]
-    assert result[1]["equiv.shd"] == 2
+    assert _metric(result, "equiv.shd") == 2
     # Should have converted both graphs to CPDAG
     assert mock_to_cpdag.call_count == 2
 
@@ -1184,11 +1337,11 @@ def test_evaluate_graph_mixed_metrics() -> None:
 
     assert result[0] == "success"
     # Standard metrics
-    assert result[1]["f1"] == 0.77
-    assert result[1]["shd"] == 5
+    assert _metric(result, "f1") == 0.77
+    assert _metric(result, "shd") == 5
     # Equiv metrics
-    assert result[1]["equiv.f1"] == 0.87
-    assert result[1]["equiv.shd"] == 2
+    assert _metric(result, "equiv.f1") == 0.87
+    assert _metric(result, "equiv.shd") == 2
 
 
 # Test evaluate_graph skips equiv when PDAG not extendable to CPDAG.
@@ -1458,8 +1611,8 @@ def test_evaluate_graph_cache_reference_returns_metrics() -> None:
                 )
 
     assert result[0] == "success"
-    assert result[1]["f1"] == 1.0
-    assert result[1]["shd"] == 0
+    assert _metric(result, "f1") == 1.0
+    assert _metric(result, "shd") == 0
     assert result[1]["reference"] == "results/legacy.db"
     assert result[1]["evaluated_graph"] == "dag"
     mock_workflow_cache.assert_called_once_with("results/legacy.db")
@@ -1706,7 +1859,7 @@ def test_evaluate_graph_cache_reference_pdg() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["f1"] == 0.5
+    assert _metric(result, "f1") == 0.5
 
 
 # Test evaluate_graph handles reference cache read failures.
@@ -1796,7 +1949,7 @@ def test_evaluate_graph_edge_metrics() -> None:
 
     assert result[0] == "success"
     for index, name in enumerate(EDGE_METRICS):
-        assert result[1][name] == index
+        assert _metric(result, name) == index
     # Derived aggregates are not part of an 'edge' request
     assert "f1" not in result[1]
     assert "shd" not in result[1]
@@ -1862,7 +2015,7 @@ def test_evaluate_graph_equiv_edge_metrics() -> None:
 
     assert result[0] == "success"
     for index, name in enumerate(EDGE_METRICS):
-        assert result[1][f"equiv.{name}"] == index
+        assert _metric(result, f"equiv.{name}") == index
     assert "equiv.f1" not in result[1]
     assert "equiv.shd" not in result[1]
     assert "arc_matched" not in result[1]
@@ -1918,9 +2071,9 @@ def test_evaluate_graph_edge_with_standard_metric() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["f1"] == 0.77
+    assert _metric(result, "f1") == 0.77
     for index, name in enumerate(EDGE_METRICS):
-        assert result[1][name] == index
+        assert _metric(result, name) == index
     assert "shd" not in result[1]
     assert "precision" not in result[1]
 
@@ -1973,12 +2126,9 @@ def test_evaluate_graph_edge_metrics_not_leaked() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["precision"] == 0.8
-    assert set(result[1]) == {
-        "precision",
-        "reference",
-        "evaluated_graph",
-    }
+    assert _metric(result, "precision") == 0.8
+    assert _metric_keys(result) == {"precision"}
+    assert set(result[1]) == {"status", "reference", "evaluated_graph"}
 
 
 # Test the provider delegate for entry graph extraction.

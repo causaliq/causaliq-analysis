@@ -5,6 +5,8 @@ These tests verify the workflow action behaves correctly in typical usage
 scenarios, focusing on migrate_trace integration and workflow file processing.
 """
 
+import json
+
 import pytest
 
 # Test markers
@@ -300,6 +302,7 @@ def test_migrate_trace_general_exception(
         ActionExecutionError,
         AnalysisActionProvider,
     )
+    from causaliq_analysis.workflow_action.actions import migrate_trace
 
     action = AnalysisActionProvider()
 
@@ -308,8 +311,8 @@ def test_migrate_trace_general_exception(
         raise RuntimeError("Unexpected error")
 
     monkeypatch.setattr(
-        "causaliq_analysis.workflow_action.actions.migrate_trace"
-        ".run_migrate_trace",
+        migrate_trace,
+        "run_migrate_trace",
         mock_run_migrate_trace,
     )
 
@@ -697,6 +700,7 @@ def test_migrate_trace_value_error_exception(
         ActionExecutionError,
         AnalysisActionProvider,
     )
+    from causaliq_analysis.workflow_action.actions import migrate_trace
 
     action = AnalysisActionProvider()
 
@@ -705,8 +709,8 @@ def test_migrate_trace_value_error_exception(
         raise ValueError("No traces found for pattern")
 
     monkeypatch.setattr(
-        "causaliq_analysis.workflow_action.actions.migrate_trace"
-        ".run_migrate_trace",
+        migrate_trace,
+        "run_migrate_trace",
         mock_run_migrate_trace,
     )
 
@@ -1142,25 +1146,27 @@ def test_evaluate_graph_cache_reference_end_to_end(
     )
 
     assert status == "success"
-    assert metadata["f1"] == 1.0
-    assert metadata["shd"] == 0
+    values = json.loads(objects[0]["content"])
+    assert values["f1"] == 1.0
+    assert values["shd"] == 0
     assert metadata["reference"] == str(ref_path)
     assert metadata["evaluated_graph"] == "dag"
     assert objects[0]["type"] == "metrics"
 
-    # Simulate the workflow engine persisting metrics into the input cache
-    with WorkflowCache(input_path) as cache:
-        cache.update_entry(
-            matrix_values,
-            {"causaliq-analysis": {"evaluate_graph": metadata}},
-            objects,
+    # A successful evaluation writes the metrics object to its own cache
+    metrics_path = tmp_path / "metrics.db"
+    with WorkflowCache(metrics_path) as cache:
+        cache.put_from_action(
+            key_data=matrix_values,
+            metadata={"causaliq-analysis": {"evaluate_graph": metadata}},
+            objects=objects,
         )
 
-    with WorkflowCache(input_path) as cache:
-        updated = cache.get(matrix_values)
-        persisted = updated.metadata["causaliq-analysis"]["evaluate_graph"]
-        assert persisted["f1"] == 1.0
-        assert persisted["shd"] == 0
+        stored = cache.get(matrix_values)
+        persisted = stored.metadata["causaliq-analysis"]["evaluate_graph"]
+        assert persisted["reference"] == str(ref_path)
+        metrics = stored.get_object("metrics")
+        assert json.loads(metrics.content)["f1"] == 1.0
 
 
 # Test evaluate_graph rejects reference cache with different keys.

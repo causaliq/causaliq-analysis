@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from causaliq_analysis.migrate import MigrateTraceResult
+from causaliq_analysis.workflow_action.actions import migrate_trace
 
 
 # Test migrate_trace returns skipped when no matching traces.
@@ -20,9 +21,9 @@ def test_migrate_trace_skips_no_matching_traces(mocker: Any) -> None:
 
     empty_result = MigrateTraceResult(graphs=[], skipped=0)
 
-    mocker.patch(
-        "causaliq_analysis.workflow_action.actions.migrate_trace"
-        ".run_migrate_trace",
+    mocker.patch.object(
+        migrate_trace,
+        "run_migrate_trace",
         return_value=empty_result,
     )
 

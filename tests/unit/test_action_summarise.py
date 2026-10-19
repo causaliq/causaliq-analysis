@@ -205,6 +205,96 @@ def test_summarise_computes_mean(tmp_path: Any) -> None:
     assert output_path.exists()
 
 
+# Test summarise reads metric values from the entry's JSON object.
+def test_summarise_reads_values_from_json_object(tmp_path: Any) -> None:
+    """Test that values come from the entry's JSON object."""
+    import csv
+
+    from causaliq_workflow.cache import CacheEntry
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entry = CacheEntry()
+    entry.add_object("metrics", "json", '{"f1": 0.5}', "evaluate_graph")
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {"seed": 1},
+            "metadata": {},
+            "entry": entry,
+            "cache_path": "metrics.db",
+        }
+    ]
+    output_path = tmp_path / "summary.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": ["f1.mean", "f1.count"],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    with output_path.open() as handle:
+        row = next(csv.DictReader(handle))
+    assert float(row["f1.mean"]) == 0.5
+    assert int(row["f1.count"]) == 1
+
+
+# Test summarise ignores object content that is not a JSON mapping.
+def test_summarise_ignores_non_mapping_object(tmp_path: Any) -> None:
+    """Test that invalid or non-mapping JSON objects contribute no values."""
+    import csv
+
+    from causaliq_workflow.cache import CacheEntry
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    invalid = CacheEntry()
+    invalid.add_object("metrics", "json", "not json", "evaluate_graph")
+    non_mapping = CacheEntry()
+    non_mapping.add_object("metrics", "json", "[1, 2]", "evaluate_graph")
+    not_json = CacheEntry()
+    not_json.add_object("dag", "graphml", "<graphml/>", "learn_graph")
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {"matrix_values": {"seed": 1}, "metadata": {}, "entry": invalid},
+        {"matrix_values": {"seed": 2}, "metadata": {}, "entry": non_mapping},
+        {"matrix_values": {"seed": 3}, "metadata": {}, "entry": not_json},
+    ]
+    output_path = tmp_path / "summary.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": ["f1.count"],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    with output_path.open() as handle:
+        row = next(csv.DictReader(handle))
+    assert int(row["f1.count"]) == 0
+
+
 # Test summarise computes standard deviation.
 def test_summarise_computes_sd(tmp_path: Any) -> None:
     """Test that summarise computes SD with enough values."""
