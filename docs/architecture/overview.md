@@ -33,6 +33,19 @@ This enables workflows that:
 - Apply metadata-driven weighting
 - Produce outputs with full provenance tracking
 
+### Typed Workflow Caches
+
+Workflow caches follow a single typed-object model: one cache holds one
+object type, and a successful entry holds provenance metadata plus exactly
+one typed object, whilst a failed entry holds provenance only. A failed
+evaluation is recorded in the metrics cache as a provenance-only entry with
+status `input_failed`, so failures appear alongside results without any
+metric values. `evaluate_graph`, `best_graph` and `plot` therefore read and
+write caches whose type is implied by the workflow's `input`/`output`
+parameters. See the causaliq-workflow
+[Cache Type Model](https://workflow.causaliq.org/architecture/cache_type_model/)
+for the full design.
+
 ### Graph Types
 
 The package works with graph types from causaliq-core:

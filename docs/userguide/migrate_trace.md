@@ -112,23 +112,42 @@ description: "Migrate legacy traces to GraphML format"
 matrix:
   network: [asia, alarm, insurance]
   series: [TABU/STD, HC/STD]
+  sample_size: [1K, 10K]
+  seed: [0]
 
 actions:
   migrate_trace:
     action: migrate_trace
     series: "{{series}}"
     network: "{{network}}"
+    sample_size: "{{sample_size}}"
+    seed: "{{seed}}"
     root_dir: experiments
 ```
 
-This workflow migrates traces for all network/series combinations, storing
-GraphML objects in the workflow cache for downstream actions.
+This workflow migrates traces for all matrix combinations, storing one
+GraphML object in the workflow cache for each entry.
+
+### One Object per Cache Key
+
+Each job must match **exactly one** trace file, because every cache entry holds
+one object of the cache's type. If a job matches several traces, the matrix is
+missing a distinguishing dimension, and the action reports an error naming the
+problem:
+
+```
+migrate_trace matched 4 graphs for one cache key. Add a matrix key
+(for example 'sample_size' or 'seed') to distinguish them.
+```
+
+Add the missing key (for example `sample_size` or `seed`) to the matrix so that
+each combination selects a single trace.
 
 ### Action Outputs
 
 | Output | Description |
 |--------|-------------|
-| `num_graphs` | Number of graphs successfully converted |
+| `num_graphs` | Number of graphs converted (always 1 for a successful entry) |
 | `skipped` | Number of traces skipped (no result graph) |
 | `status` | Execution status (`success`, `skipped`, `error`) |
 

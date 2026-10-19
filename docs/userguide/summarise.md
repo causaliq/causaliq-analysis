@@ -22,7 +22,7 @@ This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq
 
 ### `metric`
 
-This specifies a list of metrics that are to be summarised. The values specifed follow the metadata variable naming convention and so define both the variable to be summarised and the summary statistic to be computed. So, for example, specifying `equiv.shd.mean` indicates that the capability should compute the mean of the `equiv.shd` variables in the input.
+This specifies a list of metrics that are to be summarised. Each name selects a field in the entry's JSON object (`metrics` objects in an evaluation cache) together with the statistic to compute. So, for example, specifying `equiv.shd.mean` indicates that the capability should compute the mean of the `equiv.shd` field in the input.
 
 The following summary statistics will be supported initially:
 
@@ -53,7 +53,7 @@ steps:
       metric: 
         - f1.mean
         - f1.sd
-      input: "results/graphs.db"
+      input: "results/metrics.db"
       output: "results/graph_accuracy.csv"
 ```
 
@@ -72,5 +72,5 @@ Summary output like this is quite small and human-readable so it would be output
 
 ### `filter`
 
-`filter` can be used to filter out some input entries on the basis of metadata values. For example, one may wish to exclude results with long execution times.
+`filter` can be used to filter input entries on the basis of metadata values or object fields. For example, one may wish to exclude results with long execution times, or include only entries with `f1 > 0.5`.
 

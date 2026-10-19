@@ -1,47 +1,65 @@
-# Ensure all modules meet development guidelines
+# Simplification of Workflow Caches and Action Patterns
 
-**Status: complete.** All modules now satisfy the limits checked by
-`scripts/check_code_rules.py`. This was a Hat 2 (refactoring) task: runtime
-behaviour and public APIs are unchanged.
+The workflow cache model and the action patterns declared by analysis actions
+were simplified so that caches hold typed results rather than mixed metadata,
+and so that only two patterns remain. The goal is simpler code and a simpler
+interface for workflow authors.
 
-## Context
+## Simpler cache model
 
-Create a plan to ensure all modules in causaliq-analysis meet the development
-policy guidelines as checked by `scripts/check_code_rules.py`. Split up
-modules if they become too large.
+- Each cache holds a single object type, pinned by the first write.
+- Each entry holds provenance metadata plus exactly one object of that type.
+- Metrics are typed objects in their own cache, not extra metadata on the
+  graph entry that produced them.
+- A failed run records provenance (status and failure reason) and no object,
+  so a failure can never be mistaken for a result or scored. Failures still
+  appear in downstream caches: evaluation writes a provenance-only entry to
+  the metrics cache for each failed input, so failure cases can be analysed.
+- An action writes at most one object per key; entries are never lumped
+  together under generated names such as `dag_0`, `dag_1`.
+- A workflow file can write to several typed caches, so the number of caches
+  scales with object types rather than pipeline stages.
+- Entries are distinguished by ordinary matrix keys; there is no special
+  reserved key or per-step pinning.
 
-The user will commit the changes in two commits: (1) code and tests;
-(2) documentation.
+## Two action patterns
 
-## Changes
+| Pattern | Reads a workflow cache | Requirements |
+|---------|------------------------|--------------|
+| CREATE | No | Output cache and matrix |
+| AGGREGATE | Yes | Input cache(s) and output cache |
 
-The 16 legacy function breaches reported by the checker were flattened or
-split within five modules; no module exceeded the ~200-statement target, so
-none was split into a sub-package.
+A step that writes a plain file instead of a cache runs **once**, outside
+matrix expansion, because a file output has no cache dimensionality.
 
-- `graph_io.py` — extracted `_read_text` so GraphML auto-detection in
-  `read_graph_or_pdg_file` no longer nests.
-- `merge.py` — `merge_graphs` delegates to validation, weight normalisation
-  and strategy helpers; the SDG accumulation cascade became a single
-  `_edge_state` lookup, and the noisy-OR combination was split into
-  existence and orientation helpers.
-- `metrics.py` — `pdg_compare` is split into argument validation, per-pair
-  accumulation, summary derivation and Bayesys attachment, and
-  `bayesys_metrics` into confusion counts and scores.
-- `migrate.py` — metadata, filtering, logging, graph generation and file
-  writing were extracted into helpers, with a shared logger factory.
-- `validation.py` — the CLI and workflow seed parsers share range helpers,
-  and sample-size and metric-spec parsing were split.
-- `tests/unit/test_validation.py` — added a case covering the non-list
-  metric-spec branch.
+`UPDATE` and `NOCACHES` were removed. `UPDATE` is unnecessary now that
+analysis results are written as objects to their own caches, and `NOCACHES`
+is redundant because `plot` reads a metrics cache and the run-once rule
+covers file outputs.
 
-## Verification
+## What changed in the analysis actions
 
-- `python scripts/check_code_rules.py --strict src/causaliq_analysis` —
-  zero breaches.
-- `pytest` full suite — passes with 100 % coverage.
-- `black`, `isort`, `flake8` and `mypy` — clean.
+- `evaluate_graph` writes a `metrics` object to an output cache (AGGREGATE)
+  instead of adding results to the learned graph's entry.
+- `plot` reads a metrics cache (AGGREGATE) and writes one image (run-once).
+- `best_graph` writes a `dag` to its own output cache (AGGREGATE).
+- `merge_graphs` continues to aggregate PDGs into a `pdg` object
+  (AGGREGATE).
+- `migrate_trace` writes a `dag` per key, without the `dag_0..dag_n`
+  lumping that occurred when the matrix omitted a distinguishing dimension.
+- `summarise` continues to write one CSV row per matrix combination. It is
+  planned to write workflow caches and LaTeX tables as well, which would
+  supersede the earlier idea of a separate `table` action.
 
-The completed design is recorded in `docs/architecture/overview.md` (section
-"Merge, Metrics, Migration and Validation Modules") and the status in
-`docs/roadmap.md`.
+## Compatibility
+
+Workflow caches are treated as disposable until the Zenodo deposit, so no
+data migration tooling is provided: re-run the workflow to regenerate a
+cache in the new shape. Import and export tooling keeps using the permissive
+write path, whilst action writes enforce the one-object and cache-type rules.
+
+## See also
+
+- [Action Patterns](https://causaliq.org/projects/causaliq-workflow/userguide/action_patterns/)
+- [Cache Type Model](https://causaliq.org/projects/causaliq-workflow/architecture/cache_type_model/)
+- [causaliq-workflow documentation](https://causaliq.org/projects/causaliq-workflow/)

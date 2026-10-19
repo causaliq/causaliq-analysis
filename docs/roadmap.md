@@ -1,6 +1,6 @@
 # CausalIQ Analysis - Development Roadmap
 
-**Last updated**: October 10, 2026
+**Last updated**: October 19, 2026
 
 This project roadmap fits into the
 [overall ecosystem roadmap](https://causaliq.org/projects/ecosystem_roadmap/).
@@ -16,13 +16,10 @@ Assuring reproducibility of results and assets for published papers.
 1. ✅ Support tuples, lists and dicts as property values
 1. ✅ new `edge` and `equiv.edge` metrics for `evaluate_graph` return the ten edge comparison counts
 1. ✅ develop pdg_compare based on 9 edge comparison counts
-1. ✅ Refactor workflow_action to make modules smaller and clearer
-1. ✅ Refactor cli.py to make modules smaller and clearer
-1. ✅ Refactor trace.py to make modules smaller and clearer
-1. ✅ [Refactor plot.py to make modules smaller and clearer](refactor.md)
 1. ✅ Diagnose failing legacy tests
 1. ✅ Replace deprecated matplotlib warnings (cap `pyparsing<3.3`)
-1. ✅ [Ensure all modules meet development guidelines](current_task.md)
+1. ✅ Ensure all modules meet development guidelines
+1. 📊 [Simplify analysis/workflow functionality](current_task.md)
 1. 📊 Support Python 3.10-14, with 3.12 as default, and badge as [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
 1. 🛣️ When Python 3.9 support is dropped, move to matplotlib `>=3.10.7` (removes the pyparsing cap; requires re-blessing the `ord_hc_f1` SVG reference)
 1. 🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster

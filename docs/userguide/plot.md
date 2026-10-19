@@ -1,11 +1,15 @@
 # Plotting Results
 
 The `plot` capability draws charts using matplotlib and Seaborn from
-information in a `.csv` file produced by the `summarise` action. It is a
-`nocaches` action which operates directly on plain files: it reads a CSV
-file and produces a publication-ready image file such as a `.png` or
-`.jpg`, without using workflow caches or the workflow matrix. Such
-actions run once per workflow regardless of any matrix definition.
+scientific results. The input is either a `.csv` file produced by the
+`summarise` action or a metrics workflow cache (`.db`) produced by the
+`evaluate_graph` action. The action writes no workflow cache, only an
+image file such as a `.png` or `.jpg`; a step whose output is not a
+workflow cache runs once per workflow regardless of any matrix
+definition.
+
+Keeping the `.csv` input is useful for plotting simple ad-hoc data
+without building a workflow cache.
 
 The plotting code is migrated from the legacy `experiments/plot.py`
 module in the `causaliq-discovery` repository, so figures such as the
@@ -15,7 +19,7 @@ variable-ordering CPDAG F1 chart can be replicated exactly.
 
 | Parameter    | CLI      | Required | Description |
 |--------------|----------|----------|-------------|
-| `input`      | `-i`/`--input` | Yes | Input `.csv` file produced by `summarise` |
+| `input`      | `-i`/`--input` | Yes | Input `.csv` file (`summarise`) or metrics cache `.db` (`evaluate_graph`) |
 | `output`     | `-o`/`--output` | Yes | Output chart file, e.g. a `.png` or `.jpg` image |
 | `type`       | `--type` | No | Type of plot required: `line`, `regression`, `histogram`, `box`, `violin`, `bar` or `scatter` (default `line`) |
 | `subplot`    | `--subplot` | Yes | Column name which defines the subplot, e.g. `network` |
@@ -26,8 +30,10 @@ variable-ordering CPDAG F1 chart can be replicated exactly.
 
 ## Input
 
-The input file is a `.csv` produced by the `summarise` action with one row
-per subplot, x-value and group combination. For example:
+### Summarise CSV
+
+A `.csv` produced by the `summarise` action has one row per subplot,
+x-value and group combination. For example:
 
 | network | series         | sample_size | f1.mean |
 |---------|----------------|-------------|---------|
@@ -35,6 +41,18 @@ per subplot, x-value and group combination. For example:
 | asia    | BNLEARN/HC_STD | 1000        | 0.27    |
 | asia    | BNLEARN/HC_OPT | 100         | 0.25    |
 | sports  | BNLEARN/HC_OPT | 1000        | 0.48    |
+
+### Metrics Cache
+
+A metrics workflow cache (`.db`) produced by `evaluate_graph` holds one
+`metrics` object per entry. The plot columns are the entry's matrix values
+(the workflow matrix keys, e.g. `network`, `series`, `sample_size`) plus
+the metric names recorded by `evaluate_graph` (e.g. `f1`, `shd`,
+`equiv.f1`, `equiv.shd`). Entries whose run failed hold provenance only —
+no object — and contribute no row.
+
+This is how the variable-ordering figure is produced: `plot` reads the
+metrics cache written by the `evaluate_graph` step.
 
 ## CLI Example
 
@@ -69,13 +87,13 @@ steps:
     uses: "causaliq-analysis"
     with:
       action: "plot"
-      input: "results/graph_accuracy.csv"
+      input: "results/graphs-metrics.db"
       output: "figures/ord_hc_f1.png"
       type: "line"
       subplot: "network"
       group: "series"
       x: "sample_size"
-      y: "f1.mean"
+      y: "equiv.f1"
       properties:
         - "xaxis.label=Sample size"
         - "yaxis.label=F1 (CPDAG)"

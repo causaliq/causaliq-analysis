@@ -6,10 +6,12 @@ Dependency Graphs (PDGs) are supported; the latter are compared by edge
 probability. Note that comparisons between general SDG graphs are not
 supported.
 
-This is an `update` action (see
+This is an `aggregate` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
-and so updates the metadata for an existing graph **in the input cache** with
-the requested metrics when used within a CausalIQ workflow.
+when used within a CausalIQ workflow: it reads the learned graph from the
+input graph cache and writes a `metrics` object to the `output` cache. The
+metric values are also recorded in the entry's metadata for compatibility
+with `summarise` until that action is migrated to metrics objects.
 
 ---
 
@@ -20,7 +22,7 @@ the requested metrics when used within a CausalIQ workflow.
 | `input`     | `-i`/`--input`     | Yes      | Learned graph file (CLI) or workflow cache `.db` (action) |
 | `reference` | `-r`/`--reference` | Yes      | Reference graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`, `.dsc`) or workflow cache (`.db`) |
 | `metric`    | `-m`/`--metric`    | Yes      | Metric(s) to compute (repeatable in CLI) |
-| `output`    | `-o`/`--output`    | CLI only | Output directory for `_meta.json` file |
+| `output`    | `-o`/`--output`    | Workflow | Metrics cache (`.db`) receiving the `metrics` object |
 | `filter`    | —                  | No       | Filter expression for cache entries (workflow only) |
 
 **Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `edge`, `equiv.f1`,
@@ -31,9 +33,9 @@ the requested metrics when used within a CausalIQ workflow.
 - In CLI mode, `input` is a graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`,
   `.dsc`) and `output` is a directory where `_meta.json` will be written.
 - IN CLI mode you can request multiple metrics by repeating the -m/00metric option e.g. "-m f1 -m shd"
-- In workflows, `input` is a workflow cache (`.db`) and `output` is
-  **prohibited** (UPDATE action pattern). The `filter` parameter can select
-  specific cache entries.
+- In workflows, `input` is a workflow cache (`.db`) and `output` is a
+  workflow cache (`.db`) receiving a `metrics` object. The `filter`
+  parameter can select specific cache entries.
 - In workflows, `reference` can be another workflow cache (`.db`) whose
   entries contain reference graphs with the same key structure as the
   input cache. Each input entry is compared against the reference entry
@@ -167,7 +169,9 @@ causaliq-analysis summarise -i results/eval/_meta.json \
 
 ## Workflow Usage
 
-In a CausalIQ workflow, `evaluate_graph` operates as an UPDATE action:
+In a CausalIQ workflow, `evaluate_graph` operates as an AGGREGATE action: it
+reads the matched entry of the input cache and writes a `metrics` object to
+its own output cache.
 
 ```yaml
 steps:
@@ -176,6 +180,7 @@ steps:
     with:
       action: "evaluate_graph"
       input: "results/graphs.db"
+      output: "results/metrics.db"
       reference: "reference/asia_true.graphml"
       metric:
         - f1
@@ -184,8 +189,10 @@ steps:
         - recall
 ```
 
-This computes metrics for each graph entry in the cache and adds them to the
-entry's metadata.
+Each entry in `metrics.db` holds a `metrics` object with the requested
+values; its provenance metadata records the `status`, the reference and the
+evaluated graph type. `summarise` and `plot` read the values from that
+object.
 
 ### Workflow Cache Reference
 
@@ -274,6 +281,19 @@ consistently in CausalIQ papers and the legacy `discovery` repository.
 
 To be completed — will describe in detail how the CausalIQ code computes the
 confusion matrix counts that underlie the structural metrics.
+
+### Failed Runs
+
+A failed input run holds provenance only — no object — so it cannot be
+scored. `evaluate_graph` therefore writes a **provenance-only entry** to the
+metrics cache, carrying `status: "input_failed"` and the upstream error.
+This keeps one entry per attempted job, so failure cases can be analysed
+(e.g. failure incidence by sample size or algorithm), whilst no `f1`,
+`precision` or `shd` value is ever produced for them. Summaries count only
+the successful jobs for those metrics.
+
+Reference cache entries must still hold an evaluable graph; a failure in the
+reference cache is an error.
 
 ## See Also
 

@@ -5,10 +5,10 @@ Dependency Graph (PDG) using a greedy algorithm. This is useful when you have
 a PDG representing structural uncertainty (e.g., from merged graphs) and need
 to select a single best DAG for downstream analysis or inference.
 
-This is an `update` action (see
+This is an `aggregate` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
-and so updates entries **in the input cache** by adding a DAG object to each
-matched entry.
+when used within a CausalIQ workflow: it reads the PDG from the input cache
+and writes a `dag` object to the `output` cache.
 
 ## Parameters
 
@@ -24,11 +24,10 @@ matched entry.
 - Input type is auto-detected by file extension:
   - `.graphml`: Read as PDG file (CLI only)
   - `.db`: Read all entries from WorkflowCache database containing PDG objects
-- The `output` parameter is **CLI only**. Creates output directory containing
+- In CLI mode, the `output` parameter is an output directory containing
   `dag.graphml` and `_meta.json`.
-- In workflows, `best_graph` is an update action: `output` is **prohibited**.
-  The action processes all entries in the input cache and adds a DAG object to
-  each entry.
+- In workflows, `best_graph` is an aggregate action: it reads the PDG from
+  the input cache and writes a `dag` object to the `output` cache.
 
 ---
 
@@ -127,8 +126,9 @@ Only edges with max effective probability ≥ 0.5 will be included.
 
 ## Workflow Usage
 
-In a CausalIQ workflow, `best_graph` operates as an UPDATE action that adds
-a DAG object to entries containing PDG objects:
+In a CausalIQ workflow, `best_graph` operates as an AGGREGATE action that
+reads PDG objects from the input cache and writes DAG objects to a separate
+output cache:
 
 ```yaml
 steps:
@@ -147,14 +147,14 @@ steps:
     with:
       action: "best_graph"
       input: "results/merged.db"
+      output: "results/best_dags.db"
       threshold: 0.3
 ```
 
 After this workflow:
 
-- Each entry in `results/merged.db` will contain both:
-  - The original `pdg` object from merge_graphs
-  - A new `dag` object from best_graph
+- `results/merged.db` holds the `pdg` objects from `merge_graphs`
+- `results/best_dags.db` holds the `dag` objects from `best_graph`
 
 ---
 
