@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1906,9 +1997,11 @@
 
         <p>Evaluate_graph workflow action.</p>
 <p>Compares a learned graph against a ground-truth reference and returns
-structural metrics as action metadata. The action is stateless, so
-validation and execution delegate to module-level helpers and each step
-stays within the module and method limits.</p>
+structural metrics. The action reads the matched entries of the input
+graph cache (AGGREGATE pattern) and writes a single <code>metrics</code> object to
+the output cache. The action is stateless, so validation and execution
+delegate to module-level helpers and each step stays within the module and
+method limits.</p>
 
           
 
@@ -2027,7 +2120,7 @@ stays within the module and method limits.</p>
             <b><code><a class="autorefs autorefs-internal" title="            run (causaliq_analysis.workflow_action.actions.evaluate_graph.EvaluateGraphAction.run)" href="#causaliq_analysis.workflow_action.actions.evaluate_graph.EvaluateGraphAction.run">run</a></code></b>
             –
             <div class="doc-md-description">
-              <p>Evaluate the entry graph against the reference graph.</p>
+              <p>Evaluate the matched entry graph against the reference graph.</p>
             </div>
           </li>
           <li class="doc-section-item field-body">
@@ -2073,9 +2166,9 @@ stays within the module and method limits.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Evaluate the entry graph against the reference graph.</p>
-<p>UPDATE pattern action: the graph to evaluate arrives via the
-'_update_entry' parameter, and the reference may be a single
+        <p>Evaluate the matched entry graph against the reference graph.</p>
+<p>AGGREGATE pattern action: the graph to evaluate arrives via the
+'_aggregation_entries' parameter, and the reference may be a single
 ground-truth graph file or a workflow cache (.db) whose entries
 share the input cache's key structure.</p>
 

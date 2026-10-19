@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -683,6 +774,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Input">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#summarise-csv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summarise CSV
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics Cache
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1673,6 +1792,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Input">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#summarise-csv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summarise CSV
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics Cache
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1727,11 +1874,14 @@
 
 <h1 id="plotting-results">Plotting Results<a class="headerlink" href="#plotting-results" title="Permanent link">&para;</a></h1>
 <p>The <code>plot</code> capability draws charts using matplotlib and Seaborn from
-information in a <code>.csv</code> file produced by the <code>summarise</code> action. It is a
-<code>nocaches</code> action which operates directly on plain files: it reads a CSV
-file and produces a publication-ready image file such as a <code>.png</code> or
-<code>.jpg</code>, without using workflow caches or the workflow matrix. Such
-actions run once per workflow regardless of any matrix definition.</p>
+scientific results. The input is either a <code>.csv</code> file produced by the
+<code>summarise</code> action or a metrics workflow cache (<code>.db</code>) produced by the
+<code>evaluate_graph</code> action. The action writes no workflow cache, only an
+image file such as a <code>.png</code> or <code>.jpg</code>; a step whose output is not a
+workflow cache runs once per workflow regardless of any matrix
+definition.</p>
+<p>Keeping the <code>.csv</code> input is useful for plotting simple ad-hoc data
+without building a workflow cache.</p>
 <p>The plotting code is migrated from the legacy <code>experiments/plot.py</code>
 module in the <code>causaliq-discovery</code> repository, so figures such as the
 variable-ordering CPDAG F1 chart can be replicated exactly.</p>
@@ -1750,7 +1900,7 @@ variable-ordering CPDAG F1 chart can be replicated exactly.</p>
 <td><code>input</code></td>
 <td><code>-i</code>/<code>--input</code></td>
 <td>Yes</td>
-<td>Input <code>.csv</code> file produced by <code>summarise</code></td>
+<td>Input <code>.csv</code> file (<code>summarise</code>) or metrics cache <code>.db</code> (<code>evaluate_graph</code>)</td>
 </tr>
 <tr>
 <td><code>output</code></td>
@@ -1797,8 +1947,9 @@ variable-ordering CPDAG F1 chart can be replicated exactly.</p>
 </tbody>
 </table>
 <h2 id="input">Input<a class="headerlink" href="#input" title="Permanent link">&para;</a></h2>
-<p>The input file is a <code>.csv</code> produced by the <code>summarise</code> action with one row
-per subplot, x-value and group combination. For example:</p>
+<h3 id="summarise-csv">Summarise CSV<a class="headerlink" href="#summarise-csv" title="Permanent link">&para;</a></h3>
+<p>A <code>.csv</code> produced by the <code>summarise</code> action has one row per subplot,
+x-value and group combination. For example:</p>
 <table>
 <thead>
 <tr>
@@ -1835,6 +1986,15 @@ per subplot, x-value and group combination. For example:</p>
 </tr>
 </tbody>
 </table>
+<h3 id="metrics-cache">Metrics Cache<a class="headerlink" href="#metrics-cache" title="Permanent link">&para;</a></h3>
+<p>A metrics workflow cache (<code>.db</code>) produced by <code>evaluate_graph</code> holds one
+<code>metrics</code> object per entry. The plot columns are the entry's matrix values
+(the workflow matrix keys, e.g. <code>network</code>, <code>series</code>, <code>sample_size</code>) plus
+the metric names recorded by <code>evaluate_graph</code> (e.g. <code>f1</code>, <code>shd</code>,
+<code>equiv.f1</code>, <code>equiv.shd</code>). Entries whose run failed hold provenance only —
+no object — and contribute no row.</p>
+<p>This is how the variable-ordering figure is produced: <code>plot</code> reads the
+metrics cache written by the <code>evaluate_graph</code> step.</p>
 <h2 id="cli-example">CLI Example<a class="headerlink" href="#cli-example" title="Permanent link">&para;</a></h2>
 <p>This command replicates the <code>ord_hc_f1</code> figure with one subplot per
 network, a line per series, a log-scale x-axis and the publication fonts:</p>
@@ -1862,13 +2022,13 @@ network, a line per series, a log-scale x-axis and the publication fonts:</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"plot"</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graph_accuracy.csv"</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graphs-metrics.db"</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"figures/ord_hc_f1.png"</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"line"</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">subplot</span><span class="p">:</span><span class="w"> </span><span class="s">"network"</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">"series"</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">x</span><span class="p">:</span><span class="w"> </span><span class="s">"sample_size"</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">y</span><span class="p">:</span><span class="w"> </span><span class="s">"f1.mean"</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">y</span><span class="p">:</span><span class="w"> </span><span class="s">"equiv.f1"</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"xaxis.label=Sample</span><span class="nv"> </span><span class="s">size"</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"yaxis.label=F1</span><span class="nv"> </span><span class="s">(CPDAG)"</span>

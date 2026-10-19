@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -820,6 +911,17 @@
     <span class="md-ellipsis">
       
         Summarisation Paradigm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#typed-workflow-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typed Workflow Caches
       
     </span>
   </a>
@@ -1782,6 +1884,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#typed-workflow-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typed Workflow Caches
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#graph-types" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1920,6 +2033,17 @@ This enables workflows that:</p>
 <li>Apply metadata-driven weighting</li>
 <li>Produce outputs with full provenance tracking</li>
 </ul>
+<h3 id="typed-workflow-caches">Typed Workflow Caches<a class="headerlink" href="#typed-workflow-caches" title="Permanent link">&para;</a></h3>
+<p>Workflow caches follow a single typed-object model: one cache holds one
+object type, and a successful entry holds provenance metadata plus exactly
+one typed object, whilst a failed entry holds provenance only. A failed
+evaluation is recorded in the metrics cache as a provenance-only entry with
+status <code>input_failed</code>, so failures appear alongside results without any
+metric values. <code>evaluate_graph</code>, <code>best_graph</code> and <code>plot</code> therefore read and
+write caches whose type is implied by the workflow's <code>input</code>/<code>output</code>
+parameters. See the causaliq-workflow
+<a href="https://workflow.causaliq.org/architecture/cache_type_model/">Cache Type Model</a>
+for the full design.</p>
 <h3 id="graph-types">Graph Types<a class="headerlink" href="#graph-types" title="Permanent link">&para;</a></h3>
 <p>The package works with graph types from causaliq-core:</p>
 <table>

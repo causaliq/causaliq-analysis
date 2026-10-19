@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1986,10 +2077,10 @@
 Dependency Graph (PDG) using a greedy algorithm. This is useful when you have
 a PDG representing structural uncertainty (e.g., from merged graphs) and need
 to select a single best DAG for downstream analysis or inference.</p>
-<p>This is an <code>update</code> action (see
+<p>This is an <code>aggregate</code> action (see
 <a href="https://workflow.causaliq.org/userguide/action_patterns/">workflow patterns</a>)
-and so updates entries <strong>in the input cache</strong> by adding a DAG object to each
-matched entry.</p>
+when used within a CausalIQ workflow: it reads the PDG from the input cache
+and writes a <code>dag</code> object to the <code>output</code> cache.</p>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2037,11 +2128,10 @@ matched entry.</p>
 <li>Input type is auto-detected by file extension:</li>
 <li><code>.graphml</code>: Read as PDG file (CLI only)</li>
 <li><code>.db</code>: Read all entries from WorkflowCache database containing PDG objects</li>
-<li>The <code>output</code> parameter is <strong>CLI only</strong>. Creates output directory containing
+<li>In CLI mode, the <code>output</code> parameter is an output directory containing
   <code>dag.graphml</code> and <code>_meta.json</code>.</li>
-<li>In workflows, <code>best_graph</code> is an update action: <code>output</code> is <strong>prohibited</strong>.
-  The action processes all entries in the input cache and adds a DAG object to
-  each entry.</li>
+<li>In workflows, <code>best_graph</code> is an aggregate action: it reads the PDG from
+  the input cache and writes a <code>dag</code> object to the <code>output</code> cache.</li>
 </ul>
 <hr />
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
@@ -2179,8 +2269,9 @@ order.</p>
 <p>Only edges with max effective probability ≥ 0.5 will be included.</p>
 <hr />
 <h2 id="workflow-usage">Workflow Usage<a class="headerlink" href="#workflow-usage" title="Permanent link">&para;</a></h2>
-<p>In a CausalIQ workflow, <code>best_graph</code> operates as an UPDATE action that adds
-a DAG object to entries containing PDG objects:</p>
+<p>In a CausalIQ workflow, <code>best_graph</code> operates as an AGGREGATE action that
+reads PDG objects from the input cache and writes DAG objects to a separate
+output cache:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">steps</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Merge</span><span class="nv"> </span><span class="s">experimental</span><span class="nv"> </span><span class="s">graphs"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
@@ -2197,13 +2288,13 @@ a DAG object to entries containing PDG objects:</p>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"best_graph"</span>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/merged.db"</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"results/best_dags.db"</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">      </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
 </span></code></pre></div>
 <p>After this workflow:</p>
 <ul>
-<li>Each entry in <code>results/merged.db</code> will contain both:</li>
-<li>The original <code>pdg</code> object from merge_graphs</li>
-<li>A new <code>dag</code> object from best_graph</li>
+<li><code>results/merged.db</code> holds the <code>pdg</code> objects from <code>merge_graphs</code></li>
+<li><code>results/best_dags.db</code> holds the <code>dag</code> objects from <code>best_graph</code></li>
 </ul>
 <hr />
 <h2 id="output-metadata">Output Metadata<a class="headerlink" href="#output-metadata" title="Permanent link">&para;</a></h2>

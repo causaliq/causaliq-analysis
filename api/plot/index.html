@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1063,10 +1154,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#causaliq_analysis.plot.run_plot(input_csv)" class="md-nav__link">
+  <a href="#causaliq_analysis.plot.run_plot(input_path)" class="md-nav__link">
     <span class="md-ellipsis">
       
-        input_csv
+        input_path
       
     </span>
   </a>
@@ -1974,10 +2065,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#causaliq_analysis.plot.run_plot(input_csv)" class="md-nav__link">
+  <a href="#causaliq_analysis.plot.run_plot(input_path)" class="md-nav__link">
     <span class="md-ellipsis">
       
-        input_csv
+        input_path
       
     </span>
   </a>
@@ -2336,7 +2427,7 @@ imports are unchanged. Internally the package is split into:</p>
 
 <a href="#causaliq_analysis.plot.run_plot" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_plot</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="input_csv (causaliq_analysis.plot.run_plot(input_csv))" href="#causaliq_analysis.plot.run_plot(input_csv)">input_csv</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-internal" title="input_path (causaliq_analysis.plot.run_plot(input_path))" href="#causaliq_analysis.plot.run_plot(input_path)">input_path</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-internal" title="output (causaliq_analysis.plot.run_plot(output))" href="#causaliq_analysis.plot.run_plot(output)">output</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><a class="autorefs autorefs-internal" title="kind (causaliq_analysis.plot.run_plot(kind))" href="#causaliq_analysis.plot.run_plot(kind)">kind</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">"line"</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><a class="autorefs autorefs-internal" title="subplot (causaliq_analysis.plot.run_plot(subplot))" href="#causaliq_analysis.plot.run_plot(subplot)">subplot</a></span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
@@ -2350,20 +2441,21 @@ imports are unchanged. Internally the package is split into:</p>
 
     <div class="doc doc-contents first">
 
-        <p>Generate a chart from a <code>summarise</code> CSV output.</p>
-<p>The input CSV contains one row per subplot, x value and group
-combination (as produced by the <code>summarise</code> action). The chart is
-generated using the migrated legacy plotting functions.</p>
+        <p>Generate a chart from summarise output or a metrics cache.</p>
+<p>The input is either a <code>summarise</code> CSV (one row per subplot, x value
+and group combination) or a metrics workflow cache (<code>.db</code>) whose
+entries carry a <code>metrics</code> object. The chart is generated using the
+migrated legacy plotting functions.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<h4 id="causaliq_analysis.plot.run_plot(input_csv)" class="doc doc-heading doc-heading-parameter">              <b><code>input_csv</code></b>
-<a href="#causaliq_analysis.plot.run_plot(input_csv)" class="headerlink" title="Permanent link">&para;</a></h4>              (<code><span title="str">str</span></code>)
+<h4 id="causaliq_analysis.plot.run_plot(input_path)" class="doc doc-heading doc-heading-parameter">              <b><code>input_path</code></b>
+<a href="#causaliq_analysis.plot.run_plot(input_path)" class="headerlink" title="Permanent link">&para;</a></h4>              (<code><span title="str">str</span></code>)
           –
           <div class="doc-md-description">
-            <p>path of the input CSV file.</p>
+            <p>path of the input CSV file or metrics cache.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">

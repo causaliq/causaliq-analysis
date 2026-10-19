@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1785,7 +1876,7 @@
 <li><code>-output</code> can only have a single value which must be a CSV file in both the CLI and action</li>
 </ul>
 <h3 id="metric"><code>metric</code><a class="headerlink" href="#metric" title="Permanent link">&para;</a></h3>
-<p>This specifies a list of metrics that are to be summarised. The values specifed follow the metadata variable naming convention and so define both the variable to be summarised and the summary statistic to be computed. So, for example, specifying <code>equiv.shd.mean</code> indicates that the capability should compute the mean of the <code>equiv.shd</code> variables in the input.</p>
+<p>This specifies a list of metrics that are to be summarised. Each name selects a field in the entry's JSON object (<code>metrics</code> objects in an evaluation cache) together with the statistic to compute. So, for example, specifying <code>equiv.shd.mean</code> indicates that the capability should compute the mean of the <code>equiv.shd</code> field in the input.</p>
 <p>The following summary statistics will be supported initially:</p>
 <ul>
 <li><code>mean</code> - the mean value</li>
@@ -1809,7 +1900,7 @@
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.sd</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graphs.db"</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/metrics.db"</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graph_accuracy.csv"</span>
 </span></code></pre></div>
 <h3 id="output"><code>output</code><a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
@@ -1847,7 +1938,7 @@ each combination of matrix variable values. The above workflow wil produce tabul
 </table>
 <p>Summary output like this is quite small and human-readable so it would be output as a CSV file. Values which cannot be computed, for example a SD based on just two values, will be displayed as None. This output file would often be used as input for a CausalIQ Analysis <code>table</code> or <code>plot</code> capability which will produce publication-ready LaTeX tables or charts respectively.</p>
 <h3 id="filter"><code>filter</code><a class="headerlink" href="#filter" title="Permanent link">&para;</a></h3>
-<p><code>filter</code> can be used to filter out some input entries on the basis of metadata values. For example, one may wish to exclude results with long execution times.</p>
+<p><code>filter</code> can be used to filter input entries on the basis of metadata values or object fields. For example, one may wish to exclude results with long execution times, or include only entries with <code>f1 &gt; 0.5</code>.</p>
 
 
 

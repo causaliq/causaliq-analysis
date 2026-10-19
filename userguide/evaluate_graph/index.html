@@ -230,17 +230,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../roadmap/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../roadmap/" class="md-tabs__link">
+          
+  
   
   Roadmap
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -378,6 +379,60 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../roadmap/" class="md-nav__link">
         
@@ -395,6 +450,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../current_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -730,6 +821,17 @@
     <span class="md-ellipsis">
       
         Comparison Semantics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failed-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failed Runs
       
     </span>
   </a>
@@ -1926,6 +2028,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#failed-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failed Runs
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1965,10 +2078,12 @@ reference graph. Deterministic graphs (DAG, PDAG, CPDAG) and Probabilistic
 Dependency Graphs (PDGs) are supported; the latter are compared by edge
 probability. Note that comparisons between general SDG graphs are not
 supported.</p>
-<p>This is an <code>update</code> action (see
+<p>This is an <code>aggregate</code> action (see
 <a href="https://workflow.causaliq.org/userguide/action_patterns/">workflow patterns</a>)
-and so updates the metadata for an existing graph <strong>in the input cache</strong> with
-the requested metrics when used within a CausalIQ workflow.</p>
+when used within a CausalIQ workflow: it reads the learned graph from the
+input graph cache and writes a <code>metrics</code> object to the <code>output</code> cache. The
+metric values are also recorded in the entry's metadata for compatibility
+with <code>summarise</code> until that action is migrated to metrics objects.</p>
 <hr />
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
@@ -2002,8 +2117,8 @@ the requested metrics when used within a CausalIQ workflow.</p>
 <tr>
 <td><code>output</code></td>
 <td><code>-o</code>/<code>--output</code></td>
-<td>CLI only</td>
-<td>Output directory for <code>_meta.json</code> file</td>
+<td>Workflow</td>
+<td>Metrics cache (<code>.db</code>) receiving the <code>metrics</code> object</td>
 </tr>
 <tr>
 <td><code>filter</code></td>
@@ -2020,9 +2135,9 @@ the requested metrics when used within a CausalIQ workflow.</p>
 <li>In CLI mode, <code>input</code> is a graph file (<code>.csv</code>, <code>.graphml</code>, <code>.tetrad</code>, <code>.xdsl</code>,
   <code>.dsc</code>) and <code>output</code> is a directory where <code>_meta.json</code> will be written.</li>
 <li>IN CLI mode you can request multiple metrics by repeating the -m/00metric option e.g. "-m f1 -m shd"</li>
-<li>In workflows, <code>input</code> is a workflow cache (<code>.db</code>) and <code>output</code> is
-  <strong>prohibited</strong> (UPDATE action pattern). The <code>filter</code> parameter can select
-  specific cache entries.</li>
+<li>In workflows, <code>input</code> is a workflow cache (<code>.db</code>) and <code>output</code> is a
+  workflow cache (<code>.db</code>) receiving a <code>metrics</code> object. The <code>filter</code>
+  parameter can select specific cache entries.</li>
 <li>In workflows, <code>reference</code> can be another workflow cache (<code>.db</code>) whose
   entries contain reference graphs with the same key structure as the
   input cache. Each input entry is compared against the reference entry
@@ -2157,22 +2272,27 @@ directly with the <a href="../summarise/"><code>summarise</code></a> action:</p>
 </span></code></pre></div>
 <hr />
 <h2 id="workflow-usage">Workflow Usage<a class="headerlink" href="#workflow-usage" title="Permanent link">&para;</a></h2>
-<p>In a CausalIQ workflow, <code>evaluate_graph</code> operates as an UPDATE action:</p>
+<p>In a CausalIQ workflow, <code>evaluate_graph</code> operates as an AGGREGATE action: it
+reads the matched entry of the input cache and writes a <code>metrics</code> object to
+its own output cache.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">steps</span><span class="p">:</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Evaluate</span><span class="nv"> </span><span class="s">Graphs"</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"evaluate_graph"</span>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graphs.db"</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="s">"reference/asia_true.graphml"</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shd</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">precision</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">recall</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"results/metrics.db"</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="s">"reference/asia_true.graphml"</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shd</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">precision</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">recall</span>
 </span></code></pre></div>
-<p>This computes metrics for each graph entry in the cache and adds them to the
-entry's metadata.</p>
+<p>Each entry in <code>metrics.db</code> holds a <code>metrics</code> object with the requested
+values; its provenance metadata records the <code>status</code>, the reference and the
+evaluated graph type. <code>summarise</code> and <code>plot</code> read the values from that
+object.</p>
 <h3 id="workflow-cache-reference">Workflow Cache Reference<a class="headerlink" href="#workflow-cache-reference" title="Permanent link">&para;</a></h3>
 <p>Instead of a single ground-truth graph file, <code>reference</code> can point to another
 workflow cache (<code>.db</code>) containing reference graphs. This enables comparing
@@ -2309,6 +2429,16 @@ consistently in CausalIQ papers and the legacy <code>discovery</code> repository
 <h3 id="comparison-semantics">Comparison Semantics<a class="headerlink" href="#comparison-semantics" title="Permanent link">&para;</a></h3>
 <p>To be completed — will describe in detail how the CausalIQ code computes the
 confusion matrix counts that underlie the structural metrics.</p>
+<h3 id="failed-runs">Failed Runs<a class="headerlink" href="#failed-runs" title="Permanent link">&para;</a></h3>
+<p>A failed input run holds provenance only — no object — so it cannot be
+scored. <code>evaluate_graph</code> therefore writes a <strong>provenance-only entry</strong> to the
+metrics cache, carrying <code>status: "input_failed"</code> and the upstream error.
+This keeps one entry per attempted job, so failure cases can be analysed
+(e.g. failure incidence by sample size or algorithm), whilst no <code>f1</code>,
+<code>precision</code> or <code>shd</code> value is ever produced for them. Summaries count only
+the successful jobs for those metrics.</p>
+<p>Reference cache entries must still hold an evaluable graph; a failure in the
+reference cache is an error.</p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../architecture/summarisation_paradigm/">Summarisation Paradigm</a> —
