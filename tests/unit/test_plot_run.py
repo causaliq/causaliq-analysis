@@ -214,11 +214,11 @@ def test_run_plot_skips_entries_without_metrics(tmp_path):
             {"series": "a", "network": "asia", "sample_size": 100}, valid
         )
 
-        # A failed run writes an empty object of the cache's type
+        # A failed run writes metadata only, with the cache's object type
         cache.put_failure(
             {"series": "b", "network": "asia", "sample_size": 100},
             {"status": "error"},
-            "evaluate_graph",
+            "metrics",
         )
 
         # A legacy entry with no metrics object

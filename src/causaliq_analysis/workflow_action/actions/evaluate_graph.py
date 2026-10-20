@@ -272,21 +272,31 @@ def _input_failure(entry_data: Dict[str, Any]) -> Optional[str]:
         The recorded error message, or None when the run succeeded.
 
     """
+    from causaliq_core.metadata import split_metadata
+
     metadata = entry_data.get("metadata") or {}
-    for provider in metadata.values():
-        if not isinstance(provider, dict):
-            continue
-        message = _provider_error(provider)
+    parts = split_metadata(metadata)
+    message = _result_error(parts.result)
+    if message is not None:
+        return message
+    for blocks in parts.history.values():
+        message = _history_error(blocks)
         if message is not None:
             return message
     return None
 
 
-def _provider_error(provider: Dict[str, Any]) -> Optional[str]:
-    """Return the first recorded error in one provider's metadata."""
-    for action in provider.values():
-        if isinstance(action, dict) and action.get("error"):
-            return str(action["error"])
+def _history_error(blocks: Any) -> Optional[str]:
+    """Return the recorded error of one history block, or None."""
+    if not isinstance(blocks, dict):
+        return None
+    return _result_error(blocks.get("result", {}))
+
+
+def _result_error(result: Any) -> Optional[str]:
+    """Return the error field of a result block, or None."""
+    if isinstance(result, dict) and result.get("error"):
+        return str(result["error"])
     return None
 
 

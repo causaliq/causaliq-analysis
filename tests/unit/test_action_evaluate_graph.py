@@ -201,6 +201,51 @@ def test_evaluate_graph_records_input_failure() -> None:
     assert result[2] == []
 
 
+# Test _input_failure returns an error recorded in a history block.
+def test_input_failure_uses_history_error() -> None:
+    """A failed upstream result carried in history is reported."""
+    from causaliq_analysis.workflow_action.actions.evaluate_graph import (
+        _input_failure,
+    )
+
+    metadata = {
+        "provenance": {
+            "provider": "causaliq-analysis",
+            "action": "evaluate_graph",
+        },
+        "inputs": {},
+        "result": {"status": "ok"},
+        "history": {
+            "causaliq-discovery.learn_graph": {
+                "inputs": {},
+                "result": {"status": "input_error", "error": "history boom"},
+            }
+        },
+    }
+
+    assert _input_failure({"metadata": metadata}) == "history boom"
+
+
+# Test _input_failure ignores a history value that is not a block.
+def test_input_failure_ignores_non_mapping_history() -> None:
+    """A scalar history value does not record a failure."""
+    from causaliq_analysis.workflow_action.actions.evaluate_graph import (
+        _input_failure,
+    )
+
+    metadata = {
+        "provenance": {
+            "provider": "causaliq-analysis",
+            "action": "evaluate_graph",
+        },
+        "inputs": {},
+        "result": {},
+        "history": {"causaliq-discovery.learn_graph": "not a block"},
+    }
+
+    assert _input_failure({"metadata": metadata}) is None
+
+
 # Test evaluate_graph ignores metadata that records no error.
 def test_evaluate_graph_ignores_metadata_without_errors() -> None:
     """Test only a recorded error marks an input run as failed."""

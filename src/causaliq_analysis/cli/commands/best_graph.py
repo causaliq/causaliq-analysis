@@ -2,9 +2,10 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 
 import click
+from causaliq_core import ActionMetadata
 
 __all__ = ["best_graph_cmd"]
 
@@ -64,7 +65,7 @@ def best_graph_cmd(
 def _run_best_graph_action(
     input: str,
     threshold: float,
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+) -> Tuple[Union[ActionMetadata, Dict[str, Any]], Dict[str, Any]]:
     """Run the best_graph action and return its metadata and DAG object.
 
     Args:
@@ -104,7 +105,7 @@ def _run_best_graph_action(
 def _write_best_graph_outputs(
     output: str,
     dag_obj: Dict[str, Any],
-    metadata: Dict[str, Any],
+    metadata: Union[ActionMetadata, Dict[str, Any]],
 ) -> Tuple[Path, Path]:
     """Write the extracted DAG and its metadata files.
 
@@ -165,7 +166,7 @@ def _write_dag_file(output_dir: Path, dag_obj: Dict[str, Any]) -> Path:
 
 def _write_best_graph_metadata(
     output_dir: Path,
-    metadata: Dict[str, Any],
+    metadata: Union[ActionMetadata, Dict[str, Any]],
     dag_obj: Dict[str, Any],
 ) -> Path:
     """Write the best-graph metadata file.

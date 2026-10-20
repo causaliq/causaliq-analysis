@@ -174,12 +174,12 @@ def test_summarise_computes_mean(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"seed": 2},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.9}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.9}},
             "cache_path": "test.db",
         },
     ]
@@ -307,17 +307,17 @@ def test_summarise_computes_sd(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"score": 10.0}}},
+            "metadata": {"provenance": {}, "result": {"score": 10.0}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"seed": 2},
-            "metadata": {"provider": {"action": {"score": 20.0}}},
+            "metadata": {"provenance": {}, "result": {"score": 20.0}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"seed": 3},
-            "metadata": {"provider": {"action": {"score": 30.0}}},
+            "metadata": {"provenance": {}, "result": {"score": 30.0}},
             "cache_path": "test.db",
         },
     ]
@@ -353,7 +353,7 @@ def test_summarise_sd_insufficient_values(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -388,17 +388,17 @@ def test_summarise_with_filter(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1, "status": "completed"},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"seed": 2, "status": "failed"},
-            "metadata": {"provider": {"action": {"f1": 0.5}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.5}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"seed": 3, "status": "completed"},
-            "metadata": {"provider": {"action": {"f1": 0.9}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.9}},
             "cache_path": "test.db",
         },
     ]
@@ -439,7 +439,8 @@ def test_summarise_with_random_filter_aggregation(
         {
             "matrix_values": {"seed": str(i)},
             "metadata": {
-                "provider": {"action": {"f1": 0.5 + i * 0.05}},
+                "provenance": {},
+                "result": {"f1": 0.5 + i * 0.05},
             },
             "cache_path": "test.db",
         }
@@ -477,12 +478,12 @@ def test_summarise_skips_non_numeric(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"seed": 2},
-            "metadata": {"provider": {"action": {"f1": "not_a_number"}}},
+            "metadata": {"provenance": {}, "result": {"f1": "not_a_number"}},
             "cache_path": "test.db",
         },
     ]
@@ -570,7 +571,7 @@ def test_summarise_logs_progress(tmp_path: Any, capsys: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -606,7 +607,7 @@ def test_summarise_metadata_complete(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "cache1.db",
         },
     ]
@@ -679,7 +680,7 @@ def test_summarise_filter_exception_aggregation(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -716,7 +717,7 @@ def test_summarise_mean_no_values(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"other": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"other": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -751,7 +752,7 @@ def test_summarise_csv_write_error(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -813,7 +814,7 @@ def test_summarise_input_as_string(tmp_path: Any) -> None:
     # Create a cache with one entry
     cache_path = tmp_path / "single.db"
     with WorkflowCache(str(cache_path)) as cache:
-        entry = CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}})
+        entry = CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.8}})
         cache.put({"seed": 1}, entry)
 
     output_path = tmp_path / "summary.csv"
@@ -848,7 +849,7 @@ def test_summarise_metric_as_string(tmp_path: Any) -> None:
     # Create a cache with one entry
     cache_path = tmp_path / "single.db"
     with WorkflowCache(str(cache_path)) as cache:
-        entry = CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}})
+        entry = CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.8}})
         cache.put({"seed": 1}, entry)
 
     output_path = tmp_path / "summary.csv"
@@ -885,7 +886,7 @@ def test_summarise_wraps_generic_exception(tmp_path: Any) -> None:
     aggregation_entries: List[Dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
-            "metadata": {"provider": {"action": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -921,12 +922,12 @@ def test_summarise_csv_includes_context_matrix_values(tmp_path: Any) -> None:
     aggregation_entries = [
         {
             "matrix_values": {"algorithm": "pc", "seed": 0},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
         {
             "matrix_values": {"algorithm": "pc", "seed": 1},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.7}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.7}},
             "cache_path": "test.db",
         },
     ]
@@ -986,7 +987,7 @@ def test_summarise_csv_always_appends(
     aggregation_entries_1 = [
         {
             "matrix_values": {"seed": 0},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
             "cache_path": "test.db",
         },
     ]
@@ -1011,7 +1012,7 @@ def test_summarise_csv_always_appends(
     aggregation_entries_2 = [
         {
             "matrix_values": {"seed": 0},
-            "metadata": {"causaliq-analysis": {"evaluate_graph": {"f1": 0.6}}},
+            "metadata": {"provenance": {}, "result": {"f1": 0.6}},
             "cache_path": "test.db",
         },
     ]
@@ -1071,16 +1072,16 @@ def test_summarise_direct_mode_filters_by_context_matrix(
         # Asia entries
         cache.put(
             {"network": "asia", "seed": 0},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.8}}),
         )
         cache.put(
             {"network": "asia", "seed": 1},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.9}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.9}}),
         )
         # Alarm entries (should be filtered out)
         cache.put(
             {"network": "alarm", "seed": 0},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.5}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.5}}),
         )
 
     output_path = tmp_path / "summary.csv"
@@ -1126,15 +1127,15 @@ def test_summarise_direct_mode_with_filter_expression(tmp_path: Any) -> None:
     with WorkflowCache(str(cache_path)) as cache:
         cache.put(
             {"seed": 0},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.8}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.8}}),
         )
         cache.put(
             {"seed": 1},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.9}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.9}}),
         )
         cache.put(
             {"seed": 2},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.5}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.5}}),
         )
 
     output_path = tmp_path / "summary.csv"
@@ -1180,12 +1181,11 @@ def test_summarise_direct_mode_with_random_filter(
                 {"seed": str(i)},
                 CacheEntry(
                     metadata={
-                        "provider": {
-                            "action": {
-                                "f1": 0.5 + i * 0.05,
-                                "seed": i,
-                            }
-                        }
+                        "provenance": {},
+                        "result": {
+                            "f1": 0.5 + i * 0.05,
+                            "seed": i,
+                        },
                     }
                 ),
             )
@@ -1228,12 +1228,14 @@ def test_summarise_direct_mode_filter_exception_skips_entry(
         # Entry with value that exists
         cache.put(
             {"seed": 0},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.8, "x": 5}}}),
+            CacheEntry(
+                metadata={"provenance": {}, "result": {"f1": 0.8, "x": 5}}
+            ),
         )
         # Entry without x (filter will fail)
         cache.put(
             {"seed": 1},
-            CacheEntry(metadata={"provider": {"action": {"f1": 0.9}}}),
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.9}}),
         )
 
     output_path = tmp_path / "summary.csv"

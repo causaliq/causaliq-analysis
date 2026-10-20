@@ -894,14 +894,10 @@ def test_summarise_direct_mode_with_cache(
     cache_path = tmp_path / "results.db"
     with WorkflowCache(str(cache_path)) as cache:
         entry1 = CacheEntry(
-            metadata={
-                "causaliq-analysis": {"evaluate_graph": {"f1": 0.8, "shd": 2}}
-            }
+            metadata={"provenance": {}, "result": {"f1": 0.8, "shd": 2}}
         )
         entry2 = CacheEntry(
-            metadata={
-                "causaliq-analysis": {"evaluate_graph": {"f1": 0.9, "shd": 1}}
-            }
+            metadata={"provenance": {}, "result": {"f1": 0.9, "shd": 1}}
         )
         cache.put({"seed": 1}, entry1)
         cache.put({"seed": 2}, entry2)
@@ -940,23 +936,20 @@ def test_summarise_direct_mode_with_filter(
     with WorkflowCache(str(cache_path)) as cache:
         entry1 = CacheEntry(
             metadata={
-                "causaliq-analysis": {
-                    "evaluate_graph": {"f1": 0.8, "status": "completed"}
-                }
+                "provenance": {},
+                "result": {"f1": 0.8, "status": "completed"},
             }
         )
         entry2 = CacheEntry(
             metadata={
-                "causaliq-analysis": {
-                    "evaluate_graph": {"f1": 0.5, "status": "failed"}
-                }
+                "provenance": {},
+                "result": {"f1": 0.5, "status": "failed"},
             }
         )
         entry3 = CacheEntry(
             metadata={
-                "causaliq-analysis": {
-                    "evaluate_graph": {"f1": 0.9, "status": "completed"}
-                }
+                "provenance": {},
+                "result": {"f1": 0.9, "status": "completed"},
             }
         )
         cache.put({"seed": 1}, entry1)
@@ -994,9 +987,7 @@ def test_summarise_direct_mode_filter_exception(
 
     cache_path = tmp_path / "results.db"
     with WorkflowCache(str(cache_path)) as cache:
-        entry = CacheEntry(
-            metadata={"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}}
-        )
+        entry = CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.8}})
         cache.put({"seed": 1}, entry)
 
     output_path = tmp_path / "summary.csv"
@@ -1061,9 +1052,7 @@ def test_summarise_direct_mode_logs_progress(
 
     cache_path = tmp_path / "results.db"
     with WorkflowCache(str(cache_path)) as cache:
-        entry = CacheEntry(
-            metadata={"causaliq-analysis": {"evaluate_graph": {"f1": 0.8}}}
-        )
+        entry = CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.8}})
         cache.put({"seed": 1}, entry)
 
     output_path = tmp_path / "summary.csv"
@@ -1154,16 +1143,23 @@ def test_evaluate_graph_cache_reference_end_to_end(
     assert objects[0]["type"] == "metrics"
 
     # A successful evaluation writes the metrics object to its own cache
+    from causaliq_core.metadata import build_metadata
+
     metrics_path = tmp_path / "metrics.db"
     with WorkflowCache(metrics_path) as cache:
         cache.put_from_action(
             key_data=matrix_values,
-            metadata={"causaliq-analysis": {"evaluate_graph": metadata}},
+            metadata=build_metadata(
+                "causaliq-analysis",
+                "evaluate_graph",
+                {},
+                metadata,
+            ),
             objects=objects,
         )
 
         stored = cache.get(matrix_values)
-        persisted = stored.metadata["causaliq-analysis"]["evaluate_graph"]
+        persisted = stored.metadata["result"]
         assert persisted["reference"] == str(ref_path)
         metrics = stored.get_object("metrics")
         assert json.loads(metrics.content)["f1"] == 1.0

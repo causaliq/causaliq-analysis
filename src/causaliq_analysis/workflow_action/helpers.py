@@ -510,65 +510,19 @@ def _flatten_entry_metadata(
 ) -> Dict[str, Any]:
     """Flatten entry metadata for filter/weight evaluation.
 
-    Combines matrix values with nested metadata structure into a flat
-    dictionary suitable for filter expression or weight computation.
+    Delegates to the shared reporting view so workflow aggregation,
+    analysis filters and plot columns all use the same names.
 
     Args:
         matrix_values: Entry's matrix variable values.
-        metadata: Entry's nested metadata dictionary.
+        metadata: Entry's metadata in version 2 or legacy form.
 
     Returns:
-        Flat dictionary with all metadata fields.
+        Flat dictionary of names to values.
     """
-    flat: Dict[str, Any] = dict(matrix_values)
-    for provider_name, provider_data in metadata.items():
-        _flatten_provider_metadata(provider_name, provider_data, flat)
-    return flat
+    from causaliq_workflow.cache.reporting import build_entry_view
 
-
-def _flatten_provider_metadata(
-    provider_name: str,
-    provider_data: Any,
-    flat: Dict[str, Any],
-) -> None:
-    """Flatten one provider's metadata section into a flat dictionary.
-
-    Args:
-        provider_name: Provider key in the nested metadata.
-        provider_data: Provider metadata section.
-        flat: Flat dictionary, updated in place.
-    """
-    if not isinstance(provider_data, dict):
-        flat[provider_name] = provider_data
-        return
-
-    for action_name, action_data in provider_data.items():
-        _flatten_action_metadata(provider_name, action_name, action_data, flat)
-
-
-def _flatten_action_metadata(
-    provider_name: str,
-    action_name: str,
-    action_data: Any,
-    flat: Dict[str, Any],
-) -> None:
-    """Flatten one action's metadata section into a flat dictionary.
-
-    Args:
-        provider_name: Provider key in the nested metadata.
-        action_name: Action key in the nested metadata.
-        action_data: Action metadata section.
-        flat: Flat dictionary, updated in place.
-    """
-    qual_key = f"{provider_name}.{action_name}"
-    if not isinstance(action_data, dict):
-        flat[qual_key] = action_data
-        return
-
-    for key, value in action_data.items():
-        if key not in flat:
-            flat[key] = value
-        flat[f"{qual_key}.{key}"] = value
+    return build_entry_view(matrix_values, metadata)
 
 
 def _compute_weights_from_metadata(

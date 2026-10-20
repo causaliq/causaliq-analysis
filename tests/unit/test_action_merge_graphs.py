@@ -267,13 +267,16 @@ def test_flatten_entry_metadata_with_nested_structure() -> None:
 
     matrix_values = {"seed": 42, "network": "asia"}
     metadata = {
-        "causaliq-core": {
-            "learn_structure": {
-                "algorithm": "PC",
-                "num_nodes": 10,
-            },
+        "provenance": {
+            "provider": "causaliq-core",
+            "action": "learn_structure",
         },
-        "simple_key": "simple_value",  # Non-dict provider_data branch
+        "inputs": {},
+        "result": {
+            "algorithm": "PC",
+            "num_nodes": 10,
+        },
+        "history": {},
     }
 
     result = helpers._flatten_entry_metadata(matrix_values, metadata)
@@ -282,15 +285,13 @@ def test_flatten_entry_metadata_with_nested_structure() -> None:
     assert result["seed"] == 42
     assert result["network"] == "asia"
 
-    # Nested values flattened
-    assert result["algorithm"] == "PC"
-    assert result["num_nodes"] == 10
+    # Metadata is producer-qualified rather than flattened to bare names
+    assert result["learn_structure.algorithm"] == "PC"
+    assert result["learn_structure.num_nodes"] == 10
+    assert "algorithm" not in result
 
-    # Qualified keys also present
-    assert result["causaliq-core.learn_structure.algorithm"] == "PC"
-
-    # Non-dict provider value handled
-    assert result["simple_key"] == "simple_value"
+    # Provider-qualified keys are also present
+    assert result["causaliq_core.learn_structure.algorithm"] == "PC"
 
 
 # Test _flatten_entry_metadata with action value not dict (line 645).

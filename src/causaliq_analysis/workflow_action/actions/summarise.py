@@ -389,11 +389,13 @@ def _entry_metadata(entry_dict: Dict[str, Any]) -> Tuple[Any, Dict[str, Any]]:
 
     """
     matrix_values = entry_dict.get("matrix_values", {})
-    flat_meta = helpers._flatten_entry_metadata(
-        matrix_values, entry_dict.get("metadata", {})
+    from causaliq_workflow.cache.reporting import build_entry_view
+
+    return matrix_values, build_entry_view(
+        matrix_values,
+        entry_dict.get("metadata", {}),
+        _object_values(entry_dict),
     )
-    flat_meta.update(_object_values(entry_dict))
-    return matrix_values, flat_meta
 
 
 def _object_values(entry_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -484,11 +486,11 @@ def _entry_matches(
     """
     if not resolved_filter:
         return True
-    from causaliq_core.utils import evaluate_filter
+    from causaliq_workflow.cache.reporting import evaluate_entry_filter
 
     try:
         names = {**flat_meta, **extra_names}
-        return bool(evaluate_filter(resolved_filter, names))
+        return bool(evaluate_entry_filter(resolved_filter, names))
     except Exception:
         return False
 

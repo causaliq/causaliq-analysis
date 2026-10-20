@@ -137,6 +137,8 @@ def _metrics_rows(cache_path: str) -> List[Dict[str, Any]]:
 
 def _read_cache_rows(cache: Any) -> List[Dict[str, Any]]:
     """Read the metric rows from an open workflow cache."""
+    from causaliq_workflow.cache.reporting import build_entry_view
+
     rows: List[Dict[str, Any]] = []
     for entry_info in cache.list_entries():
         matrix_values = entry_info.get("matrix_values", {})
@@ -144,7 +146,7 @@ def _read_cache_rows(cache: Any) -> List[Dict[str, Any]]:
         metrics = _entry_metrics(entry)
         if metrics is None:
             continue
-        rows.append({**matrix_values, **metrics})
+        rows.append(build_entry_view(matrix_values, entry.metadata, metrics))
     return rows
 
 
