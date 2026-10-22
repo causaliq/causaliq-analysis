@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     shared by the CLI and workflow action
 
 ### Changed
+- **Dependency minimums**: require `causaliq-core>=0.8.0.dev8` and
+  `causaliq-workflow>=0.6.0.dev9` for the standardised version 2 metadata
+  envelope (`parameters`, `started` and `elapsed`).
 - **Metrics live only in the metrics object**: `evaluate_graph` no longer
   duplicates metric values into entry metadata. The entry holds the `metrics`
   object (JSON) plus provenance (`status`, `reference`, `evaluated_graph`), and
