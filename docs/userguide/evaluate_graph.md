@@ -10,8 +10,9 @@ This is an `aggregate` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
 when used within a CausalIQ workflow: it reads the learned graph from the
 input graph cache and writes a `metrics` object to the `output` cache. The
-metric values are also recorded in the entry's metadata for compatibility
-with `summarise` until that action is migrated to metrics objects.
+metric values live only in that object; the entry's metadata records the
+effective parameters and the outcome status (see
+[Workflow Metadata](#workflow-metadata)).
 
 ---
 
@@ -286,14 +287,61 @@ confusion matrix counts that underlie the structural metrics.
 
 A failed input run holds provenance only — no object — so it cannot be
 scored. `evaluate_graph` therefore writes a **provenance-only entry** to the
-metrics cache, carrying `status: "input_failed"` and the upstream error.
-This keeps one entry per attempted job, so failure cases can be analysed
-(e.g. failure incidence by sample size or algorithm), whilst no `f1`,
-`precision` or `shd` value is ever produced for them. Summaries count only
-the successful jobs for those metrics.
+metrics cache, carrying `result.status: "input_failed"` and
+`result.error: "No graph present"`. The upstream reason the graph was not
+produced stays with the producing entry rather than being copied here. This
+keeps one entry per attempted job, so failure cases can be analysed (e.g.
+failure incidence by sample size or algorithm), whilst no `f1`, `precision`
+or `shd` value is ever produced for them. Summaries count only the
+successful jobs for those metrics.
 
 Reference cache entries must still hold an evaluable graph; a failure in the
 reference cache is an error.
+
+---
+
+## Workflow Metadata
+
+Each cache entry records two metadata blocks alongside the framework
+provenance. Metric values are never duplicated into metadata: `summarise`
+and `plot` read the `metrics` object.
+
+**Parameters** — every user-facing parameter is recorded, including those
+the workflow does not supply (as `null`):
+
+| Key | Value |
+|-----|-------|
+| `input` | Input cache path, or `null` when omitted |
+| `reference` | Reference graph file or cache path |
+| `metric` | Requested metrics as a list |
+| `output` | Output cache path, resolved from the open step cache when the executor removes `output` |
+| `filter` | Filter expression, or `null` when omitted |
+
+**Result** — the status of the evaluation:
+
+| Case | Result block |
+|------|--------------|
+| Success | `{"status": "ok"}` |
+| No learnt graph | `{"status": "input_failed", "error": "No graph present"}` |
+| Dry run | `{"status": "skipped"}` |
+
+For example, a successful evaluation of the Asia network records:
+
+```json
+{
+  "parameters": {
+    "input": "results/learn.db",
+    "reference": "networks/asia/asia.xdsl",
+    "metric": ["f1", "shd"],
+    "output": "results/metrics.db",
+    "filter": null
+  },
+  "result": {"status": "ok"}
+}
+```
+
+The evaluated graph type is not recorded: it can be recovered from the
+metadata history once that feature is implemented.
 
 ## See Also
 
