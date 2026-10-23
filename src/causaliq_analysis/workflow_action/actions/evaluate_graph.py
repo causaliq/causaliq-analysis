@@ -4,9 +4,10 @@ Evaluate_graph workflow action.
 Compares a learned graph against a ground-truth reference and returns
 structural metrics. The action reads the matched entries of the input
 graph cache (AGGREGATE pattern) and writes a single ``metrics`` object to
-the output cache. The action is stateless, so validation and execution
-delegate to module-level helpers and each step stays within the module and
-method limits.
+the output cache. Metric values live only in that object: the action
+metadata records the effective parameters and the outcome status. The
+action is stateless, so validation and execution delegate to module-level
+helpers and each step stays within the module and method limits.
 """
 
 import json
@@ -37,6 +38,9 @@ VALID_EVALUATE_METRICS = frozenset(
     }
 )
 """Metric names supported by the evaluate_graph action."""
+
+NO_GRAPH_ERROR = "No graph present"
+"""Error recorded when the input run produced no learnt graph."""
 
 
 class EvaluateGraphAction(AnalysisAction):
@@ -95,9 +99,10 @@ class EvaluateGraphAction(AnalysisAction):
 
         """
         request = _evaluate_request(parameters)
+        block = _parameter_block(parameters, request, context)
         if mode == "dry-run":
-            return _dry_run_result(request, logger)
-        return _evaluate(request, logger)
+            return _dry_run_result(request, block, logger)
+        return _evaluate(request, block, logger)
 
 
 def _require_valid_metrics(parameters: Dict[str, Any]) -> None:
@@ -197,14 +202,92 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _parameter_block(
+    parameters: Dict[str, Any],
+    request: Dict[str, Any],
+    context: Optional[Any],
+) -> Dict[str, Any]:
+    """Build the effective-parameters block for the action metadata.
+
+    Every user-facing parameter is recorded, including those the workflow
+    does not supply. The internal '_aggregation_entries' parameter is
+    excluded because it carries live cache objects rather than a value.
+
+    Args:
+        parameters: Action parameter values.
+        request: Evaluation request.
+        context: Workflow context holding the open output cache, if any.
+
+    Returns:
+        Parameters block with every user-facing parameter present.
+
+    """
+    return {
+        "input": parameters.get("input"),
+        "reference": request["reference"],
+        "metric": request["metrics"],
+        "output": _resolved_output(parameters, context),
+        "filter": parameters.get("filter"),
+    }
+
+
+def _resolved_output(
+    parameters: Dict[str, Any],
+    context: Optional[Any],
+) -> Optional[str]:
+    """Return the effective output path for the action metadata.
+
+    The workflow executor removes 'output' before invoking an action that
+    writes to a cache, so the open cache path is used instead.
+
+    Args:
+        parameters: Action parameter values.
+        context: Workflow context holding the open output cache, if any.
+
+    Returns:
+        Output path, or None when the action writes no cache.
+
+    """
+    output = parameters.get("output")
+    if output is not None:
+        return str(output)
+    cache = getattr(context, "cache", None)
+    db_path = getattr(cache, "db_path", None)
+    return None if db_path is None else str(db_path)
+
+
+def _action_metadata(
+    parameters_block: Dict[str, Any],
+    status: str,
+    error: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build action metadata with explicit parameter and result blocks.
+
+    Args:
+        parameters_block: Effective parameters used by the action.
+        status: Status recorded in the result block.
+        error: Failure explanation, omitted when the run produced a result.
+
+    Returns:
+        Action metadata holding the parameters and result blocks.
+
+    """
+    result: Dict[str, Any] = {"status": status}
+    if error is not None:
+        result["error"] = error
+    return {"parameters": parameters_block, "result": result}
+
+
 def _dry_run_result(
     request: Dict[str, Any],
+    parameters_block: Dict[str, Any],
     logger: Optional[Any],
 ) -> ActionResult:
     """Return the dry-run result for an evaluation.
 
     Args:
         request: Evaluation request.
+        parameters_block: Effective parameters used by the action.
         logger: Logger for reporting.
 
     Returns:
@@ -217,17 +300,19 @@ def _dry_run_result(
             f"Would evaluate graph {matrix_values} "
             f"vs reference: {request['reference']}"
         )
-    return ("skipped", {"reference": request["reference"]}, [])
+    return ("skipped", _action_metadata(parameters_block, "skipped"), [])
 
 
 def _evaluate(
     request: Dict[str, Any],
+    parameters_block: Dict[str, Any],
     logger: Optional[Any],
 ) -> ActionResult:
     """Evaluate the entry graph against the reference graph.
 
     Args:
         request: Evaluation request.
+        parameters_block: Effective parameters used by the action.
         logger: Logger for reporting.
 
     Returns:
@@ -241,7 +326,11 @@ def _evaluate(
     failure = _input_failure(request["entry"])
     if failure is not None:
         _log_input_failure(logger, failure)
-        return ("error", {"status": "input_failed", "error": failure}, [])
+        return (
+            "error",
+            _action_metadata(parameters_block, "input_failed", NO_GRAPH_ERROR),
+            [],
+        )
     graph, graph_type = _entry_graph(request)
     reference = _resolve_reference_graph(
         request["reference"], request["entry"]
@@ -250,7 +339,7 @@ def _evaluate(
     equiv_metrics = _equiv_metrics(
         graph, reference, request["metrics"], logger
     )
-    metadata = _evaluation_provenance(request, graph_type)
+    metadata = _action_metadata(parameters_block, "ok")
     _log_evaluation(logger, graph_type, metrics)
     return (
         "success",
@@ -627,30 +716,6 @@ def _require_matching_keys(
                 f"{sorted(input_keys)}, reference keys: "
                 f"{sorted(ref_keys)}"
             )
-
-
-def _evaluation_provenance(
-    request: Dict[str, Any],
-    graph_type: str,
-) -> Dict[str, Any]:
-    """Build the provenance metadata for a successful evaluation.
-
-    Metric values belong to the metrics object, so the metadata records
-    only how the result was produced.
-
-    Args:
-        request: Evaluation request.
-        graph_type: Object type of the evaluated graph.
-
-    Returns:
-        Provenance metadata.
-
-    """
-    return {
-        "status": "ok",
-        "reference": request["reference"],
-        "evaluated_graph": graph_type,
-    }
 
 
 def _metric_values(

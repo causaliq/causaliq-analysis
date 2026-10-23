@@ -1,7 +1,7 @@
 """Unit tests for evaluate_graph action with mocked dependencies."""
 
 import json
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -23,6 +23,44 @@ def _metric(result: Any, name: str) -> Any:
 def _metric_keys(result: Any) -> set:
     """Return the metric names held in the returned metrics object."""
     return set(json.loads(result[2][0]["content"]))
+
+
+def _block(result: Any, name: str) -> Any:
+    """Return a named metadata block from the action result."""
+    return result[1][name]
+
+
+def _run_evaluate(parameters: Dict[str, Any], context: Any = None) -> Any:
+    """Run evaluate_graph with mocked graph reads and comparisons."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+    entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": create_mock_graphml_entry(),
+    }
+    mock_metrics = {"p": 1.0, "r": 1.0, "f1": 1.0, "shd": 0}
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=MagicMock(),
+        ):
+            return provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_aggregation_entries": [entry],
+                    **parameters,
+                },
+                mode="run",
+                context=context,
+                logger=mock_logger,
+            )
 
 
 def test_evaluate_graph_returns_metrics() -> None:
@@ -79,7 +117,77 @@ def test_evaluate_graph_returns_metrics() -> None:
     assert _metric(result, "recall") == 1.0
     assert _metric(result, "f1") == 1.0
     assert _metric(result, "shd") == 0
-    assert result[1]["reference"] == "ref.graphml"
+    assert _block(result, "parameters")["reference"] == "ref.graphml"
+
+
+# Test evaluate_graph records every user-facing parameter.
+def test_evaluate_graph_records_all_parameters() -> None:
+    """Test that unset parameters are recorded as None."""
+    result = _run_evaluate({"reference": "ref.graphml", "metric": "f1"})
+
+    assert _block(result, "parameters") == {
+        "input": None,
+        "reference": "ref.graphml",
+        "metric": ["f1"],
+        "output": None,
+        "filter": None,
+    }
+
+
+# Test evaluate_graph records supplied input and filter parameters.
+def test_evaluate_graph_records_input_and_filter() -> None:
+    """Test that input and filter values are recorded unchanged."""
+    result = _run_evaluate(
+        {
+            "input": "results/learn.db",
+            "reference": "ref.graphml",
+            "metric": ["f1"],
+            "filter": "algorithm == 'pc'",
+        }
+    )
+
+    parameters = _block(result, "parameters")
+    assert parameters["input"] == "results/learn.db"
+    assert parameters["filter"] == "algorithm == 'pc'"
+
+
+# Test evaluate_graph resolves output from the open step cache.
+def test_evaluate_graph_resolves_output_from_context() -> None:
+    """Test that the open output cache supplies an omitted output."""
+    context = MagicMock()
+    context.cache.db_path = "results/metrics.db"
+
+    result = _run_evaluate(
+        {"reference": "ref.graphml", "metric": ["f1"]}, context
+    )
+
+    assert _block(result, "parameters")["output"] == "results/metrics.db"
+
+
+# Test evaluate_graph prefers an explicit output parameter.
+def test_evaluate_graph_prefers_explicit_output() -> None:
+    """Test that an explicit output is not replaced by the context."""
+    context = MagicMock()
+    context.cache.db_path = "context.db"
+
+    result = _run_evaluate(
+        {
+            "reference": "ref.graphml",
+            "metric": ["f1"],
+            "output": "metrics.db",
+        },
+        context,
+    )
+
+    assert _block(result, "parameters")["output"] == "metrics.db"
+
+
+# Test evaluate_graph result block records the status only.
+def test_evaluate_graph_result_block_holds_status_only() -> None:
+    """Test that the result block omits reference and evaluated graph."""
+    result = _run_evaluate({"reference": "ref.graphml", "metric": ["f1"]})
+
+    assert _block(result, "result") == {"status": "ok"}
 
 
 # Test evaluate_graph dry-run mode skips execution.
@@ -111,6 +219,8 @@ def test_evaluate_graph_dry_run_skips(capsys: Any) -> None:
     )
 
     assert result[0] == "skipped"
+    assert _block(result, "result") == {"status": "skipped"}
+    assert _block(result, "parameters")["reference"] == "ref.graphml"
     captured = capsys.readouterr()
     assert "Would evaluate graph" in captured.out
 
@@ -196,8 +306,9 @@ def test_evaluate_graph_records_input_failure() -> None:
     )
 
     assert result[0] == "error"
-    assert result[1]["status"] == "input_failed"
-    assert result[1]["error"] == "boom"
+    assert _block(result, "result")["status"] == "input_failed"
+    assert _block(result, "result")["error"] == "No graph present"
+    assert _block(result, "parameters")["reference"] == "ref.graphml"
     assert result[2] == []
 
 
@@ -536,7 +647,7 @@ def test_evaluate_graph_accepts_pdg_content() -> None:
         with patch(
             "causaliq_analysis.metrics.pdg_compare",
             return_value=mock_metrics,
-        ):
+        ) as mock_pdg_compare:
             result = provider.run(
                 action="evaluate_graph",
                 parameters={
@@ -551,7 +662,7 @@ def test_evaluate_graph_accepts_pdg_content() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["evaluated_graph"] == "pdg"
+    mock_pdg_compare.assert_called_once()
     assert _metric(result, "f1") == 0.5
 
 
@@ -840,7 +951,7 @@ def test_evaluate_graph_skips_non_graphml() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["evaluated_graph"] == "dag"
+    mock_entry.get_object.assert_called_with("dag")
 
 
 # Test evaluate_graph prioritises DAG over PDG.
@@ -891,7 +1002,6 @@ def test_evaluate_graph_uses_dag_not_pdg() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["evaluated_graph"] == "dag"
     # Verify get_object was only called for dag, not pdg
     mock_entry.get_object.assert_called_with("dag")
 
@@ -944,7 +1054,6 @@ def test_evaluate_graph_skips_unknown_object_types() -> None:
             )
 
     assert result[0] == "success"
-    assert result[1]["evaluated_graph"] == "dag"
     # The unsupported 'bn' type was skipped, never requested
     assert mock_entry.get_object.call_args_list == [call("dag")]
 
@@ -1059,7 +1168,9 @@ def test_evaluate_graph_xdsl_reference() -> None:
             mock_read_bn.assert_called_once_with("networks/asia/asia.xdsl")
 
     assert result[0] == "success"
-    assert result[1]["reference"] == "networks/asia/asia.xdsl"
+    assert _block(result, "parameters")["reference"] == (
+        "networks/asia/asia.xdsl"
+    )
 
 
 # Test evaluate_graph reads dsc reference files.
@@ -1161,9 +1272,10 @@ def test_evaluate_graph_metric_filter() -> None:
             )
 
     assert result[0] == "success"
-    # The metrics object holds only f1; metadata holds provenance only
+    # The metrics object holds only f1; metadata holds parameters and result
     assert _metric_keys(result) == {"f1"}
-    assert set(result[1]) == {"status", "reference", "evaluated_graph"}
+    assert set(result[1]) == {"parameters", "result"}
+    assert set(_block(result, "result")) == {"status"}
 
 
 # Test evaluate_graph accepts list of metrics.
@@ -1437,7 +1549,7 @@ def test_evaluate_graph_equiv_pdag_not_extendable() -> None:
                 )
 
     assert result[0] == "success"
-    assert "equiv.f1" not in result[1]
+    assert "equiv.f1" not in _block(result, "result")
 
 
 # Test evaluate_graph skips equiv with unsupported graph type.
@@ -1484,7 +1596,7 @@ def test_evaluate_graph_equiv_unsupported_graph_type() -> None:
             )
 
     assert result[0] == "success"
-    assert "equiv.f1" not in result[1]
+    assert "equiv.f1" not in _block(result, "result")
 
 
 # Test evaluate_graph logs warning when equiv skipped with terminal.
@@ -1594,7 +1706,7 @@ def test_evaluate_graph_equiv_computation_failure() -> None:
                 )
 
     assert result[0] == "success"
-    assert "equiv.f1" not in result[1]
+    assert "equiv.f1" not in _block(result, "result")
 
 
 # Test evaluate_graph resolves reference graph from a workflow cache.
@@ -1658,8 +1770,7 @@ def test_evaluate_graph_cache_reference_returns_metrics() -> None:
     assert result[0] == "success"
     assert _metric(result, "f1") == 1.0
     assert _metric(result, "shd") == 0
-    assert result[1]["reference"] == "results/legacy.db"
-    assert result[1]["evaluated_graph"] == "dag"
+    assert _block(result, "parameters")["reference"] == "results/legacy.db"
     mock_workflow_cache.assert_called_once_with("results/legacy.db")
     mock_cache.get.assert_called_once_with(
         {"network": "asia", "sample_size": 100}
@@ -1996,9 +2107,9 @@ def test_evaluate_graph_edge_metrics() -> None:
     for index, name in enumerate(EDGE_METRICS):
         assert _metric(result, name) == index
     # Derived aggregates are not part of an 'edge' request
-    assert "f1" not in result[1]
-    assert "shd" not in result[1]
-    assert "precision" not in result[1]
+    assert "f1" not in _block(result, "result")
+    assert "shd" not in _block(result, "result")
+    assert "precision" not in _block(result, "result")
 
 
 # Test evaluate_graph expands 'equiv.edge' after CPDAG conversion.
@@ -2061,9 +2172,9 @@ def test_evaluate_graph_equiv_edge_metrics() -> None:
     assert result[0] == "success"
     for index, name in enumerate(EDGE_METRICS):
         assert _metric(result, f"equiv.{name}") == index
-    assert "equiv.f1" not in result[1]
-    assert "equiv.shd" not in result[1]
-    assert "arc_matched" not in result[1]
+    assert "equiv.f1" not in _block(result, "result")
+    assert "equiv.shd" not in _block(result, "result")
+    assert "arc_matched" not in _block(result, "result")
     # Both graphs must be converted to CPDAGs
     assert mock_to_cpdag.call_count == 2
 
@@ -2119,8 +2230,8 @@ def test_evaluate_graph_edge_with_standard_metric() -> None:
     assert _metric(result, "f1") == 0.77
     for index, name in enumerate(EDGE_METRICS):
         assert _metric(result, name) == index
-    assert "shd" not in result[1]
-    assert "precision" not in result[1]
+    assert "shd" not in _block(result, "result")
+    assert "precision" not in _block(result, "result")
 
 
 # Test evaluate_graph omits edge counts when 'edge' is not requested.
@@ -2173,7 +2284,8 @@ def test_evaluate_graph_edge_metrics_not_leaked() -> None:
     assert result[0] == "success"
     assert _metric(result, "precision") == 0.8
     assert _metric_keys(result) == {"precision"}
-    assert set(result[1]) == {"status", "reference", "evaluated_graph"}
+    assert set(result[1]) == {"parameters", "result"}
+    assert set(_block(result, "result")) == {"status"}
 
 
 # Test the provider delegate for entry graph extraction.

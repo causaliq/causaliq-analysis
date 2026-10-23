@@ -1138,8 +1138,8 @@ def test_evaluate_graph_cache_reference_end_to_end(
     values = json.loads(objects[0]["content"])
     assert values["f1"] == 1.0
     assert values["shd"] == 0
-    assert metadata["reference"] == str(ref_path)
-    assert metadata["evaluated_graph"] == "dag"
+    assert metadata["parameters"]["reference"] == str(ref_path)
+    assert metadata["result"] == {"status": "ok"}
     assert objects[0]["type"] == "metrics"
 
     # A successful evaluation writes the metrics object to its own cache
@@ -1152,15 +1152,16 @@ def test_evaluate_graph_cache_reference_end_to_end(
             metadata=build_metadata(
                 "causaliq-analysis",
                 "evaluate_graph",
-                {},
-                metadata,
+                metadata["parameters"],
+                metadata["result"],
             ),
             objects=objects,
         )
 
         stored = cache.get(matrix_values)
         persisted = stored.metadata["result"]
-        assert persisted["reference"] == str(ref_path)
+        assert persisted == {"status": "ok"}
+        assert stored.metadata["parameters"]["reference"] == str(ref_path)
         metrics = stored.get_object("metrics")
         assert json.loads(metrics.content)["f1"] == 1.0
 
