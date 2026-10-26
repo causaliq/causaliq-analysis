@@ -64,6 +64,7 @@ else:
             required: bool = False
             default: Any = None
             type_hint: str = "Any"
+            choices: Any = None
 
         # Stub for ActionPattern enum
         class ActionPattern:  # type: ignore[no-redef]
