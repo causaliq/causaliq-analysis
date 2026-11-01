@@ -2,10 +2,10 @@
 Best_graph workflow action.
 
 Extracts the optimal DAG from a PDG with the greedy algorithm. The action
-reads the matched PDG cache entries (AGGREGATE pattern) and writes a single
-``dag`` object to the output cache. The action is stateless, so validation
-and execution delegate to module-level helpers and each step stays within
-the module and method limits.
+reads the matched PDG cache entry (MAP pattern) and writes a single ``dag``
+object to the output cache. The action is stateless, so validation and
+execution delegate to module-level helpers and each step stays within the
+module and method limits.
 """
 
 from datetime import datetime, timezone
@@ -36,7 +36,7 @@ class BestGraphAction(AnalysisAction):
     """
 
     action_name = "best_graph"
-    pattern = ActionPattern.AGGREGATE
+    pattern = ActionPattern.MAP
 
     def validate(self, parameters: Dict[str, Any]) -> None:
         """Validate best_graph parameters before execution.
@@ -63,9 +63,9 @@ class BestGraphAction(AnalysisAction):
     ) -> ActionResult:
         """Execute optimal DAG extraction from a PDG.
 
-        Reads the PDG from the matched workflow cache entry (AGGREGATE
-        pattern), extracts the optimal DAG and returns it as a GraphML
-        object for the output cache.
+        Reads the PDG from the matched workflow cache entry (MAP pattern),
+        extracts the optimal DAG and returns it as a GraphML object for the
+        output cache.
 
         Args:
             parameters: Action parameter values.
@@ -156,8 +156,8 @@ def _require_valid_filter(parameters: Dict[str, Any]) -> None:
 def _best_graph_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Build the extraction request from action parameters.
 
-    Aggregation mode reads the PDG from the single matched cache entry
-    passed via '_aggregation_entries'; direct mode reads the PDG from the
+    Cache mode reads the PDG from the single matched cache entry passed
+    via '_aggregation_entries'; direct mode reads the PDG from the
     'input' GraphML file (CLI use).
 
     Args:

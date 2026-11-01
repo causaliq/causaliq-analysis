@@ -2,12 +2,12 @@
 Evaluate_graph workflow action.
 
 Compares a learned graph against a ground-truth reference and returns
-structural metrics. The action reads the matched entries of the input
-graph cache (AGGREGATE pattern) and writes a single ``metrics`` object to
-the output cache. Metric values live only in that object: the action
-metadata records the effective parameters and the outcome status. The
-action is stateless, so validation and execution delegate to module-level
-helpers and each step stays within the module and method limits.
+structural metrics. The action reads the matched entry of the input graph
+cache (MAP pattern) and writes a single ``metrics`` object to the output
+cache. Metric values live only in that object: the action metadata records
+the effective parameters and the outcome status. The action is stateless, so
+validation and execution delegate to module-level helpers and each step stays
+within the module and method limits.
 """
 
 import json
@@ -53,7 +53,7 @@ class EvaluateGraphAction(AnalysisAction):
     """
 
     action_name = "evaluate_graph"
-    pattern = ActionPattern.AGGREGATE
+    pattern = ActionPattern.MAP
 
     def validate(self, parameters: Dict[str, Any]) -> None:
         """Validate evaluate_graph parameters before execution.
@@ -80,7 +80,7 @@ class EvaluateGraphAction(AnalysisAction):
     ) -> ActionResult:
         """Evaluate the matched entry graph against the reference graph.
 
-        AGGREGATE pattern action: the graph to evaluate arrives via the
+        MAP pattern action: exactly one graph arrives via the
         '_aggregation_entries' parameter, and the reference may be a single
         ground-truth graph file or a workflow cache (.db) whose entries
         share the input cache's key structure.
@@ -172,7 +172,7 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     if entries is None:
         raise ActionExecutionError(
             "evaluate_graph requires '_aggregation_entries' parameter "
-            "(AGGREGATE pattern action)"
+            "(MAP pattern action)"
         )
     if not entries:
         raise ActionExecutionError(

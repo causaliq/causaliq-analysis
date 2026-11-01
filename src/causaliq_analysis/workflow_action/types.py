@@ -68,7 +68,8 @@ else:
 
         # Stub for ActionPattern enum
         class ActionPattern:  # type: ignore[no-redef]
-            CREATE = "create"
+            PRODUCE = "produce"
+            MAP = "map"
             AGGREGATE = "aggregate"
 
         class WorkflowContext:

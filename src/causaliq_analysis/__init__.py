@@ -4,7 +4,7 @@ causaliq-analysis: Tools for analysing and visualising causal graphs
 
 from typing import Optional
 
-__version__ = "0.5.0.dev4"
+__version__ = "0.5.0.dev5"
 __author__ = "CausalIQ"
 __email__ = "info@causaliq.org"
 

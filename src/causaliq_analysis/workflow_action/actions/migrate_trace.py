@@ -33,7 +33,7 @@ class MigrateTraceAction(AnalysisAction):
     """
 
     action_name = "migrate_trace"
-    pattern = ActionPattern.CREATE
+    pattern = ActionPattern.PRODUCE
 
     def validate(self, parameters: Dict[str, Any]) -> None:
         """Validate migrate_trace parameters before execution.

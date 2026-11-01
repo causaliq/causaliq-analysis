@@ -104,10 +104,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
 
     # Action patterns for workflow validation
     action_patterns = {
-        "migrate_trace": ActionPattern.CREATE,
+        "migrate_trace": ActionPattern.PRODUCE,
         "merge_graphs": ActionPattern.AGGREGATE,
-        "evaluate_graph": ActionPattern.AGGREGATE,
-        "best_graph": ActionPattern.AGGREGATE,
+        "evaluate_graph": ActionPattern.MAP,
+        "best_graph": ActionPattern.MAP,
         "summarise": ActionPattern.AGGREGATE,
         "plot": ActionPattern.AGGREGATE,
     }

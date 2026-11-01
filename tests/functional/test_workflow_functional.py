@@ -1145,18 +1145,24 @@ def test_evaluate_graph_cache_reference_end_to_end(
     # A successful evaluation writes the metrics object to its own cache
     from causaliq_core.metadata import build_metadata
 
+    persisted_entry = CacheEntry(
+        metadata=build_metadata(
+            "causaliq-analysis",
+            "evaluate_graph",
+            metadata["parameters"],
+            metadata["result"],
+        )
+    )
+    persisted_entry.add_object(
+        objects[0]["type"],
+        objects[0]["format"],
+        objects[0]["content"],
+        objects[0]["action"],
+    )
+
     metrics_path = tmp_path / "metrics.db"
     with WorkflowCache(metrics_path) as cache:
-        cache.put_from_action(
-            key_data=matrix_values,
-            metadata=build_metadata(
-                "causaliq-analysis",
-                "evaluate_graph",
-                metadata["parameters"],
-                metadata["result"],
-            ),
-            objects=objects,
-        )
+        cache.put(matrix_values, persisted_entry)
 
         stored = cache.get(matrix_values)
         persisted = stored.metadata["result"]
