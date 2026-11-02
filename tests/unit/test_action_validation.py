@@ -418,6 +418,19 @@ def test_validate_evaluate_graph_equiv_shd() -> None:
     )
 
 
+# Test evaluate_graph accepts the node_count metric.
+def test_validate_evaluate_graph_node_count() -> None:
+    """evaluate_graph accepts node_count metric."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    # Should not raise
+    provider.validate_parameters(
+        "evaluate_graph",
+        {"reference": "ground_truth.graphml", "metric": "node_count"},
+    )
+
+
 # Test evaluate_graph accepts all valid metrics together.
 def test_validate_evaluate_graph_all_valid_metrics() -> None:
     """evaluate_graph accepts all valid metrics in a list."""

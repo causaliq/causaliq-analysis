@@ -63,7 +63,9 @@ def _evaluate(
     return (
         "success",
         metadata,
-        _metrics_objects(_metric_values(request, metrics, equiv_metrics)),
+        _metrics_objects(
+            _metric_values(request, metrics, equiv_metrics, graph)
+        ),
     )
 
 

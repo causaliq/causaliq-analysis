@@ -9,6 +9,7 @@ VALID_EVALUATE_METRICS = frozenset(
         "precision",
         "recall",
         "edge",
+        "node_count",
         "equiv.f1",
         "equiv.shd",
         "equiv.edge",

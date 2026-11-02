@@ -345,3 +345,88 @@ def test_evaluate_graph_edge_metrics_not_leaked() -> None:
     assert _metric_keys(result) == {"precision"}
     assert set(result[1]) == {"parameters", "result"}
     assert set(_block(result, "result")) == {"status"}
+
+
+# Test evaluate_graph reports the evaluated graph's node count.
+def test_evaluate_graph_node_count_metric() -> None:
+    """node_count is the number of nodes in the evaluated graph."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    graph = MagicMock()
+    graph.nodes = ["A", "B", "C"]
+    entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": create_mock_graphml_entry(),
+    }
+    mock_metrics = {"p": 1.0, "r": 1.0, "f1": 1.0, "shd": 0}
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=graph,
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_aggregation_entries": [entry],
+                    "output": "metrics.db",
+                    "reference": "ref.graphml",
+                    "metric": ["node_count"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert _metric(result, "node_count") == 3
+
+
+# Test evaluate_graph omits node_count when it is not requested.
+def test_evaluate_graph_node_count_not_requested() -> None:
+    """node_count is absent unless it appears in the metric list."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    graph = MagicMock()
+    graph.nodes = ["A", "B"]
+    entry = {
+        "matrix_values": {"seed": 42},
+        "metadata": {},
+        "entry": create_mock_graphml_entry(),
+    }
+    mock_metrics = {"p": 1.0, "r": 1.0, "f1": 1.0, "shd": 0}
+
+    with patch(
+        "causaliq_analysis.metrics.pdag_compare",
+        return_value=mock_metrics,
+    ):
+        with patch(
+            "causaliq_core.graph.io.graphml.read",
+            return_value=graph,
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_aggregation_entries": [entry],
+                    "output": "metrics.db",
+                    "reference": "ref.graphml",
+                    "metric": ["f1"],
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert _metric_keys(result) == {"f1"}

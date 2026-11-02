@@ -248,10 +248,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
             description=(
                 "For evaluate_graph: List of metrics to include in output "
                 "(e.g., ['f1', 'shd', 'precision', 'recall', 'edge', "
-                "'equiv.f1', 'equiv.shd', 'equiv.edge']). Required. "
+                "'node_count', 'equiv.f1', 'equiv.shd', 'equiv.edge']). "
+                "Required. "
                 "The 'edge' and 'equiv.edge' values expand to the "
                 "low-level edge counts returned by pdag_compare or "
                 "pdg_compare (fractional for PDG inputs). "
+                "'node_count' is the number of nodes in the evaluated "
+                "graph; a comparison requires identical node sets, so it "
+                "is also the reference's node count. "
                 "For summarise: List of metric specs in <field>.<stat> format "
                 "(e.g., ['f1.mean', 'shd.sd'])."
             ),
@@ -340,6 +344,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "recall": "Structural recall score",
         "f1": "Structural F1 score",
         "shd": "Structural Hamming Distance",
+        "node_count": "Number of nodes in the evaluated graph",
         "edge": (
             "Low-level edge counts from direct comparison (arc_matched, "
             "arc_reversed, edge_not_arc, arc_not_edge, edge_matched, "
