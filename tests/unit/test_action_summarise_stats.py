@@ -3,6 +3,8 @@
 from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
+import pytest
+
 
 # Test summarise computes mean from aggregation entries.
 def test_summarise_computes_mean(tmp_path: Any) -> None:
@@ -162,3 +164,49 @@ def test_summarise_mean_no_values(tmp_path: Any) -> None:
 
     assert result[0] == "success"
     assert result[1]["f1.mean"] == ""  # Empty string for non-computable stats
+
+
+# Test summarise computes min, max and median statistics.
+@pytest.mark.parametrize(
+    "spec, expected",
+    [("f1.min", 0.2), ("f1.max", 0.8), ("f1.median", 0.5)],
+)
+def test_summarise_extreme_and_median_stats(
+    tmp_path: Any, spec: str, expected: float
+) -> None:
+    """min, max and median report the expected value."""
+    import csv
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entries = [
+        {
+            "matrix_values": {"seed": seed},
+            "metadata": {"provenance": {}, "result": {"f1": value}},
+            "cache_path": "test.db",
+        }
+        for seed, value in enumerate([0.2, 0.5, 0.8])
+    ]
+    output_path = tmp_path / "stats.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": entries,
+            "metric": [spec],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1][spec] == expected
+    with open(output_path, encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert float(rows[0][spec]) == expected

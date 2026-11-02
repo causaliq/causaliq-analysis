@@ -1651,7 +1651,7 @@ def test_summarise_unsupported_stat(cli_runner, tmp_path):
         [
             "summarise",
             "-m",
-            "f1.median",  # Not supported
+            "f1.mode",  # Not supported
             "-i",
             str(input_path),
             "-o",

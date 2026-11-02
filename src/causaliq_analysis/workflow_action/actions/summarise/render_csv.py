@@ -2,7 +2,7 @@
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -85,3 +85,52 @@ def _append_row(
         if not file_exists:
             writer.writerow(row_data.keys())
         writer.writerow(row_data.values())
+
+
+def _write_report(
+    request: Dict[str, Any],
+    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+    log_fn: Optional[Any],
+) -> None:
+    """Write the complete report file, replacing any existing content.
+
+    Args:
+        request: Summarisation request.
+        rows: Group matrix values and computed results, in report order.
+        log_fn: Logging callback for progress reporting.
+
+    Raises:
+        ActionExecutionError: If the CSV file cannot be written.
+
+    """
+    output_path = request["output"]
+    assert output_path is not None  # Validated by the action validator
+    out_file = Path(output_path)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    header = list(rows[0][0]) + list(rows[0][1])
+    try:
+        _write_rows(out_file, header, rows)
+    except Exception as e:
+        raise ActionExecutionError(f"Failed to write CSV output: {e}") from e
+    if log_fn:
+        log_fn(f"Summary written to {out_file}")
+
+
+def _write_rows(
+    out_file: Path,
+    header: List[str],
+    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+) -> None:
+    """Write the report header and rows to a file.
+
+    Args:
+        out_file: Destination CSV file.
+        header: Column names in report order.
+        rows: Group matrix values and computed results, in report order.
+
+    """
+    with open(out_file, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=header)
+        writer.writeheader()
+        for group, results in rows:
+            writer.writerow({**group, **results})

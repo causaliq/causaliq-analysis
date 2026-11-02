@@ -192,7 +192,9 @@ def test_parse_seed_workflow_invalid():
 # Test SUPPORTED_STATS constant.
 def test_supported_stats_constant():
     """SUPPORTED_STATS contains expected statistics."""
-    assert SUPPORTED_STATS == frozenset({"mean", "sd", "count"})
+    assert SUPPORTED_STATS == frozenset(
+        {"mean", "sd", "count", "min", "max", "median"}
+    )
 
 
 # Test validate_filter_expression accepts valid expressions.
@@ -260,8 +262,8 @@ def test_validate_metric_specs_no_dot():
 # Test validate_metric_specs rejects unknown stat.
 def test_validate_metric_specs_unknown_stat():
     """Metric spec with unknown statistic raises ValueError."""
-    with pytest.raises(ValueError, match="Unknown statistic 'median'"):
-        validate_metric_specs(["f1.median"])
+    with pytest.raises(ValueError, match="Unknown statistic 'mode'"):
+        validate_metric_specs(["f1.mode"])
 
 
 # Test validate_metric_specs rejects comma-separated strings.

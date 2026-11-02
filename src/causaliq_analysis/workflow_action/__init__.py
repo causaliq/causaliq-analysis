@@ -256,8 +256,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "'node_count' is the number of nodes in the evaluated "
                 "graph; a comparison requires identical node sets, so it "
                 "is also the reference's node count. "
-                "For summarise: List of metric specs in <field>.<stat> format "
-                "(e.g., ['f1.mean', 'shd.sd'])."
+                "For summarise: List of metric specs as <field>.<stat> "
+                "(e.g., ['f1.mean', 'shd.sd']) or "
+                "<field>.argmax.<dimension>; supported statistics are "
+                "mean, sd, count, min, max and median."
             ),
             required=False,
             type_hint="list[str] | str",

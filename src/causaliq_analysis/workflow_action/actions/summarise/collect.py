@@ -6,48 +6,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from causaliq_analysis.workflow_action import helpers
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
-__all__ = [
-    "_collect_values",
-    "_values_from_entries",
-]
-
-
-def _collect_values(
-    request: Dict[str, Any],
-    matrix_values: Dict[str, Any],
-    log_fn: Optional[Any],
-) -> Tuple[Dict[str, List[float]], List[str], int]:
-    """Collect metric values from aggregation entries or cache files.
-
-    Args:
-        request: Summarisation request.
-        matrix_values: Matrix values from the workflow context.
-        log_fn: Logging callback for progress reporting.
-
-    Returns:
-        Tuple of (values per field, source caches, source entry count).
-
-    Raises:
-        ActionExecutionError: If the input specification is invalid.
-
-    """
-    values: Dict[str, List[float]] = {
-        field: [] for field in request["unique_fields"]
-    }
-    if request["is_aggregation"]:
-        count, sources = _values_from_entries(request, values, log_fn)
-    else:
-        count, sources = _values_from_files(
-            request, values, matrix_values, log_fn
-        )
-    if log_fn:
-        log_fn(f"Collected values from {count} entries")
-    return values, sources, count
+__all__ = ["_values_from_entries"]
 
 
 def _values_from_entries(
     request: Dict[str, Any],
     values: Dict[str, List[float]],
+    argmax: Dict[str, Tuple[float, Dict[str, Any]]],
     log_fn: Optional[Any],
 ) -> Tuple[int, List[str]]:
     """Collect metric values from pre-scanned cache entries.
@@ -55,6 +20,7 @@ def _values_from_entries(
     Args:
         request: Summarisation request.
         values: Values per field, updated in place.
+        argmax: Winning entry per field, updated in place.
         log_fn: Logging callback for progress reporting.
 
     Returns:
@@ -63,6 +29,7 @@ def _values_from_entries(
     """
     entries = request["aggregation_entries"] or []
     resolved, extra_names = _resolve_filter(request["filter"], entries)
+    argmax_fields = [field for field, _ in request["argmax_specs"]]
     sources: List[str] = []
     count = 0
     for entry_dict in entries:
@@ -71,7 +38,14 @@ def _values_from_entries(
         if not _entry_matches(resolved, flat_meta, extra_names):
             continue
         count += 1
-        _accumulate_values(values, flat_meta, request["unique_fields"])
+        _accumulate_values(
+            values,
+            argmax,
+            flat_meta,
+            matrix_values,
+            request["unique_fields"],
+            argmax_fields,
+        )
         _log_entry(log_fn, matrix_values)
     return count, sources
 
@@ -142,6 +116,18 @@ def _log_entry(log_fn: Optional[Any], matrix_values: Any) -> None:
         log_fn(f"Processed entry: {matrix_values}")
 
 
+def _log_processed(log_fn: Optional[Any], matrix_values: Any) -> None:
+    """Log a processed cache entry in cache-scan wording.
+
+    Args:
+        log_fn: Logging callback for progress reporting.
+        matrix_values: Matrix values of the processed entry.
+
+    """
+    if log_fn:
+        log_fn(f"Processed: {matrix_values}")
+
+
 def _resolve_filter(
     filter_expr: Optional[str],
     entries: List[Dict[str, Any]],
@@ -198,80 +184,50 @@ def _entry_matches(
 
 def _accumulate_values(
     values: Dict[str, List[float]],
+    argmax: Dict[str, Tuple[float, Dict[str, Any]]],
     flat_meta: Dict[str, Any],
+    matrix_values: Dict[str, Any],
     unique_fields: List[str],
+    argmax_fields: List[str],
 ) -> None:
     """Append numeric metric values from one entry.
 
     Args:
         values: Values per field, updated in place.
+        argmax: Winning entry per field, updated in place.
         flat_meta: Flattened metadata of the entry.
+        matrix_values: Matrix values of the entry.
         unique_fields: Fields to collect values for.
+        argmax_fields: Fields whose argmax is tracked.
 
     """
     for field in unique_fields:
         value = helpers._get_nested_value(flat_meta, field)
-        if value is not None and isinstance(value, (int, float)):
-            values[field].append(float(value))
+        if value is None or not isinstance(value, (int, float)):
+            continue
+        values[field].append(float(value))
+        if field in argmax_fields:
+            _track_argmax(argmax, field, float(value), matrix_values)
 
 
-def _values_from_files(
-    request: Dict[str, Any],
-    values: Dict[str, List[float]],
+def _track_argmax(
+    argmax: Dict[str, Tuple[float, Dict[str, Any]]],
+    field: str,
+    value: float,
     matrix_values: Dict[str, Any],
-    log_fn: Optional[Any],
-) -> Tuple[int, List[str]]:
-    """Collect metric values from input workflow cache files.
+) -> None:
+    """Record the entry holding a field's maximum value.
 
     Args:
-        request: Summarisation request.
-        values: Values per field, updated in place.
-        matrix_values: Matrix values from the workflow context.
-        log_fn: Logging callback for progress reporting.
-
-    Returns:
-        Tuple of (source entry count, source cache paths).
-
-    Raises:
-        ActionExecutionError: If no input file, or a non-cache, is given.
+        argmax: Winning entry per field, updated in place.
+        field: Field whose maximum is tracked.
+        value: Candidate value.
+        matrix_values: Matrix values of the candidate entry.
 
     """
-    input_files = _require_input_files(request["input_files"])
-    sources: List[str] = []
-    count = 0
-    for cache_path in input_files:
-        _require_cache_file(cache_path)
-        sources.append(cache_path)
-        count += helpers._collect_values_from_cache(
-            cache_path,
-            request["unique_fields"],
-            values,
-            request["filter"],
-            matrix_values,
-            log_fn,
-        )
-    return count, sources
-
-
-def _require_input_files(input_files: List[str]) -> List[str]:
-    """Require at least one input cache file.
-
-    Args:
-        input_files: Input paths from the action parameters.
-
-    Returns:
-        The input paths.
-
-    Raises:
-        ActionExecutionError: If no input path is provided.
-
-    """
-    if not input_files:
-        raise ActionExecutionError(
-            "summarise requires either aggregation entries or "
-            "'input' parameter with cache file path(s)"
-        )
-    return input_files
+    current = argmax.get(field)
+    if current is None or value > current[0]:
+        argmax[field] = (value, dict(matrix_values))
 
 
 def _require_cache_file(cache_path: str) -> None:

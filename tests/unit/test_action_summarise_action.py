@@ -66,13 +66,13 @@ def test_summarise_unknown_stat() -> None:
             action="summarise",
             parameters={
                 "_aggregation_entries": [{"matrix_values": {}}],
-                "metric": ["f1.median"],
+                "metric": ["f1.mode"],
             },
             mode="run",
             context=None,
             logger=mock_logger,
         )
-    assert "Unknown statistic 'median'" in str(exc_info.value)
+    assert "Unknown statistic 'mode'" in str(exc_info.value)
 
 
 # Test summarise rejects .db output (only CSV supported).

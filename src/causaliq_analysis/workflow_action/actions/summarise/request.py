@@ -1,6 +1,6 @@
 """Parsing and validating summarise action parameters."""
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from causaliq_analysis.validation import SUPPORTED_STATS
 from causaliq_analysis.workflow_action.types import ActionExecutionError
@@ -57,7 +57,14 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "metric_specs": metric_specs,
         "parsed_metrics": parsed_metrics,
-        "unique_fields": list(dict.fromkeys(f for f, _ in parsed_metrics)),
+        "unique_fields": list(
+            dict.fromkeys(field for field, _, _ in parsed_metrics)
+        ),
+        "argmax_specs": [
+            (field, dimension)
+            for field, stat, dimension in parsed_metrics
+            if stat == "argmax"
+        ],
         "filter": parameters.get("filter"),
         "output": parameters.get("output"),
         "input_files": _input_files(parameters),
@@ -80,38 +87,46 @@ def _input_files(parameters: Dict[str, Any]) -> List[str]:
     return [input_raw] if isinstance(input_raw, str) else list(input_raw)
 
 
-def _parse_metric_specs(metric_specs: List[str]) -> List[Tuple[str, str]]:
-    """Parse '<field>.<stat>' metric specifications.
+def _parse_metric_specs(
+    metric_specs: List[str],
+) -> List[Tuple[str, str, Optional[str]]]:
+    """Parse metric specifications of both supported forms.
 
     Args:
         metric_specs: Metric specifications to parse.
 
     Returns:
-        List of (field, stat) tuples.
+        List of (field, stat, dimension) tuples; dimension is None unless
+        the statistic is argmax.
 
     Raises:
         ActionExecutionError: If a specification is invalid.
 
     """
-    parsed: List[Tuple[str, str]] = []
+    parsed: List[Tuple[str, str, Optional[str]]] = []
     for spec in metric_specs:
         parsed.append(_parse_one_spec(spec))
     return parsed
 
 
-def _parse_one_spec(spec: str) -> Tuple[str, str]:
+def _parse_one_spec(spec: str) -> Tuple[str, str, Optional[str]]:
     """Parse a single metric specification.
 
     Args:
-        spec: Metric specification (e.g. 'f1.mean').
+        spec: Metric specification (e.g. 'f1.mean' or
+            'f1.argmax.fusion_weights').
 
     Returns:
-        Tuple of (field, stat).
+        Tuple of (field, stat, dimension); dimension is None unless the
+        statistic is argmax.
 
     Raises:
         ActionExecutionError: If the specification is invalid.
 
     """
+    parts = spec.rsplit(".", 2)
+    if len(parts) == 3 and parts[1] == "argmax" and parts[0] and parts[2]:
+        return parts[0], parts[1], parts[2]
     if "," in spec:  # pragma: no cover
         raise ActionExecutionError(
             f"Invalid metric spec '{spec}': contains comma. "
@@ -127,4 +142,4 @@ def _parse_one_spec(spec: str) -> Tuple[str, str]:
             f"Unknown statistic '{stat}' in '{spec}'. "
             f"Supported: {', '.join(sorted(SUPPORTED_STATS))}"
         )
-    return field, stat
+    return field, stat, None

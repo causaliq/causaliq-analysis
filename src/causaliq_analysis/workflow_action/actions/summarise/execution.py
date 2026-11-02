@@ -1,12 +1,17 @@
 """Running one summarisation: collect, compute, render."""
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from causaliq_analysis.workflow_action.types import ActionResult
+from causaliq_analysis.workflow_action.types import (
+    ActionExecutionError,
+    ActionResult,
+)
 
-from .collect import _collect_values
-from .render_csv import _write_csv
+from .collect import _values_from_entries
+from .groups import _report_groups
+from .render_csv import _write_csv, _write_report
+from .report import _collect_report_values
 from .stats import _compute_stats
 
 __all__ = [
@@ -76,7 +81,7 @@ def _summarise(
     context: Optional[Any],
     logger: Optional[Any],
 ) -> ActionResult:
-    """Summarise the requested metrics and append the CSV row.
+    """Summarise the requested metrics and write the report file.
 
     Args:
         request: Summarisation request.
@@ -91,11 +96,110 @@ def _summarise(
 
     """
     log_fn = _log_fn(logger)
-    matrix_values = _context_matrix(context)
-    values, sources, count = _collect_values(request, matrix_values, log_fn)
-    results = _compute_stats(request["parsed_metrics"], values)
+    if request["input_files"]:
+        return _summarise_report(request, context, log_fn)
+    return _summarise_entries(request, context, log_fn)
+
+
+def _summarise_report(
+    request: Dict[str, Any],
+    context: Optional[Any],
+    log_fn: Optional[Any],
+) -> ActionResult:
+    """Summarise grouped input caches and rewrite the report file.
+
+    One row is produced per workflow matrix combination, and the file is
+    rewritten from scratch so repeated runs cannot duplicate rows.
+
+    Args:
+        request: Summarisation request.
+        context: Workflow context holding the matrix definition.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        ActionResult tuple with status "success".
+
+    Raises:
+        ActionExecutionError: If collection or CSV output fails.
+
+    """
+    groups, dimensions = _report_groups(context)
+    collected = _collect_report_values(request, groups, dimensions, log_fn)
+    rows = [
+        (
+            group,
+            _compute_stats(
+                request["parsed_metrics"],
+                collected.values[index],
+                collected.argmax[index],
+            ),
+        )
+        for index, group in enumerate(groups)
+    ]
+    _write_report(request, rows, log_fn)
+    metadata = _summarise_metadata(
+        request,
+        sum(collected.counts),
+        collected.sources,
+        _report_metadata(rows),
+    )
+    return ("success", metadata, [])
+
+
+def _report_metadata(
+    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+) -> Dict[str, Any]:
+    """Return the result metadata block for a report run.
+
+    A single-group report records its statistics directly, preserving the
+    metadata shape of an ungrouped run. A grouped report records the group
+    count instead, because per-group statistics already live in the report
+    file and their names would collide as flat metadata keys.
+
+    Args:
+        rows: Group matrix values and computed results.
+
+    Returns:
+        Result metadata block for the action.
+
+    """
+    if len(rows) == 1:
+        return dict(rows[0][1])
+    return {"groups": len(rows)}
+
+
+def _summarise_entries(
+    request: Dict[str, Any],
+    context: Optional[Any],
+    log_fn: Optional[Any],
+) -> ActionResult:
+    """Summarise pre-scanned entries into a single CSV row.
+
+    Args:
+        request: Summarisation request.
+        context: Workflow context holding matrix values.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        ActionResult tuple with status "success".
+
+    Raises:
+        ActionExecutionError: If collection or CSV output fails.
+
+    """
+    if not request["is_aggregation"]:
+        raise ActionExecutionError(
+            "summarise requires either aggregation entries or "
+            "'input' parameter with cache file path(s)"
+        )
+    values: Dict[str, List[float]] = {
+        field: [] for field in request["unique_fields"]
+    }
+    argmax: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+    count, sources = _values_from_entries(request, values, argmax, log_fn)
+    results = _compute_stats(request["parsed_metrics"], values, argmax)
     metadata = _summarise_metadata(request, count, sources, results)
-    _write_csv(request, matrix_values, results, metadata, log_fn)
+    _write_csv(request, _context_matrix(context), results, metadata, log_fn)
     return ("success", metadata, [])
 
 

@@ -187,3 +187,103 @@ def test_summarise_csv_always_appends(
     assert row2[0] == "alarm"
     assert row2[1] == "500"
     assert row2[2] == "0.6"
+
+
+# Test grouped file output rewrites the file rather than appending rows.
+def test_summarise_report_rewrites_file(tmp_path: Any) -> None:
+    """Repeated report runs replace the file rather than appending."""
+    import csv
+
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "metrics.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        cache.put(
+            {"network": "asia", "seed": 1},
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.9}}),
+        )
+        cache.put(
+            {"network": "alarm", "seed": 0},
+            CacheEntry(metadata={"provenance": {}, "result": {"f1": 0.5}}),
+        )
+
+    output_path = tmp_path / "report.csv"
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+    context = MagicMock()
+    context.matrix = {"network": ["asia", "alarm"]}
+    context.matrix_values = {"network": "asia"}
+
+    for _ in range(2):
+        result = provider.run(
+            action="summarise",
+            parameters={
+                "metric": ["f1.mean", "f1.count"],
+                "input": str(cache_path),
+                "output": str(output_path),
+            },
+            mode="run",
+            context=context,
+            logger=mock_logger,
+        )
+        assert result[0] == "success"
+        assert result[1]["groups"] == 2
+
+    with open(output_path, encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert len(rows) == 2
+    assert [row["network"] for row in rows] == ["asia", "alarm"]
+    assert [float(row["f1.mean"]) for row in rows] == [0.9, 0.5]
+    assert [int(row["f1.count"]) for row in rows] == [1, 1]
+
+
+# Test argmax reports the dimension value of the best entry.
+def test_summarise_argmax_reports_dimension(tmp_path: Any) -> None:
+    """argmax reports the matrix value holding the field maximum."""
+    import csv
+
+    from causaliq_workflow.cache import CacheEntry, WorkflowCache
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    cache_path = tmp_path / "weights.db"
+    with WorkflowCache(str(cache_path)) as cache:
+        for seed, f1 in ((0, 0.4), (1, 0.7), (2, 0.6)):
+            cache.put(
+                {"network": "asia", "pdg_seed": seed},
+                CacheEntry(metadata={"provenance": {}, "result": {"f1": f1}}),
+            )
+
+    output_path = tmp_path / "argmax.csv"
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+    context = MagicMock()
+    context.matrix = {"network": ["asia"]}
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "metric": [
+                "f1.max",
+                "f1.argmax.pdg_seed",
+                "missing.argmax.pdg_seed",
+            ],
+            "input": str(cache_path),
+            "output": str(output_path),
+        },
+        mode="run",
+        context=context,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    with open(output_path, encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert float(rows[0]["f1.max"]) == 0.7
+    assert int(rows[0]["f1.argmax.pdg_seed"]) == 1
+    assert rows[0]["missing.argmax.pdg_seed"] == ""

@@ -12,7 +12,9 @@ import click
 T = TypeVar("T")
 
 # Supported summary statistics for metric specifications
-SUPPORTED_STATS: FrozenSet[str] = frozenset({"mean", "sd", "count"})
+SUPPORTED_STATS: FrozenSet[str] = frozenset(
+    {"mean", "sd", "count", "min", "max", "median"}
+)
 
 
 def single_value_callback(
@@ -395,6 +397,9 @@ def _parse_metric_spec(
             f"Invalid metric spec '{spec}': contains comma. "
             "Use YAML list syntax instead: metric: [f1.mean, shd.sd]"
         )
+    parts = spec.rsplit(".", 2)
+    if len(parts) == 3 and parts[1] == "argmax" and parts[0] and parts[2]:
+        return parts[0], parts[1]
     if "." not in spec:
         raise ValueError(
             f"Invalid metric spec '{spec}': must be <field>.<stat>"
