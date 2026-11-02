@@ -1,0 +1,291 @@
+"""Collecting metric values from entries and input caches."""
+
+import json
+from typing import Any, Dict, List, Optional, Tuple
+
+from causaliq_analysis.workflow_action import helpers
+from causaliq_analysis.workflow_action.types import ActionExecutionError
+
+__all__ = [
+    "_collect_values",
+    "_values_from_entries",
+]
+
+
+def _collect_values(
+    request: Dict[str, Any],
+    matrix_values: Dict[str, Any],
+    log_fn: Optional[Any],
+) -> Tuple[Dict[str, List[float]], List[str], int]:
+    """Collect metric values from aggregation entries or cache files.
+
+    Args:
+        request: Summarisation request.
+        matrix_values: Matrix values from the workflow context.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        Tuple of (values per field, source caches, source entry count).
+
+    Raises:
+        ActionExecutionError: If the input specification is invalid.
+
+    """
+    values: Dict[str, List[float]] = {
+        field: [] for field in request["unique_fields"]
+    }
+    if request["is_aggregation"]:
+        count, sources = _values_from_entries(request, values, log_fn)
+    else:
+        count, sources = _values_from_files(
+            request, values, matrix_values, log_fn
+        )
+    if log_fn:
+        log_fn(f"Collected values from {count} entries")
+    return values, sources, count
+
+
+def _values_from_entries(
+    request: Dict[str, Any],
+    values: Dict[str, List[float]],
+    log_fn: Optional[Any],
+) -> Tuple[int, List[str]]:
+    """Collect metric values from pre-scanned cache entries.
+
+    Args:
+        request: Summarisation request.
+        values: Values per field, updated in place.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        Tuple of (source entry count, source cache paths).
+
+    """
+    entries = request["aggregation_entries"] or []
+    resolved, extra_names = _resolve_filter(request["filter"], entries)
+    sources: List[str] = []
+    count = 0
+    for entry_dict in entries:
+        matrix_values, flat_meta = _entry_metadata(entry_dict)
+        sources.append(entry_dict.get("cache_path", "unknown"))
+        if not _entry_matches(resolved, flat_meta, extra_names):
+            continue
+        count += 1
+        _accumulate_values(values, flat_meta, request["unique_fields"])
+        _log_entry(log_fn, matrix_values)
+    return count, sources
+
+
+def _entry_metadata(entry_dict: Dict[str, Any]) -> Tuple[Any, Dict[str, Any]]:
+    """Return the matrix values and flattened values of an entry.
+
+    Metric values live in the entry's typed JSON object; metadata supplies
+    the provenance fields used by filters.
+
+    Args:
+        entry_dict: Pre-scanned cache entry descriptor.
+
+    Returns:
+        Tuple of (matrix values, flattened values).
+
+    """
+    matrix_values = entry_dict.get("matrix_values", {})
+    from causaliq_workflow.cache.reporting import build_entry_view
+
+    return matrix_values, build_entry_view(
+        matrix_values,
+        entry_dict.get("metadata", {}),
+        _object_values(entry_dict),
+    )
+
+
+def _object_values(entry_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the values held in an entry's JSON object.
+
+    Args:
+        entry_dict: Pre-scanned cache entry descriptor.
+
+    Returns:
+        Mapping of object fields, empty when no JSON object is present.
+
+    """
+    entry = entry_dict.get("entry")
+    if entry is None:
+        return {}
+    values: Dict[str, Any] = {}
+    for name in entry.object_types():
+        obj = entry.get_object(name)
+        if obj is None or obj.format != "json":
+            continue
+        values.update(_parse_json_object(obj.content))
+    return values
+
+
+def _parse_json_object(content: Any) -> Dict[str, Any]:
+    """Parse a JSON object's content, returning {} for non-mappings."""
+    try:
+        data = json.loads(content or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _log_entry(log_fn: Optional[Any], matrix_values: Any) -> None:
+    """Log a processed cache entry.
+
+    Args:
+        log_fn: Logging callback for progress reporting.
+        matrix_values: Matrix values of the processed entry.
+
+    """
+    if log_fn:
+        log_fn(f"Processed entry: {matrix_values}")
+
+
+def _resolve_filter(
+    filter_expr: Optional[str],
+    entries: List[Dict[str, Any]],
+) -> Tuple[Optional[str], Dict[str, Any]]:
+    """Resolve random() calls in a filter expression.
+
+    Args:
+        filter_expr: Filter expression, if any.
+        entries: Pre-scanned cache entries providing metadata.
+
+    Returns:
+        Tuple of (resolved filter, extra names used by the filter).
+
+    """
+    if not filter_expr or "random(" not in filter_expr:
+        return filter_expr, {}
+    from causaliq_core.utils import resolve_random_calls
+
+    metadata = [
+        helpers._flatten_entry_metadata(
+            entry.get("matrix_values", {}), entry.get("metadata", {})
+        )
+        for entry in entries
+    ]
+    return resolve_random_calls(filter_expr, metadata)
+
+
+def _entry_matches(
+    resolved_filter: Optional[str],
+    flat_meta: Dict[str, Any],
+    extra_names: Dict[str, Any],
+) -> bool:
+    """Return whether a cache entry passes the filter expression.
+
+    Args:
+        resolved_filter: Resolved filter expression, if any.
+        flat_meta: Flattened metadata of the entry.
+        extra_names: Extra names resolved for the filter.
+
+    Returns:
+        True when the entry matches the filter, or no filter is set.
+
+    """
+    if not resolved_filter:
+        return True
+    from causaliq_workflow.cache.reporting import evaluate_entry_filter
+
+    try:
+        names = {**flat_meta, **extra_names}
+        return bool(evaluate_entry_filter(resolved_filter, names))
+    except Exception:
+        return False
+
+
+def _accumulate_values(
+    values: Dict[str, List[float]],
+    flat_meta: Dict[str, Any],
+    unique_fields: List[str],
+) -> None:
+    """Append numeric metric values from one entry.
+
+    Args:
+        values: Values per field, updated in place.
+        flat_meta: Flattened metadata of the entry.
+        unique_fields: Fields to collect values for.
+
+    """
+    for field in unique_fields:
+        value = helpers._get_nested_value(flat_meta, field)
+        if value is not None and isinstance(value, (int, float)):
+            values[field].append(float(value))
+
+
+def _values_from_files(
+    request: Dict[str, Any],
+    values: Dict[str, List[float]],
+    matrix_values: Dict[str, Any],
+    log_fn: Optional[Any],
+) -> Tuple[int, List[str]]:
+    """Collect metric values from input workflow cache files.
+
+    Args:
+        request: Summarisation request.
+        values: Values per field, updated in place.
+        matrix_values: Matrix values from the workflow context.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        Tuple of (source entry count, source cache paths).
+
+    Raises:
+        ActionExecutionError: If no input file, or a non-cache, is given.
+
+    """
+    input_files = _require_input_files(request["input_files"])
+    sources: List[str] = []
+    count = 0
+    for cache_path in input_files:
+        _require_cache_file(cache_path)
+        sources.append(cache_path)
+        count += helpers._collect_values_from_cache(
+            cache_path,
+            request["unique_fields"],
+            values,
+            request["filter"],
+            matrix_values,
+            log_fn,
+        )
+    return count, sources
+
+
+def _require_input_files(input_files: List[str]) -> List[str]:
+    """Require at least one input cache file.
+
+    Args:
+        input_files: Input paths from the action parameters.
+
+    Returns:
+        The input paths.
+
+    Raises:
+        ActionExecutionError: If no input path is provided.
+
+    """
+    if not input_files:
+        raise ActionExecutionError(
+            "summarise requires either aggregation entries or "
+            "'input' parameter with cache file path(s)"
+        )
+    return input_files
+
+
+def _require_cache_file(cache_path: str) -> None:
+    """Require an input path to be a workflow cache.
+
+    Args:
+        cache_path: Input path to check.
+
+    Raises:
+        ActionExecutionError: If the path is not a .db cache.
+
+    """
+    if not cache_path.lower().endswith(".db"):
+        raise ActionExecutionError(
+            f"summarise workflow action only supports .db "
+            f"cache files, got: {cache_path}"
+        )
