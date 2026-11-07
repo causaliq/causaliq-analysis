@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Summarise tables from multiple caches**: `summarise` can build one table
+  from metrics recorded in several input caches, and writes CSV, LaTeX or
+  Markdown depending on the output extension
+  - A trailing one-based source index names the cache that supplies a column
+    (`f1.mean[2]`); a column without one still unions every input cache
+  - A bare `<field>[<source>]` reports the single distinct value of a field
+    (new `unique` statistic) and rejects conflicting values
+  - Derived columns compute a value from the columns before them: a metric
+    declares a short alias with `as`, and a formula is a Python expression
+    over those aliases (`fusion - max(bnsl, llm)`, `round(gain * 100, 1)`)
+    with a closed set of functions (`abs`, `max`, `min`, `round`)
+  - A numeric literal is always a number and a formula never refers to a
+    column position, so reordering the metrics cannot change its meaning
+  - `headers` stay free text and independent of aliases, so a narrative
+    column label can change without touching a formula
+  - New `headers`, `format` and `footer` parameters label and format the
+    presentation outputs, and new CLI options `--header`, `--format` and
+    `--footer` mirror them
+  - `.tex` output is a LaTeX `tabular` fragment with escaped markup and rules
+    after the header and before the footer; `.md` output is a Markdown table
+    with an alignment row
+  - CSV output keeps raw values so a `plot` step can still read it
+  - Caches joined by a source-qualified column must carry every grouping
+    dimension; an entry that would match every row is rejected
 - **Plot Capability**: new `plot` CLI command and workflow action (NOCACHES
   pattern) which draws charts using matplotlib and Seaborn from a `summarise`
   CSV output

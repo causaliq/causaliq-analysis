@@ -6,21 +6,23 @@ from typing import Any, Dict, List, Optional, Tuple
 from causaliq_analysis.workflow_action import helpers
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
-__all__ = ["_values_from_entries"]
+from .stats import Argmax, Values
+
+__all__ = ["_source_index", "_values_from_entries"]
 
 
 def _values_from_entries(
     request: Dict[str, Any],
-    values: Dict[str, List[float]],
-    argmax: Dict[str, Tuple[float, Dict[str, Any]]],
+    values: Values,
+    argmax: Argmax,
     log_fn: Optional[Any],
 ) -> Tuple[int, List[str]]:
     """Collect metric values from pre-scanned cache entries.
 
     Args:
         request: Summarisation request.
-        values: Values per field, updated in place.
-        argmax: Winning entry per field, updated in place.
+        values: Values per source and field, updated in place.
+        argmax: Winning entry per source and field, updated in place.
         log_fn: Logging callback for progress reporting.
 
     Returns:
@@ -29,12 +31,13 @@ def _values_from_entries(
     """
     entries = request["aggregation_entries"] or []
     resolved, extra_names = _resolve_filter(request["filter"], entries)
-    argmax_fields = [field for field, _ in request["argmax_specs"]]
+    argmax_fields = request["argmax_fields"]
     sources: List[str] = []
     count = 0
     for entry_dict in entries:
         matrix_values, flat_meta = _entry_metadata(entry_dict)
-        sources.append(entry_dict.get("cache_path", "unknown"))
+        cache_path = entry_dict.get("cache_path", "unknown")
+        sources.append(cache_path)
         if not _entry_matches(resolved, flat_meta, extra_names):
             continue
         count += 1
@@ -45,9 +48,28 @@ def _values_from_entries(
             matrix_values,
             request["unique_fields"],
             argmax_fields,
+            _source_index(cache_path, request["input_files"]),
         )
         _log_entry(log_fn, matrix_values)
     return count, sources
+
+
+def _source_index(cache_path: Any, input_files: List[str]) -> int:
+    """Return the one-based position of a cache in the input list.
+
+    Args:
+        cache_path: Cache path recorded on a pre-scanned entry.
+        input_files: Input cache paths, in declared order.
+
+    Returns:
+        One-based position of the cache, or 0 when the entry names no
+        declared input cache.
+
+    """
+    for position, path in enumerate(input_files, start=1):
+        if str(path) == str(cache_path):
+            return position
+    return 0
 
 
 def _entry_metadata(entry_dict: Dict[str, Any]) -> Tuple[Any, Dict[str, Any]]:
@@ -183,35 +205,44 @@ def _entry_matches(
 
 
 def _accumulate_values(
-    values: Dict[str, List[float]],
-    argmax: Dict[str, Tuple[float, Dict[str, Any]]],
+    values: Values,
+    argmax: Argmax,
     flat_meta: Dict[str, Any],
     matrix_values: Dict[str, Any],
     unique_fields: List[str],
     argmax_fields: List[str],
+    source_index: int,
 ) -> None:
     """Append numeric metric values from one entry.
 
     Args:
-        values: Values per field, updated in place.
-        argmax: Winning entry per field, updated in place.
+        values: Values per source and field, updated in place.
+        argmax: Winning entry per source and field, updated in place.
         flat_meta: Flattened metadata of the entry.
         matrix_values: Matrix values of the entry.
         unique_fields: Fields to collect values for.
         argmax_fields: Fields whose argmax is tracked.
+        source_index: One-based position of the entry's input cache.
 
     """
     for field in unique_fields:
         value = helpers._get_nested_value(flat_meta, field)
         if value is None or not isinstance(value, (int, float)):
             continue
-        values[field].append(float(value))
+        values.setdefault((source_index, field), []).append(float(value))
         if field in argmax_fields:
-            _track_argmax(argmax, field, float(value), matrix_values)
+            _track_argmax(
+                argmax,
+                source_index,
+                field,
+                float(value),
+                matrix_values,
+            )
 
 
 def _track_argmax(
-    argmax: Dict[str, Tuple[float, Dict[str, Any]]],
+    argmax: Argmax,
+    source_index: int,
     field: str,
     value: float,
     matrix_values: Dict[str, Any],
@@ -219,15 +250,16 @@ def _track_argmax(
     """Record the entry holding a field's maximum value.
 
     Args:
-        argmax: Winning entry per field, updated in place.
+        argmax: Winning entry per source and field, updated in place.
+        source_index: One-based position of the entry's input cache.
         field: Field whose maximum is tracked.
         value: Candidate value.
         matrix_values: Matrix values of the candidate entry.
 
     """
-    current = argmax.get(field)
+    current = argmax.get((source_index, field))
     if current is None or value > current[0]:
-        argmax[field] = (value, dict(matrix_values))
+        argmax[(source_index, field)] = (value, dict(matrix_values))
 
 
 def _require_cache_file(cache_path: str) -> None:

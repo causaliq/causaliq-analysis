@@ -283,6 +283,13 @@ def test_validate_metric_specs_nested_field():
     assert result == [("metrics.f1", "mean")]
 
 
+# Test validate_metric_specs accepts an argmax dimension.
+def test_validate_metric_specs_argmax_dimension():
+    """An argmax spec validates as its field and the argmax statistic."""
+    result = validate_metric_specs(["f1.argmax.pdg_seed", "f1.mean"])
+    assert result == [("f1", "argmax"), ("f1", "mean")]
+
+
 # Test validate_metric_specs with custom supported_stats.
 def test_validate_metric_specs_custom_stats():
     """Custom supported_stats override is respected."""

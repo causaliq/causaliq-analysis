@@ -1,38 +1,128 @@
 """Parsing and validating summarise action parameters."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
-from causaliq_analysis.validation import SUPPORTED_STATS
-from causaliq_analysis.workflow_action.types import ActionExecutionError
+from .columns import (
+    ColumnSpec,
+    _normalise_list,
+    _parse_column_specs,
+    _unique_fields,
+)
 
 __all__ = [
     "_input_files",
-    "_parse_metric_specs",
-    "_require_csv_output",
+    "_require_tabular_output",
     "_summarise_request",
+    "_validate_columns",
 ]
 
+# Output extensions accepted as a table
+_TABLE_EXTENSIONS = (".csv", ".tex", ".md", ".markdown")
 
-def _require_csv_output(parameters: Dict[str, Any]) -> None:
-    """Require a CSV output path.
+
+def _require_tabular_output(parameters: Dict[str, Any]) -> None:
+    """Require a CSV, LaTeX or Markdown output path.
 
     Args:
         parameters: Action parameter values.
 
     Raises:
-        ValueError: If no output path is given, or it is not a CSV file.
+        ValueError: If no output path is given, or it is not a .csv, .tex
+            or .md file.
 
     """
     output_path = parameters.get("output")
     if output_path is None:
         raise ValueError(
-            "summarise requires 'output' parameter with .csv file path."
+            "summarise requires 'output' parameter with a .csv, .tex or "
+            ".md file path."
         )
-    if not str(output_path).lower().endswith(".csv"):
+    if not str(output_path).lower().endswith(_TABLE_EXTENSIONS):
         raise ValueError(
-            "summarise output must be a CSV file (.csv). "
+            "summarise output must be a .csv, .tex or .md file. "
             f"Got: {output_path}"
         )
+
+
+def _validate_columns(parameters: Dict[str, Any]) -> None:
+    """Validate the metric, headers, format and footer parameters.
+
+    Args:
+        parameters: Action parameter values.
+
+    Raises:
+        ValueError: If a metric, format or footer entry is invalid.
+
+    """
+    specs = _parse_column_specs(_metric_specs(parameters))
+    _require_sources(specs, _input_files(parameters))
+    _normalise_list(parameters.get("headers"))
+    _normalise_list(parameters.get("footer"))
+    for format_spec in _normalise_list(parameters.get("format")):
+        _require_format_spec(format_spec)
+
+
+def _require_sources(
+    specs: List[ColumnSpec],
+    input_files: List[str],
+) -> None:
+    """Require every source index to name a declared input file.
+
+    Args:
+        specs: Parsed column specifications.
+        input_files: Input cache paths, in declared order.
+
+    Raises:
+        ValueError: If a specification names an input that was not given.
+
+    """
+    available = len(input_files)
+    for spec in specs:
+        source = spec.source
+        if source is None or source <= available:
+            continue
+        raise ValueError(
+            f"Invalid metric spec '{spec.text}': names input file "
+            f"{source}, but {available} input file(s) were given"
+        )
+
+
+def _require_format_spec(format_spec: str) -> None:
+    """Require a Python format specification.
+
+    Args:
+        format_spec: Format specification to validate.
+
+    Raises:
+        ValueError: If neither a number nor a text value can be formatted
+            with it.
+
+    """
+    probes = (0.0, 0, "")
+    if any(_is_format_spec(format_spec, value) for value in probes):
+        return
+    raise ValueError(
+        f"Invalid format spec '{format_spec}': use a Python format "
+        "specification such as '.3f', '+.3f' or '>3d'"
+    )
+
+
+def _is_format_spec(format_spec: str, value: Any) -> bool:
+    """Return True when a format specification accepts a value.
+
+    Args:
+        format_spec: Format specification to try.
+        value: Value to format with it.
+
+    Returns:
+        True when the value formats without error.
+
+    """
+    try:
+        format(value, format_spec)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
@@ -42,29 +132,29 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters: Action parameter values.
 
     Returns:
-        Request holding metric specs, filter, output path and inputs.
+        Request holding the parsed columns, filter, output path, inputs
+        and presentation parameters.
+
+    Raises:
+        ValueError: If the metric parameter is not a non-empty string or
+            list, or a specification is invalid.
 
     """
-    metric_specs = parameters.get("metric", [])
-    if isinstance(metric_specs, str):
-        metric_specs = [metric_specs]
-    if not metric_specs:  # pragma: no cover
-        raise ActionExecutionError(
-            "summarise requires 'metric' parameter with at least one "
-            "metric specification (e.g., ['f1.mean', 'shd.sd'])"
-        )
-    parsed_metrics = _parse_metric_specs(metric_specs)
+    metric_specs = _metric_specs(parameters)
+    specs = _parse_column_specs(metric_specs)
     return {
         "metric_specs": metric_specs,
-        "parsed_metrics": parsed_metrics,
-        "unique_fields": list(
-            dict.fromkeys(field for field, _, _ in parsed_metrics)
-        ),
-        "argmax_specs": [
-            (field, dimension)
-            for field, stat, dimension in parsed_metrics
-            if stat == "argmax"
+        "parsed_metrics": specs,
+        "unique_fields": _unique_fields(specs),
+        "argmax_fields": [
+            spec.field or "" for spec in specs if spec.stat == "argmax"
         ],
+        "qualified_sources": {
+            spec.source for spec in specs if spec.source is not None
+        },
+        "headers": _normalise_list(parameters.get("headers")),
+        "format": _normalise_list(parameters.get("format")),
+        "footer": _normalise_list(parameters.get("footer")),
         "filter": parameters.get("filter"),
         "output": parameters.get("output"),
         "input_files": _input_files(parameters),
@@ -87,59 +177,30 @@ def _input_files(parameters: Dict[str, Any]) -> List[str]:
     return [input_raw] if isinstance(input_raw, str) else list(input_raw)
 
 
-def _parse_metric_specs(
-    metric_specs: List[str],
-) -> List[Tuple[str, str, Optional[str]]]:
-    """Parse metric specifications of both supported forms.
+def _metric_specs(parameters: Dict[str, Any]) -> List[str]:
+    """Return the metric specifications as a non-empty list.
 
     Args:
-        metric_specs: Metric specifications to parse.
+        parameters: Action parameter values.
 
     Returns:
-        List of (field, stat, dimension) tuples; dimension is None unless
-        the statistic is argmax.
+        Metric specifications in column order.
 
     Raises:
-        ActionExecutionError: If a specification is invalid.
+        ValueError: If the parameter is not a non-empty string or list.
 
     """
-    parsed: List[Tuple[str, str, Optional[str]]] = []
-    for spec in metric_specs:
-        parsed.append(_parse_one_spec(spec))
-    return parsed
-
-
-def _parse_one_spec(spec: str) -> Tuple[str, str, Optional[str]]:
-    """Parse a single metric specification.
-
-    Args:
-        spec: Metric specification (e.g. 'f1.mean' or
-            'f1.argmax.fusion_weights').
-
-    Returns:
-        Tuple of (field, stat, dimension); dimension is None unless the
-        statistic is argmax.
-
-    Raises:
-        ActionExecutionError: If the specification is invalid.
-
-    """
-    parts = spec.rsplit(".", 2)
-    if len(parts) == 3 and parts[1] == "argmax" and parts[0] and parts[2]:
-        return parts[0], parts[1], parts[2]
-    if "," in spec:  # pragma: no cover
-        raise ActionExecutionError(
-            f"Invalid metric spec '{spec}': contains comma. "
-            "Use YAML list syntax: metric: [f1.mean, shd.sd]"
+    metric_specs = parameters.get("metric", [])
+    if isinstance(metric_specs, str):
+        metric_specs = [metric_specs]
+    if not isinstance(metric_specs, list):
+        raise ValueError(
+            f"'metric' must be a string or list, got "
+            f"{type(metric_specs).__name__}"
         )
-    if "." not in spec:  # pragma: no cover
-        raise ActionExecutionError(
-            f"Invalid metric spec '{spec}': must be <field>.<stat>"
+    if not metric_specs:
+        raise ValueError(
+            "At least one metric specification required "
+            "(e.g., ['f1.mean', 'shd.sd'])"
         )
-    field, stat = spec.rsplit(".", 1)
-    if stat not in SUPPORTED_STATS:  # pragma: no cover
-        raise ActionExecutionError(
-            f"Unknown statistic '{stat}' in '{spec}'. "
-            f"Supported: {', '.join(sorted(SUPPORTED_STATS))}"
-        )
-    return field, stat, None
+    return metric_specs

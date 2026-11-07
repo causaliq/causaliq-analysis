@@ -10,9 +10,10 @@ from causaliq_analysis.workflow_action.types import (
 
 from .collect import _values_from_entries
 from .groups import _report_groups
-from .render_csv import _write_csv, _write_report
+from .render import _is_csv_output, _write_single_table, _write_summary
+from .render_csv import _write_csv
 from .report import _collect_report_values
-from .stats import _compute_stats
+from .stats import Argmax, Values, _compute_stats
 
 __all__ = [
     "_dry_run_result",
@@ -136,7 +137,7 @@ def _summarise_report(
         )
         for index, group in enumerate(groups)
     ]
-    _write_report(request, rows, log_fn)
+    _write_summary(request, rows, log_fn)
     metadata = _summarise_metadata(
         request,
         sum(collected.counts),
@@ -173,7 +174,7 @@ def _summarise_entries(
     context: Optional[Any],
     log_fn: Optional[Any],
 ) -> ActionResult:
-    """Summarise pre-scanned entries into a single CSV row.
+    """Summarise pre-scanned entries into a single table row.
 
     Args:
         request: Summarisation request.
@@ -184,7 +185,7 @@ def _summarise_entries(
         ActionResult tuple with status "success".
 
     Raises:
-        ActionExecutionError: If collection or CSV output fails.
+        ActionExecutionError: If collection or the output write fails.
 
     """
     if not request["is_aggregation"]:
@@ -192,14 +193,16 @@ def _summarise_entries(
             "summarise requires either aggregation entries or "
             "'input' parameter with cache file path(s)"
         )
-    values: Dict[str, List[float]] = {
-        field: [] for field in request["unique_fields"]
-    }
-    argmax: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+    values: Values = {}
+    argmax: Argmax = {}
     count, sources = _values_from_entries(request, values, argmax, log_fn)
     results = _compute_stats(request["parsed_metrics"], values, argmax)
     metadata = _summarise_metadata(request, count, sources, results)
-    _write_csv(request, _context_matrix(context), results, metadata, log_fn)
+    matrix_values = _context_matrix(context)
+    if _is_csv_output(request["output"]):
+        _write_csv(request, matrix_values, results, metadata, log_fn)
+    else:
+        _write_single_table(request, matrix_values, results, log_fn)
     return ("success", metadata, [])
 
 
@@ -244,5 +247,8 @@ def _summarise_metadata(
     }
     if request["filter"]:
         metadata["filter"] = request["filter"]
+    output = request.get("output")
+    if output and not _is_csv_output(output):
+        metadata["table_output"] = str(output)
     metadata.update(results)
     return metadata

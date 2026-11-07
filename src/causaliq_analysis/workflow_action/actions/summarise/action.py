@@ -2,10 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from causaliq_analysis.validation import (
-    validate_filter_expression,
-    validate_metric_specs,
-)
+from causaliq_analysis.validation import validate_filter_expression
 from causaliq_analysis.workflow_action.actions.base import AnalysisAction
 from causaliq_analysis.workflow_action.types import (
     ActionExecutionError,
@@ -14,13 +11,17 @@ from causaliq_analysis.workflow_action.types import (
 )
 
 from .execution import _dry_run_result, _summarise
-from .request import _require_csv_output, _summarise_request
+from .request import (
+    _require_tabular_output,
+    _summarise_request,
+    _validate_columns,
+)
 
 __all__ = ["SummariseAction"]
 
 
 class SummariseAction(AnalysisAction):
-    """Summarise metric values from cache entries into CSV output.
+    """Summarise metric values from cache entries into a table.
 
     Attributes:
         action_name: Action name as used in workflow definitions.
@@ -42,9 +43,9 @@ class SummariseAction(AnalysisAction):
                 converts this to an ActionValidationError.
 
         """
-        validate_metric_specs(parameters.get("metric", []))
+        _validate_columns(parameters)
         validate_filter_expression(parameters.get("filter"))
-        _require_csv_output(parameters)
+        _require_tabular_output(parameters)
 
     def run(
         self,
@@ -53,7 +54,7 @@ class SummariseAction(AnalysisAction):
         context: Optional[Any] = None,
         logger: Optional[Any] = None,
     ) -> ActionResult:
-        """Execute metric summarisation to a CSV file.
+        """Execute metric summarisation to a table file.
 
         Aggregation mode summarises the pre-scanned cache entries passed
         via '_aggregation_entries' per matrix combination; direct mode

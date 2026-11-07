@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
+from .columns import _table_labels
+
 __all__ = ["_write_csv"]
 
 
@@ -34,9 +36,14 @@ def _write_csv(
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
     row_data = _csv_row(matrix_values, results)
+    labels = _table_labels(
+        list(matrix_values),
+        request["parsed_metrics"],
+        request.get("headers") or [],
+    )
     try:
         file_exists = out_file.exists()
-        _append_row(out_file, row_data, file_exists)
+        _append_row(out_file, row_data, file_exists, labels)
         verb = "appended to" if file_exists else "written to"
         metadata["csv_output"] = str(out_file)
         if log_fn:
@@ -70,6 +77,7 @@ def _append_row(
     out_file: Path,
     row_data: Dict[str, Any],
     file_exists: bool,
+    labels: List[str],
 ) -> None:
     """Write a summary row, creating the header when needed.
 
@@ -77,13 +85,14 @@ def _append_row(
         out_file: CSV file to write to.
         row_data: Row mapping column names to values.
         file_exists: Whether the file already holds a header row.
+        labels: Column labels, aligned with the row values.
 
     """
     mode = "a" if file_exists else "w"
     with open(out_file, mode, encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         if not file_exists:
-            writer.writerow(row_data.keys())
+            writer.writerow(labels)
         writer.writerow(row_data.values())
 
 
@@ -91,6 +100,7 @@ def _write_report(
     request: Dict[str, Any],
     rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
     log_fn: Optional[Any],
+    labels: Optional[List[str]] = None,
 ) -> None:
     """Write the complete report file, replacing any existing content.
 
@@ -98,6 +108,8 @@ def _write_report(
         request: Summarisation request.
         rows: Group matrix values and computed results, in report order.
         log_fn: Logging callback for progress reporting.
+        labels: Column labels, or None to name the columns after the
+            matrix values and metric specifications.
 
     Raises:
         ActionExecutionError: If the CSV file cannot be written.
@@ -107,9 +119,9 @@ def _write_report(
     assert output_path is not None  # Validated by the action validator
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    header = list(rows[0][0]) + list(rows[0][1])
+    keys = list(rows[0][0]) + list(rows[0][1])
     try:
-        _write_rows(out_file, header, rows)
+        _write_rows(out_file, list(labels or keys), keys, rows)
     except Exception as e:
         raise ActionExecutionError(f"Failed to write CSV output: {e}") from e
     if log_fn:
@@ -119,18 +131,21 @@ def _write_report(
 def _write_rows(
     out_file: Path,
     header: List[str],
+    keys: List[str],
     rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
 ) -> None:
     """Write the report header and rows to a file.
 
     Args:
         out_file: Destination CSV file.
-        header: Column names in report order.
+        header: Column labels in report order.
+        keys: Row value keys, aligned with the header.
         rows: Group matrix values and computed results, in report order.
 
     """
     with open(out_file, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=header)
-        writer.writeheader()
+        writer = csv.writer(handle)
+        writer.writerow(header)
         for group, results in rows:
-            writer.writerow({**group, **results})
+            values = {**group, **results}
+            writer.writerow([values.get(key, "") for key in keys])

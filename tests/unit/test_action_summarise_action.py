@@ -75,7 +75,7 @@ def test_summarise_unknown_stat() -> None:
     assert "Unknown statistic 'mode'" in str(exc_info.value)
 
 
-# Test summarise rejects .db output (only CSV supported).
+# Test summarise rejects .db output (only table formats supported).
 def test_summarise_rejects_db_output() -> None:
     """Test that summarise rejects .db output files."""
     from causaliq_core import ActionValidationError
@@ -98,7 +98,7 @@ def test_summarise_rejects_db_output() -> None:
             context=None,
             logger=mock_logger,
         )
-    assert "must be a CSV file" in str(exc_info.value)
+    assert "must be a .csv, .tex or .md file" in str(exc_info.value)
 
 
 # Test summarise requires output parameter.

@@ -47,7 +47,7 @@ __all__ = ["summarise_cmd"]
     multiple=True,
     callback=single_value_callback,
     required=True,
-    help="Output path: CSV file or '-' for terminal output.",
+    help="Output path: .csv, .tex or .md file, or '-' for terminal output.",
 )
 @click.option(
     "--filter",
@@ -58,11 +58,35 @@ __all__ = ["summarise_cmd"]
     default=(),
     help="Filter expression to select entries (e.g., 'status == completed').",
 )
+@click.option(
+    "--header",
+    "headers",
+    multiple=True,
+    help="Column header, repeated once per metric. Defaults to the metric "
+    "specification.",
+)
+@click.option(
+    "--format",
+    "formats",
+    multiple=True,
+    help="Python format specification for the LaTeX and Markdown output, "
+    "repeated once per metric (e.g. '.3f', '+.3f').",
+)
+@click.option(
+    "--footer",
+    "footer",
+    multiple=True,
+    help="Footer cell for the LaTeX and Markdown output, repeated once per "
+    "metric: blank, a statistic name or literal text.",
+)
 def summarise_cmd(
     metrics: Tuple[str, ...],
     input_files: Tuple[str, ...],
     output: str,
     filter_expr: Optional[str],
+    headers: Tuple[str, ...],
+    formats: Tuple[str, ...],
+    footer: Tuple[str, ...],
 ) -> None:
     """
     Summarise numerical metrics across experiments.
@@ -93,10 +117,64 @@ def summarise_cmd(
         causaliq-analysis summarise -m f1.mean -m f1.sd -i cache.db -o -
     """
     parsed_metrics = _parse_metric_specs(metrics)
+    _require_table_parameters(parsed_metrics, headers, formats, footer)
     unique_fields = list(dict.fromkeys(f for f, _ in parsed_metrics))
     all_values = _collect_values(input_files, unique_fields, filter_expr)
     results = _summarise_values(parsed_metrics, all_values)
-    _write_summary(results, output)
+    _write_summary(results, output, headers, formats, footer)
+
+
+def _require_table_parameters(
+    parsed_metrics: List[Tuple[str, str]],
+    headers: Tuple[str, ...],
+    formats: Tuple[str, ...],
+    footer: Tuple[str, ...],
+) -> None:
+    """Validate the column count and format of the table parameters.
+
+    Args:
+        parsed_metrics: Parsed (field, stat) specifications.
+        headers: Declared column headers, empty when the defaults are used.
+        formats: Declared format specifications, empty when unformatted.
+        footer: Declared footer cells, empty for no footer.
+
+    Raises:
+        click.ClickException: If a parameter does not have one entry per
+            metric, or a format specification is invalid.
+
+    """
+    count = len(parsed_metrics)
+    for name, values in (
+        ("header", headers),
+        ("format", formats),
+        ("footer", footer),
+    ):
+        if values and len(values) != count:
+            raise click.ClickException(
+                f"--{name} must be given {count} times (one per metric)"
+            )
+    for format_spec in formats:
+        _require_format_spec(format_spec)
+
+
+def _require_format_spec(format_spec: str) -> None:
+    """Require a Python format specification.
+
+    Args:
+        format_spec: Format specification to validate.
+
+    Raises:
+        click.ClickException: If the specification is invalid.
+
+    """
+    from causaliq_analysis.workflow_action.actions.summarise.request import (
+        _require_format_spec as _require_spec,
+    )
+
+    try:
+        _require_spec(format_spec)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
 
 
 def _parse_metric_specs(
@@ -560,25 +638,84 @@ def _stdev(values: List[float]) -> Optional[float]:
     return statistics.stdev(values) if len(values) >= 2 else None
 
 
-def _write_summary(results: Dict[str, Any], output: str) -> None:
-    """Write summary results to the terminal or a CSV file.
+def _write_summary(
+    results: Dict[str, Any],
+    output: str,
+    headers: Tuple[str, ...],
+    formats: Tuple[str, ...],
+    footer: Tuple[str, ...],
+) -> None:
+    """Write summary results to the terminal or a table file.
 
     Args:
         results: Mapping of metric name to computed value.
         output: Output path, or '-' for terminal output.
+        headers: Declared column headers, empty when the defaults are used.
+        formats: Declared format specifications, empty when unformatted.
+        footer: Declared footer cells, empty for no footer.
     """
     if output == "-":
         _print_summary_table(results)
-    else:
-        _write_summary_csv(results, Path(output))
+        return
+    if output.lower().endswith((".tex", ".md", ".markdown")):
+        _write_table(results, output, headers, formats, footer)
+        return
+    _write_summary_csv(results, Path(output), list(headers) or list(results))
 
 
-def _write_summary_csv(results: Dict[str, Any], output_path: Path) -> None:
+def _write_table(
+    results: Dict[str, Any],
+    output: str,
+    headers: Tuple[str, ...],
+    formats: Tuple[str, ...],
+    footer: Tuple[str, ...],
+) -> None:
+    """Write the summary row as a LaTeX or Markdown table.
+
+    Args:
+        results: Mapping of metric name to computed value.
+        output: Destination .tex or .md path.
+        headers: Declared column headers, empty when the defaults are used.
+        formats: Declared format specifications, empty when unformatted.
+        footer: Declared footer cells, empty for no footer.
+
+    Raises:
+        click.ClickException: If the file cannot be written.
+    """
+    from causaliq_analysis.workflow_action.actions.summarise.columns import (
+        _parse_column_specs,
+    )
+    from causaliq_analysis.workflow_action.actions.summarise.render import (
+        _render_table,
+    )
+
+    request = {
+        "parsed_metrics": _parse_column_specs(list(results)),
+        "headers": list(headers),
+        "format": list(formats),
+        "footer": list(footer),
+    }
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = _render_table(output_path.suffix.lower(), request, [({}, results)])
+    try:
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError as e:
+        raise click.ClickException(f"Failed to write output: {e}") from e
+    click.echo(f"Summary written to {output_path}")
+
+
+def _write_summary_csv(
+    results: Dict[str, Any],
+    output_path: Path,
+    labels: List[str],
+) -> None:
     """Write summary results to a CSV file.
 
     Args:
         results: Mapping of metric name to computed value.
         output_path: Destination CSV path.
+        labels: Column labels, one per metric.
 
     Raises:
         click.ClickException: If the file cannot be written.
@@ -589,7 +726,7 @@ def _write_summary_csv(results: Dict[str, Any], output_path: Path) -> None:
         with open(output_path, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             # Header row
-            writer.writerow(results.keys())
+            writer.writerow(labels)
             # Data row
             writer.writerow(results.values())
         click.echo(f"Summary written to {output_path}")

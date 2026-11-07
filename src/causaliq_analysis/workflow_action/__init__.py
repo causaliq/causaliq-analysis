@@ -257,12 +257,47 @@ class AnalysisActionProvider(CausalIQActionProvider):
                 "graph; a comparison requires identical node sets, so it "
                 "is also the reference's node count. "
                 "For summarise: List of metric specs as <field>.<stat> "
-                "(e.g., ['f1.mean', 'shd.sd']) or "
-                "<field>.argmax.<dimension>; supported statistics are "
-                "mean, sd, count, min, max and median."
+                "(e.g., ['f1.mean', 'shd.sd']), <field>.argmax.<dimension>, "
+                "'<field>[<source>]' to take the field from one input cache "
+                "(e.g. 'f1.mean[2]'), a bare '<field>[<source>]' for a "
+                "single value, or a derived-column formula over the aliases "
+                "of earlier columns (e.g. 'fusion - max(bnsl, llm)'); any "
+                "spec may declare an alias with 'as <name>'. Supported "
+                "statistics are mean, sd, count, min, max, median and "
+                "unique."
             ),
             required=False,
             type_hint="list[str] | str",
+        ),
+        # summarise presentation inputs
+        "headers": ActionInput(
+            name="headers",
+            description=(
+                "Column headers of a summarise table, in column order: the "
+                "grouping dimensions followed by one entry per metric."
+            ),
+            required=False,
+            type_hint="list[str]",
+        ),
+        "format": ActionInput(
+            name="format",
+            description=(
+                "Python format specifications for the presentation formats "
+                "(.tex and .md), in column order (e.g. ['.3f', '+.3f', "
+                "'>3d']). CSV output always holds raw values."
+            ),
+            required=False,
+            type_hint="list[str]",
+        ),
+        "footer": ActionInput(
+            name="footer",
+            description=(
+                "Optional footer row for the presentation formats, in "
+                "column order: blank, a statistic name (mean, sd, count, "
+                "min, max, median) or literal text."
+            ),
+            required=False,
+            type_hint="list[str]",
         ),
         # best_graph inputs - uses 'input' for cache containing merged_pdg
         "threshold": ActionInput(
@@ -360,6 +395,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         # summarise outputs
         "source_count": "Number of input entries summarised",
         "csv_output": "CSV file with summary statistics",
+        "table_output": "LaTeX or Markdown file with summary statistics",
         # best_graph outputs
         "edges_included": "Number of edges in optimal DAG",
         "edges_skipped_cycle": "Edges skipped to avoid cycles",
@@ -407,6 +443,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
         },
         "summarise": {
             "metric",
+            "headers",
+            "format",
+            "footer",
             "filter",
             "input",
             "output",
