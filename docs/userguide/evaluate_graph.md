@@ -6,7 +6,7 @@ Dependency Graphs (PDGs) are supported; the latter are compared by edge
 probability. Note that comparisons between general SDG graphs are not
 supported.
 
-This is an `aggregate` action (see
+This is a `map` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
 when used within a CausalIQ workflow: it reads the learned graph from the
 input graph cache and writes a `metrics` object to the `output` cache. The
@@ -26,8 +26,13 @@ effective parameters and the outcome status (see
 | `output`    | `-o`/`--output`    | Workflow | Metrics cache (`.db`) receiving the `metrics` object |
 | `filter`    | —                  | No       | Filter expression for cache entries (workflow only) |
 
-**Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `edge`, `equiv.f1`,
-`equiv.shd`, `equiv.edge`
+**Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `edge`, `node_count`,
+`equiv.f1`, `equiv.shd`, `equiv.edge`
+
+`node_count` reports the number of nodes in the evaluated graph. A successful
+comparison requires the learned graph and the reference to share the same node
+set, so it is also the reference's node count; it is useful for tables and for
+plots that relate error metrics to network size.
 
 **Notes:**
 
@@ -70,7 +75,7 @@ Request all available metrics:
 
 ```bash
 causaliq-analysis evaluate-graph -i learned.graphml -r ground_truth.graphml \
-    -m f1 -m shd -m precision -m recall -m edge \
+    -m f1 -m shd -m precision -m recall -m edge -m node_count \
     -m equiv.f1 -m equiv.shd -m equiv.edge -o results/eval
 ```
 
@@ -170,9 +175,10 @@ causaliq-analysis summarise -i results/eval/_meta.json \
 
 ## Workflow Usage
 
-In a CausalIQ workflow, `evaluate_graph` operates as an AGGREGATE action: it
-reads the matched entry of the input cache and writes a `metrics` object to
-its own output cache.
+In a CausalIQ workflow, `evaluate_graph` operates as a MAP action: it reads
+the matched entry of the input cache and writes a `metrics` object to its own
+output cache. The metrics cache has the same dimensions as the input cache, so
+the workflow `matrix` may be omitted and is taken from the input cache.
 
 ```yaml
 steps:
@@ -236,6 +242,7 @@ reference entry does not contain a graph, an error is reported.
 | `equiv.f1` | F1 comparing equivalence classes (CPDAGs) |
 | `equiv.shd` | SHD comparing equivalence classes (CPDAGs) |
 | `edge` | Low-level edge comparison counts (see above) |
+| `node_count` | Number of nodes in the evaluated graph |
 | `equiv.edge` | Low-level edge counts from CPDAG comparison |
 
 ### Metric Naming in CausalIQ

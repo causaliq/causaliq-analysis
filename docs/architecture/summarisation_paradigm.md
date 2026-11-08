@@ -163,5 +163,6 @@ type.
 
 ## See Also
 
+- [Summarise Columns](summarise_columns.md) — Column model and output formats
 - [Graph Merging User Guide](../userguide/merge_graphs.md) — Practical usage
 - [causaliq-workflow documentation](https://causaliq.org/projects/causaliq-workflow/)

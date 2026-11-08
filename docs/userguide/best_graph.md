@@ -5,7 +5,7 @@ Dependency Graph (PDG) using a greedy algorithm. This is useful when you have
 a PDG representing structural uncertainty (e.g., from merged graphs) and need
 to select a single best DAG for downstream analysis or inference.
 
-This is an `aggregate` action (see
+This is a `map` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
 when used within a CausalIQ workflow: it reads the PDG from the input cache
 and writes a `dag` object to the `output` cache.
@@ -26,7 +26,7 @@ and writes a `dag` object to the `output` cache.
   - `.db`: Read all entries from WorkflowCache database containing PDG objects
 - In CLI mode, the `output` parameter is an output directory containing
   `dag.graphml` and `_meta.json`.
-- In workflows, `best_graph` is an aggregate action: it reads the PDG from
+- In workflows, `best_graph` is a map action: it reads one PDG from
   the input cache and writes a `dag` object to the `output` cache.
 
 ---
@@ -126,9 +126,10 @@ Only edges with max effective probability ≥ 0.5 will be included.
 
 ## Workflow Usage
 
-In a CausalIQ workflow, `best_graph` operates as an AGGREGATE action that
-reads PDG objects from the input cache and writes DAG objects to a separate
-output cache:
+In a CausalIQ workflow, `best_graph` operates as a MAP action that reads a
+PDG object from the input cache and writes a DAG object to a separate output
+cache. One entry in gives one entry out, so the workflow `matrix` may be
+omitted and is taken from the input cache.
 
 ```yaml
 steps:

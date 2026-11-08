@@ -15,8 +15,9 @@ causal discovery experiments:
 - **Structural evaluation** — Compute accuracy metrics against ground truth
   for deterministic graphs (DAG/PDAG/CPDAG) and probabilistic dependency
   graphs (PDGs)
-- **Metric summarisation** — Aggregate metric values from workflow cache
-  entries into summary statistics (mean, SD, count) written to CSV
+- **Metric summarisation** — Aggregate metric values from several workflow
+  caches into a single table of summary statistics (mean, SD, count) written
+  as CSV, LaTeX or Markdown
 - **Plot generation** — Chart metric summaries produced by the summarise step
 - **Trace migration** — Convert legacy experiment traces to modern formats
 
@@ -32,6 +33,13 @@ This enables workflows that:
 - Filter inputs by metadata criteria
 - Apply metadata-driven weighting
 - Produce outputs with full provenance tracking
+
+### Summarise Tables
+
+The [summarise columns](summarise_columns.md) note defines the table model
+built on the paradigm: grouping dimensions followed by base columns drawn
+from named input caches and derived columns computed over them, rendered as
+CSV, LaTeX or Markdown.
 
 ### Typed Workflow Caches
 

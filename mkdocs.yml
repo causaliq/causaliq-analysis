@@ -57,6 +57,7 @@ nav:
   - Architecture: 
     - Overview: architecture/overview.md
     - Summarisation Paradigm: architecture/summarisation_paradigm.md
+    - Summarise Columns: architecture/summarise_columns.md
   - API Reference: 
     - API Overview: api/overview.md
     - Merge: api/merge.md

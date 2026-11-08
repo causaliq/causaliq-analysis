@@ -23,8 +23,8 @@ sample sizes, or algorithms.
   - `.graphml`: Read as GraphML file (filter/weights not applicable)
   - `.db`: Read all graphml objects from WorkflowCache entries
 - In CLI, use `-i` multiple times for multiple inputs
-- In workflows, `merge_graphs` is an aggregation action requiring `input`,
-  `output`, and a `matrix` definition
+- In workflows, `merge_graphs` is an aggregate action requiring `input`,
+  `output`, and a grouping `matrix` definition
 - Weights must sum to 1.0; if omitted, uniform weights (1/n) are used
 - When `cpdag=True`, DAGs are converted to their CPDAG (equivalence class)
   before merging, so the result averages over equivalence classes rather
@@ -295,7 +295,7 @@ causaliq-analysis merge-graphs `
 
 ## Workflow Action
 
-The `merge_graphs` action is an **aggregation action** — it requires `input`,
+The `merge_graphs` action is an **aggregate action** — it requires `input`,
 `output`, and `matrix` parameters. The matrix controls output dimensionality:
 entries from the input cache are grouped by matrix variable values and merged
 into new entries in the output cache.
