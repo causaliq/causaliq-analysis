@@ -918,6 +918,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#summarise-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summarise Tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#typed-workflow-caches" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1045,6 +1056,34 @@
     
   
     Summarisation Paradigm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
   
 
     
@@ -1884,6 +1923,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#summarise-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summarise Tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#typed-workflow-caches" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2017,8 +2067,9 @@ causal discovery experiments:</p>
 <li><strong>Structural evaluation</strong> — Compute accuracy metrics against ground truth
   for deterministic graphs (DAG/PDAG/CPDAG) and probabilistic dependency
   graphs (PDGs)</li>
-<li><strong>Metric summarisation</strong> — Aggregate metric values from workflow cache
-  entries into summary statistics (mean, SD, count) written to CSV</li>
+<li><strong>Metric summarisation</strong> — Aggregate metric values from several workflow
+  caches into a single table of summary statistics (mean, SD, count) written
+  as CSV, LaTeX or Markdown</li>
 <li><strong>Plot generation</strong> — Chart metric summaries produced by the summarise step</li>
 <li><strong>Trace migration</strong> — Convert legacy experiment traces to modern formats</li>
 </ul>
@@ -2033,15 +2084,21 @@ This enables workflows that:</p>
 <li>Apply metadata-driven weighting</li>
 <li>Produce outputs with full provenance tracking</li>
 </ul>
+<h3 id="summarise-tables">Summarise Tables<a class="headerlink" href="#summarise-tables" title="Permanent link">&para;</a></h3>
+<p>The <a href="../summarise_columns/">summarise columns</a> note defines the table model
+built on the paradigm: grouping dimensions followed by base columns drawn
+from named input caches and derived columns computed over them, rendered as
+CSV, LaTeX or Markdown.</p>
 <h3 id="typed-workflow-caches">Typed Workflow Caches<a class="headerlink" href="#typed-workflow-caches" title="Permanent link">&para;</a></h3>
 <p>Workflow caches follow a single typed-object model: one cache holds one
 object type, and a successful entry holds provenance metadata plus exactly
 one typed object, whilst a failed entry holds provenance only. A failed
 evaluation is recorded in the metrics cache as a provenance-only entry with
 status <code>input_failed</code>, so failures appear alongside results without any
-metric values. <code>evaluate_graph</code>, <code>best_graph</code> and <code>plot</code> therefore read and
-write caches whose type is implied by the workflow's <code>input</code>/<code>output</code>
-parameters. See the causaliq-workflow
+metric values. <code>merge_graphs</code>, <code>evaluate_graph</code>, <code>best_graph</code>, <code>summarise</code>
+and <code>plot</code> therefore read and write caches whose type is implied by the
+workflow's <code>input</code>/<code>output</code> parameters, and no action takes an object-type
+filter. See the causaliq-workflow
 <a href="https://workflow.causaliq.org/architecture/cache_type_model/">Cache Type Model</a>
 for the full design.</p>
 <h3 id="graph-types">Graph Types<a class="headerlink" href="#graph-types" title="Permanent link">&para;</a></h3>

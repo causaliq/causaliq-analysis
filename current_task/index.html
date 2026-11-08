@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#simplification-of-workflow-caches-and-action-patterns" class="md-skip">
+        <a href="#remove-object_type-parameter-from-actions" class="md-skip">
           Skip to content
         </a>
       
@@ -474,24 +474,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Simplify
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -508,82 +490,6 @@
   
 
       </a>
-      
-        
-
-  
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#simpler-cache-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simpler cache model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#two-action-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Two action patterns
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-changed-in-the-analysis-actions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What changed in the analysis actions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compatibility
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -951,6 +857,34 @@
     
   
     Summarisation Paradigm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
   
 
     
@@ -1738,69 +1672,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#simpler-cache-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simpler cache model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#two-action-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Two action patterns
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-changed-in-the-analysis-actions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What changed in the analysis actions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compatibility
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1816,80 +1687,38 @@
 
 
 
-<h1 id="simplification-of-workflow-caches-and-action-patterns">Simplification of Workflow Caches and Action Patterns<a class="headerlink" href="#simplification-of-workflow-caches-and-action-patterns" title="Permanent link">&para;</a></h1>
-<p>The workflow cache model and the action patterns declared by analysis actions
-were simplified so that caches hold typed results rather than mixed metadata,
-and so that only two patterns remain. The goal is simpler code and a simpler
-interface for workflow authors.</p>
-<h2 id="simpler-cache-model">Simpler cache model<a class="headerlink" href="#simpler-cache-model" title="Permanent link">&para;</a></h2>
+<h1 id="remove-object_type-parameter-from-actions">Remove <code>object_type</code> parameter from actions<a class="headerlink" href="#remove-object_type-parameter-from-actions" title="Permanent link">&para;</a></h1>
+<p>The <code>evaluate_graph</code> action (and perhaps other actions) has an <code>object_type</code> parameter
+which is probably no longer required as workflow caches can now only contain
+one object type.</p>
+<p>Please check it is safe to remove this parameter from any actions that
+use it, and if so, devise a plan to remove it.</p>
+<h1 id="possible-future-work-out-of-scope-for-this-task">Possible future work out of scope for this task<a class="headerlink" href="#possible-future-work-out-of-scope-for-this-task" title="Permanent link">&para;</a></h1>
 <ul>
-<li>Each cache holds a single object type, pinned by the first write.</li>
-<li>Each entry holds provenance metadata plus exactly one object of that type.</li>
-<li>Metrics are typed objects in their own cache, not extra metadata on the
-  graph entry that produced them.</li>
-<li>A failed run records provenance (status and failure reason) and no object,
-  so a failure can never be mistaken for a result or scored. Failures still
-  appear in downstream caches: evaluation writes a provenance-only entry to
-  the metrics cache for each failed input, so failure cases can be analysed.</li>
-<li>An action writes at most one object per key; entries are never lumped
-  together under generated names such as <code>dag_0</code>, <code>dag_1</code>.</li>
-<li>A workflow file can write to several typed caches, so the number of caches
-  scales with object types rather than pipeline stages.</li>
-<li>Entries are distinguished by ordinary matrix keys; there is no special
-  reserved key or per-step pinning.</li>
-</ul>
-<h2 id="two-action-patterns">Two action patterns<a class="headerlink" href="#two-action-patterns" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Pattern</th>
-<th>Reads a workflow cache</th>
-<th>Requirements</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>CREATE</td>
-<td>No</td>
-<td>Output cache and matrix</td>
-</tr>
-<tr>
-<td>AGGREGATE</td>
-<td>Yes</td>
-<td>Input cache(s) and output cache</td>
-</tr>
-</tbody>
-</table>
-<p>A step that writes a plain file instead of a cache runs <strong>once</strong>, outside
-matrix expansion, because a file output has no cache dimensionality.</p>
-<p><code>UPDATE</code> and <code>NOCACHES</code> were removed. <code>UPDATE</code> is unnecessary now that
-analysis results are written as objects to their own caches, and <code>NOCACHES</code>
-is redundant because <code>plot</code> reads a metrics cache and the run-once rule
-covers file outputs.</p>
-<h2 id="what-changed-in-the-analysis-actions">What changed in the analysis actions<a class="headerlink" href="#what-changed-in-the-analysis-actions" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>evaluate_graph</code> writes a <code>metrics</code> object to an output cache (AGGREGATE)
-  instead of adding results to the learned graph's entry.</li>
-<li><code>plot</code> reads a metrics cache (AGGREGATE) and writes one image (run-once).</li>
-<li><code>best_graph</code> writes a <code>dag</code> to its own output cache (AGGREGATE).</li>
-<li><code>merge_graphs</code> continues to aggregate PDGs into a <code>pdg</code> object
-  (AGGREGATE).</li>
-<li><code>migrate_trace</code> writes a <code>dag</code> per key, without the <code>dag_0..dag_n</code>
-  lumping that occurred when the matrix omitted a distinguishing dimension.</li>
-<li><code>summarise</code> continues to write one CSV row per matrix combination. It is
-  planned to write workflow caches and LaTeX tables as well, which would
-  supersede the earlier idea of a separate <code>table</code> action.</li>
-</ul>
-<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
-<p>Workflow caches are treated as disposable until the Zenodo deposit, so no
-data migration tooling is provided: re-run the workflow to regenerate a
-cache in the new shape. Import and export tooling keeps using the permissive
-write path, whilst action writes enforce the one-object and cache-type rules.</p>
-<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="https://causaliq.org/projects/causaliq-workflow/userguide/action_patterns/">Action Patterns</a></li>
-<li><a href="https://causaliq.org/projects/causaliq-workflow/architecture/cache_type_model/">Cache Type Model</a></li>
-<li><a href="https://causaliq.org/projects/causaliq-workflow/">causaliq-workflow documentation</a></li>
+<li>
+<p>Use <code>_aggregation_entries</code> instead of re-reading every cache per matrix job (the <code>O(groups × caches)</code> scan on the roadmap).</p>
+</li>
+<li>
+<p>retire the now-redundant <code>len(entries) != 1</code> checks inside <code>evaluate_graph</code>/<code>best_graph</code></p>
+</li>
+<li>
+<p>Shared <code>ActionMetadata</code> builder across <code>best_graph</code>, <code>summarise</code>, <code>merge_graphs</code>, <code>plot</code>.</p>
+</li>
+<li>
+<p>Cross-repo refresh of <code>causaliq-workflow/docs/architecture/cache_type_model.md</code>.</p>
+</li>
+<li>
+<p>Decide the fate of <code>validation.validate_metric_specs</code>: it is public API but now has no caller inside <code>src</code> after <code>summarise</code> adopted its alias-aware parser.</p>
+</li>
+<li>
+<p>Optionally, apply <code>header</code>/<code>format</code>/<code>footer</code> to the CLI terminal table (<code>cli/common._print_summary_table</code>) so it matches the file outputs.</p>
+</li>
+<li>
+<p><strong>Cross-repo</strong> — refresh <code>causaliq-workflow/docs/architecture/cache_type_model.md</code> (it still shows <code>result.reference</code> and <code>result.evaluated_graph</code>).</p>
+</li>
+<li>
+<p><strong>Later audit</strong> — shared <code>ActionMetadata</code> builder once <code>best_graph</code>, <code>summarise</code>, <code>merge_graphs</code> and <code>plot</code> adopt the same contract.</p>
+</li>
 </ul>
 
 

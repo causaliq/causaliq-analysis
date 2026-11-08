@@ -1209,6 +1209,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2364,10 +2392,10 @@ sample sizes, or algorithms.</p>
 <ul>
 <li>Input type is auto-detected by file extension:</li>
 <li><code>.graphml</code>: Read as GraphML file (filter/weights not applicable)</li>
-<li><code>.db</code>: Read all graphml objects from WorkflowCache entries</li>
+<li><code>.db</code>: Read the graphml object held by each WorkflowCache entry</li>
 <li>In CLI, use <code>-i</code> multiple times for multiple inputs</li>
-<li>In workflows, <code>merge_graphs</code> is an aggregation action requiring <code>input</code>,
-  <code>output</code>, and a <code>matrix</code> definition</li>
+<li>In workflows, <code>merge_graphs</code> is an aggregate action requiring <code>input</code>,
+  <code>output</code>, and a grouping <code>matrix</code> definition</li>
 <li>Weights must sum to 1.0; if omitted, uniform weights (1/n) are used</li>
 <li>When <code>cpdag=True</code>, DAGs are converted to their CPDAG (equivalence class)
   before merging, so the result averages over equivalence classes rather
@@ -2681,7 +2709,7 @@ is auto-detected by file extension (<code>.graphml</code> or <code>.db</code>).<
 </span></code></pre></div>
 <hr />
 <h2 id="workflow-action">Workflow Action<a class="headerlink" href="#workflow-action" title="Permanent link">&para;</a></h2>
-<p>The <code>merge_graphs</code> action is an <strong>aggregation action</strong> — it requires <code>input</code>,
+<p>The <code>merge_graphs</code> action is an <strong>aggregate action</strong> — it requires <code>input</code>,
 <code>output</code>, and <code>matrix</code> parameters. The matrix controls output dimensionality:
 entries from the input cache are grouped by matrix variable values and merged
 into new entries in the output cache.</p>
@@ -2742,7 +2770,7 @@ network, this produces one merged PDG per network in <code>merged.db</code>.</p>
 <p>Input type is auto-detected by file extension:</p>
 <ul>
 <li><strong><code>.graphml</code> files</strong>: Read directly as GraphML (filter/weights not applicable)</li>
-<li><strong><code>.db</code> files</strong>: Read all graphml objects from WorkflowCache database entries
+<li><strong><code>.db</code> files</strong>: Read the graphml object held by each WorkflowCache entry
   (filter/weights can be applied)</li>
 </ul>
 <hr />

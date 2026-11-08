@@ -857,6 +857,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1975,10 +2003,10 @@
 
         <p>Best_graph workflow action.</p>
 <p>Extracts the optimal DAG from a PDG with the greedy algorithm. The action
-reads the matched PDG cache entries (AGGREGATE pattern) and writes a single
-<code>dag</code> object to the output cache. The action is stateless, so validation
-and execution delegate to module-level helpers and each step stays within
-the module and method limits.</p>
+reads the matched PDG cache entry (MAP pattern) and writes a single <code>dag</code>
+object to the output cache. The action is stateless, so validation and
+execution delegate to module-level helpers and each step stays within the
+module and method limits.</p>
 
           
 
@@ -2117,9 +2145,9 @@ the module and method limits.</p>
     <div class="doc doc-contents ">
 
         <p>Execute optimal DAG extraction from a PDG.</p>
-<p>Reads the PDG from the matched workflow cache entry (AGGREGATE
-pattern), extracts the optimal DAG and returns it as a GraphML
-object for the output cache.</p>
+<p>Reads the PDG from the matched workflow cache entry (MAP pattern),
+extracts the optimal DAG and returns it as a GraphML object for the
+output cache.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

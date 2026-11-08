@@ -751,6 +751,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#multiple-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#derived-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Derived columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#headers-format-and-footer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        headers, format and footer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#input" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -777,6 +810,17 @@
     <span class="md-ellipsis">
       
         filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI examples
       
     </span>
   </a>
@@ -957,6 +1001,34 @@
     
   
     Summarisation Paradigm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
   
 
     
@@ -1774,6 +1846,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#multiple-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#derived-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Derived columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#headers-format-and-footer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        headers, format and footer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#input" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1806,6 +1911,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#cli-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI examples
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1829,7 +1945,7 @@
 
 
 <h1 id="summarising-results">Summarising Results<a class="headerlink" href="#summarising-results" title="Permanent link">&para;</a></h1>
-<p>The <code>summarise</code> capability statistically summarise numerical results across experiments into publication-ready metrics such as means, standard deviations etc.</p>
+<p>The <code>summarise</code> capability statistically summarises numerical results across experiments into publication-ready metrics such as means, standard deviations etc.</p>
 <p>This is an <code>aggregate</code> action (see <a href="https://workflow.causaliq.org/userguide/action_patterns/">workflow patterns</a>) and so aggregates results in the <code>input</code> cache and produces a single tabular output.</p>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
@@ -1846,62 +1962,180 @@
 <td><code>metric</code></td>
 <td><code>-m</code>/<code>--metric</code></td>
 <td>Yes</td>
-<td>List of summary metrics required, e.g. mean, standard deviation etc.</td>
+<td>Columns of the table: metric specifications or derived-column formulas</td>
 </tr>
 <tr>
 <td><code>input</code></td>
 <td><code>-i</code>/<code>--input</code></td>
 <td>Yes</td>
-<td>List of files containing raw results (<code>.json</code> or <code>.db</code> cache).</td>
+<td>Files containing raw results (<code>.json</code> or <code>.db</code> cache)</td>
 </tr>
 <tr>
 <td><code>output</code></td>
 <td><code>-o</code>/<code>--output</code></td>
 <td>Yes</td>
-<td>Tabular summary in .csv format (see below)</td>
+<td>Tabular summary in <code>.csv</code>, <code>.tex</code> or <code>.md</code> format</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td><code>--header</code></td>
+<td>No</td>
+<td>Column headers, in column order</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td><code>--format</code></td>
+<td>No</td>
+<td>Python format specifications for <code>.tex</code> and <code>.md</code> output</td>
+</tr>
+<tr>
+<td><code>footer</code></td>
+<td><code>--footer</code></td>
+<td>No</td>
+<td>Footer row for <code>.tex</code> and <code>.md</code> output</td>
 </tr>
 <tr>
 <td><code>filter</code></td>
-<td>—</td>
+<td><code>-f</code>/<code>--filter</code></td>
 <td>No</td>
-<td>filter entries in input</td>
+<td>Filter entries in the input</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Notes:</strong></p>
 <ul>
-<li>In workflows, <code>summarise</code> is an aggregation action: <code>input</code>, <code>output</code>, and
+<li>In workflows, <code>summarise</code> is an aggregate action: <code>input</code>, <code>output</code>, and
   <code>matrix</code> are all <strong>required</strong>. The matrix controls output dimensionality.</li>
-<li><code>-metric</code> and <code>-input</code> can be repeated in CLI for multiple metrics and inputs, and can use YAML list syntax in actions</li>
-<li><code>-output</code> can only have a single value which must be a CSV file in both the CLI and action</li>
+<li><code>metric</code> and <code>input</code> can be repeated in the CLI for multiple columns and
+  inputs, and can use YAML list syntax in actions.</li>
+<li><code>output</code> can only have a single value, which must be a <code>.csv</code>, <code>.tex</code> or
+  <code>.md</code> file in both the CLI and the action.</li>
+<li><code>headers</code>, <code>format</code> and <code>footer</code> each take one entry per table column:
+  the grouping dimensions first, then one entry per metric.</li>
 </ul>
 <h3 id="metric"><code>metric</code><a class="headerlink" href="#metric" title="Permanent link">&para;</a></h3>
-<p>This specifies a list of metrics that are to be summarised. Each name selects a field in the entry's JSON object (<code>metrics</code> objects in an evaluation cache) together with the statistic to compute. So, for example, specifying <code>equiv.shd.mean</code> indicates that the capability should compute the mean of the <code>equiv.shd</code> field in the input.</p>
-<p>The following summary statistics will be supported initially:</p>
+<p>This specifies the columns of the table. Each entry selects a field in the
+entry's JSON object (<code>metrics</code> objects in an evaluation cache) together with
+the statistic to compute. So, for example, specifying <code>equiv.shd.mean</code>
+indicates that the capability should compute the mean of the <code>equiv.shd</code>
+field in the input.</p>
+<p>The following statistics are supported:</p>
 <ul>
 <li><code>mean</code> - the mean value</li>
 <li><code>sd</code> - the standard deviation</li>
 <li><code>count</code> - the number of non-null values used to compute the other statistics</li>
+<li><code>min</code> - the smallest value</li>
+<li><code>max</code> - the largest value</li>
+<li><code>median</code> - the median value</li>
 </ul>
-<p>It is likely this will be extended to include other statistics such as mode, interquartile range, max etc. as well as significance statistics.</p>
+<p>A bare <code>&lt;field&gt;[&lt;source&gt;]</code> column reports the single distinct value of a
+field, as if by a <code>unique</code> statistic: a field holding conflicting values is
+rejected rather than silently summarised.</p>
+<p>A specification of the form <code>&lt;field&gt;.argmax.&lt;dimension&gt;</code> reports the value of
+a matrix dimension for the entry holding the largest <code>&lt;field&gt;</code> value. For
+example, <code>f1.argmax.llm_temperature</code> reports the temperature of the best run
+in each group, which is useful for hyper-parameter analysis. A group with no
+numeric value for the field reports an empty cell.</p>
+<p>Significance testing is not yet available.</p>
+<h3 id="multiple-inputs">Multiple inputs<a class="headerlink" href="#multiple-inputs" title="Permanent link">&para;</a></h3>
+<p>A trailing one-based source index names the input file that supplies a
+column, so one table can compare metrics computed from different caches:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">steps</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"summarise</span><span class="nv"> </span><span class="s">fusion</span><span class="nv"> </span><span class="s">metrics"</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"summarise"</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bnsl.db</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">llm.db</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fusion.db</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_count[1] as nodes</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[1] as bnsl</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[2] as llm</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[3] as fusion</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fusion - max(bnsl, llm) as gain</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"tables/fusion.tex"</span>
+</span></code></pre></div>
+<p>A column without a source index draws on <strong>every</strong> input cache, which is
+the original union behaviour. A column with a source index takes its values
+only from that cache, so <code>f1.mean[2]</code> is the mean of the F1 values recorded
+in the second input file.</p>
+<p>The caches are joined on the grouping dimensions. A metric that names its
+input cache therefore requires every entry of that cache to carry every
+grouping dimension: an entry without one would otherwise contribute to
+every row, so it is rejected with an error naming the cache and the
+dimension.</p>
+<p>A bare <code>&lt;field&gt;[&lt;source&gt;]</code> reports the single distinct value of a field,
+which is convenient for a value that does not vary across seeds, such as
+<code>node_count[1]</code> for the number of nodes in a network. A field holding
+conflicting values is rejected rather than silently summarised.</p>
+<h3 id="derived-columns">Derived columns<a class="headerlink" href="#derived-columns" title="Permanent link">&para;</a></h3>
+<p>An entry containing an operator or a function call is a derived column: an
+arithmetic expression over the <strong>aliases</strong> of the columns that precede it,
+written in Python syntax. A trailing <code>as &lt;name&gt;</code> gives a column its alias:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[1] as bnsl</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[2] as llm</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[3] as fusion</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fusion - max(bnsl, llm) as gain</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">round(gain * 100, 1) as gain_pct</span>
+</span></code></pre></div>
+<ul>
+<li>Operators are <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, unary sign and parentheses; literals
+  are ordinary numbers (<code>0.5</code>, <code>100</code>).</li>
+<li>Functions are <code>abs</code>, <code>max</code>, <code>min</code> and <code>round</code>.</li>
+<li>A formula refers to a column by its alias, never by its position, so a
+  number is always a number and reordering the metrics cannot change what
+  a formula means.</li>
+<li>References are backward only, so a formula can never form a cycle.</li>
+<li>An empty cell propagates: arithmetic over a missing value yields an
+  empty cell, while <code>min</code> and <code>max</code> ignore empty cells.</li>
+</ul>
+<h3 id="headers-format-and-footer"><code>headers</code>, <code>format</code> and <code>footer</code><a class="headerlink" href="#headers-format-and-footer" title="Permanent link">&para;</a></h3>
+<p>These parameters shape the presentation formats (<code>.tex</code> and <code>.md</code>). Each
+takes one entry per table column, in column order, starting with the
+grouping dimensions:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_count[1] as nodes</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[1] as bnsl</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[2] as llm</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean[3] as fusion</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fusion - max(bnsl, llm) as gain</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">headers</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Network</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Nodes</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">BNSL</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">LLM</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Fusion</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"F&gt;best"</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">""</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"d"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">".3f"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">".3f"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">".3f"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"+.3f"</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">footer</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"AVERAGE"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">""</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mean</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mean</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mean</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mean</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<ul>
+<li><code>headers</code> labels the columns. Headers are free text and independent of
+  aliases: a header may be narrative or hold markup (<code>BNSL $F_1$</code>), and
+  renaming one cannot break a formula. Without headers, a column's label
+  is its alias, or its specification text when it has none.</li>
+<li><code>format</code> holds Python format specifications, validated when the step
+  starts. The type character also decides the alignment (<code>s</code> left, numeric
+  right, an explicit <code>&lt;</code>, <code>^</code> or <code>&gt;</code> overrides it).</li>
+<li><code>footer</code> holds blank cells, a statistic name or literal text. A
+  statistic summarises the column's row values, so the footer of a derived
+  column is the mean of the derived values.</li>
+</ul>
 <h3 id="input"><code>input</code><a class="headerlink" href="#input" title="Permanent link">&para;</a></h3>
 <p>In the CLI, this can be a list of <code>.json</code> files containing metadata which includes the requested metrics which are all scanned and the required summarisation metrics computed. In this case, the output would contain a single summarisation metric for each value in the <code>metric</code> parameter.</p>
-<p>In a CausalIQ Workflow the input would typically be one or more workflow caches. The presence of an action with both an <code>input</code> and <code>output</code> parameter means that a workflow <code>matrix</code> definition must be present. The <code>matrix</code> definition defines the groups of variable values that a separate sumary statistic will be generated for - similar to the functionality of the "group by" feature in SQL and dataframe processing.</p>
+<p>In a CausalIQ Workflow the input would typically be one or more workflow caches. Because <code>summarise</code> groups entries, a workflow <code>matrix</code> definition must be present. The <code>matrix</code> definition defines the groups of variable values that a separate summary statistic will be generated for - similar to the functionality of the "group by" feature in SQL and dataframe processing.</p>
 <p>So for example, this workflow will create the mean and standard deviation of the F1 for each combination of <code>network</code> and <code>sample_size</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">matrix</span><span class="p">:</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">asia</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">cancer</span><span class="p p-Indicator">]</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">sample_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1K</span><span class="p p-Indicator">]</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">steps</span><span class="p">:</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Summarise</span><span class="nv"> </span><span class="s">metrics"</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"summarise"</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.sd</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/metrics.db"</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graph_accuracy.csv"</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">matrix</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">asia</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">cancer</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">sample_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">100</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1K</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">steps</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Summarise</span><span class="nv"> </span><span class="s">metrics"</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"summarise"</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.mean</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">f1.sd</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"results/metrics.db"</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"results/graph_accuracy.csv"</span>
 </span></code></pre></div>
 <h3 id="output"><code>output</code><a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
 <p><code>summarise</code> will produce tabular output with the requested summary statistics for
@@ -1936,9 +2170,72 @@ each combination of matrix variable values. The above workflow wil produce tabul
 </tr>
 </tbody>
 </table>
-<p>Summary output like this is quite small and human-readable so it would be output as a CSV file. Values which cannot be computed, for example a SD based on just two values, will be displayed as None. This output file would often be used as input for a CausalIQ Analysis <code>table</code> or <code>plot</code> capability which will produce publication-ready LaTeX tables or charts respectively.</p>
+<p>The output extension selects the renderer:</p>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Output</th>
+<th><code>format</code>/<code>footer</code> applied</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.csv</code></td>
+<td>Raw table</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>.tex</code></td>
+<td>LaTeX <code>tabular</code> fragment</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>.md</code>, <code>.markdown</code></td>
+<td>Markdown table</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>CSV output always holds raw values, because a <code>plot</code> step reads the file
+numerically; formatted cells or a footer row would deform the chart. Values
+which cannot be computed, for example a SD based on one value, are left
+empty. <code>headers</code> renames the CSV columns too, so a <code>plot</code> step reading the
+file must name the headers rather than the metric specifications.</p>
+<p>The presentation formats are fragments rather than documents: the <code>.tex</code>
+file holds a <code>tabular</code> environment, ready to be <code>\input</code> inside a paper's
+own <code>table</code> float, and the <code>.md</code> file holds the bare table. LaTeX output
+escapes markup characters (including <code>_</code>, <code>%</code> and <code>&gt;</code>) and rules the table
+with <code>\hline</code> after the header and before the footer; Markdown output
+escapes pipes and derives its alignment row from the <code>format</code> types.</p>
+<p>Using the fusion example above, the tables render as:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Network   &amp; Nodes &amp;  BNSL &amp;   LLM &amp; Fusion &amp; F&gt;best \\
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>\hline
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>alarm     &amp;    37 &amp; 0.804 &amp; 0.653 &amp;  0.866 &amp; +0.062 \\
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>asia      &amp;     8 &amp; 0.750 &amp; 0.842 &amp;  1.000 &amp; +0.158 \\
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>\hline
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>AVERAGE   &amp;       &amp; 0.777 &amp; 0.748 &amp;  0.933 &amp; +0.110 \\
+</span></code></pre></div>
+<div class="language-markdown highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>| Network | Nodes | BNSL | LLM | Fusion | F&gt;best |
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>| :--- | ---: | ---: | ---: | ---: | ---: |
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>| alarm | 37 | 0.804 | 0.653 | 0.866 | +0.062 |
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>| asia | 8 | 0.750 | 0.842 | 1.000 | +0.158 |
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>| AVERAGE |  | 0.777 | 0.748 | 0.933 | +0.110 |
+</span></code></pre></div>
+<p>The file is rewritten from scratch on every run: each run writes a complete
+table with one row per matrix combination, so repeated runs cannot duplicate
+or reorder rows. When a run is given pre-scanned entries but no input cache
+it cannot group, and writes a single accumulated row.</p>
 <h3 id="filter"><code>filter</code><a class="headerlink" href="#filter" title="Permanent link">&para;</a></h3>
 <p><code>filter</code> can be used to filter input entries on the basis of metadata values or object fields. For example, one may wish to exclude results with long execution times, or include only entries with <code>f1 &gt; 0.5</code>.</p>
+<h3 id="cli-examples">CLI examples<a class="headerlink" href="#cli-examples" title="Permanent link">&para;</a></h3>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">causaliq-analysis</span> <span class="n">summarise</span> <span class="n">-m</span> <span class="n">f1</span><span class="p">.</span><span class="n">mean</span> <span class="n">-m</span> <span class="n">f1</span><span class="p">.</span><span class="n">sd</span> <span class="n">-i</span> <span class="n">cache</span><span class="p">.</span><span class="n">db</span> <span class="n">-o</span> <span class="n">table</span><span class="p">.</span><span class="n">csv</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">causaliq-analysis</span> <span class="n">summarise</span> <span class="n">-m</span> <span class="n">f1</span><span class="p">.</span><span class="n">mean</span> <span class="n">-m</span> <span class="n">f1</span><span class="p">.</span><span class="n">sd</span> <span class="n">-i</span> <span class="n">cache</span><span class="p">.</span><span class="n">db</span> <span class="n">-o</span> <span class="n">table</span><span class="p">.</span><span class="nb">md </span><span class="p">`</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="p">-</span><span class="n">-header</span> <span class="n">BNSL</span> <span class="p">-</span><span class="n">-header</span> <span class="n">SD</span> <span class="p">-</span><span class="n">-format</span> <span class="p">.</span><span class="n">3f</span> <span class="p">-</span><span class="n">-format</span> <span class="p">.</span><span class="n">3f</span>
+</span></code></pre></div>
+<p>A CLI summary holds a single row, so <code>headers</code>, <code>format</code> and <code>footer</code> take
+one entry per metric, and a <code>.tex</code> or <code>.md</code> output renders that row as a
+table. <code>-o -</code> still prints the summary to the terminal.</p>
 
 
 

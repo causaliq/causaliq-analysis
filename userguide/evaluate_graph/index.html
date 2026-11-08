@@ -844,6 +844,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#workflow-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1079,6 +1090,34 @@
     
   
     Summarisation Paradigm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
   
 
     
@@ -2045,6 +2084,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#workflow-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2078,12 +2128,13 @@ reference graph. Deterministic graphs (DAG, PDAG, CPDAG) and Probabilistic
 Dependency Graphs (PDGs) are supported; the latter are compared by edge
 probability. Note that comparisons between general SDG graphs are not
 supported.</p>
-<p>This is an <code>aggregate</code> action (see
+<p>This is a <code>map</code> action (see
 <a href="https://workflow.causaliq.org/userguide/action_patterns/">workflow patterns</a>)
 when used within a CausalIQ workflow: it reads the learned graph from the
 input graph cache and writes a <code>metrics</code> object to the <code>output</code> cache. The
-metric values are also recorded in the entry's metadata for compatibility
-with <code>summarise</code> until that action is migrated to metrics objects.</p>
+metric values live only in that object; the entry's metadata records the
+effective parameters and the outcome status (see
+<a href="#workflow-metadata">Workflow Metadata</a>).</p>
 <hr />
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
@@ -2128,8 +2179,12 @@ with <code>summarise</code> until that action is migrated to metrics objects.</p
 </tr>
 </tbody>
 </table>
-<p><strong>Supported Metrics:</strong> <code>f1</code>, <code>shd</code>, <code>precision</code>, <code>recall</code>, <code>edge</code>, <code>equiv.f1</code>,
-<code>equiv.shd</code>, <code>equiv.edge</code></p>
+<p><strong>Supported Metrics:</strong> <code>f1</code>, <code>shd</code>, <code>precision</code>, <code>recall</code>, <code>edge</code>, <code>node_count</code>,
+<code>equiv.f1</code>, <code>equiv.shd</code>, <code>equiv.edge</code></p>
+<p><code>node_count</code> reports the number of nodes in the evaluated graph. A successful
+comparison requires the learned graph and the reference to share the same node
+set, so it is also the reference's node count; it is useful for tables and for
+plots that relate error metrics to network size.</p>
 <p><strong>Notes:</strong></p>
 <ul>
 <li>In CLI mode, <code>input</code> is a graph file (<code>.csv</code>, <code>.graphml</code>, <code>.tetrad</code>, <code>.xdsl</code>,
@@ -2159,7 +2214,7 @@ with <code>summarise</code> until that action is migrated to metrics objects.</p
 <h3 id="all-metrics">All Metrics<a class="headerlink" href="#all-metrics" title="Permanent link">&para;</a></h3>
 <p>Request all available metrics:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>causaliq-analysis<span class="w"> </span>evaluate-graph<span class="w"> </span>-i<span class="w"> </span>learned.graphml<span class="w"> </span>-r<span class="w"> </span>ground_truth.graphml<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>-m<span class="w"> </span>f1<span class="w"> </span>-m<span class="w"> </span>shd<span class="w"> </span>-m<span class="w"> </span>precision<span class="w"> </span>-m<span class="w"> </span>recall<span class="w"> </span>-m<span class="w"> </span>edge<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>-m<span class="w"> </span>f1<span class="w"> </span>-m<span class="w"> </span>shd<span class="w"> </span>-m<span class="w"> </span>precision<span class="w"> </span>-m<span class="w"> </span>recall<span class="w"> </span>-m<span class="w"> </span>edge<span class="w"> </span>-m<span class="w"> </span>node_count<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>-m<span class="w"> </span>equiv.f1<span class="w"> </span>-m<span class="w"> </span>equiv.shd<span class="w"> </span>-m<span class="w"> </span>equiv.edge<span class="w"> </span>-o<span class="w"> </span>results/eval
 </span></code></pre></div>
 <h3 id="equivalence-class-metrics">Equivalence Class Metrics<a class="headerlink" href="#equivalence-class-metrics" title="Permanent link">&para;</a></h3>
@@ -2272,9 +2327,10 @@ directly with the <a href="../summarise/"><code>summarise</code></a> action:</p>
 </span></code></pre></div>
 <hr />
 <h2 id="workflow-usage">Workflow Usage<a class="headerlink" href="#workflow-usage" title="Permanent link">&para;</a></h2>
-<p>In a CausalIQ workflow, <code>evaluate_graph</code> operates as an AGGREGATE action: it
-reads the matched entry of the input cache and writes a <code>metrics</code> object to
-its own output cache.</p>
+<p>In a CausalIQ workflow, <code>evaluate_graph</code> operates as a MAP action: it reads
+the matched entry of the input cache and writes a <code>metrics</code> object to its own
+output cache. The metrics cache has the same dimensions as the input cache, so
+the workflow <code>matrix</code> may be omitted and is taken from the input cache.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">steps</span><span class="p">:</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Evaluate</span><span class="nv"> </span><span class="s">Graphs"</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>
@@ -2352,6 +2408,10 @@ reference entry does not contain a graph, an error is reported.</p>
 <tr>
 <td><code>edge</code></td>
 <td>Low-level edge comparison counts (see above)</td>
+</tr>
+<tr>
+<td><code>node_count</code></td>
+<td>Number of nodes in the evaluated graph</td>
 </tr>
 <tr>
 <td><code>equiv.edge</code></td>
@@ -2432,13 +2492,89 @@ confusion matrix counts that underlie the structural metrics.</p>
 <h3 id="failed-runs">Failed Runs<a class="headerlink" href="#failed-runs" title="Permanent link">&para;</a></h3>
 <p>A failed input run holds provenance only — no object — so it cannot be
 scored. <code>evaluate_graph</code> therefore writes a <strong>provenance-only entry</strong> to the
-metrics cache, carrying <code>status: "input_failed"</code> and the upstream error.
-This keeps one entry per attempted job, so failure cases can be analysed
-(e.g. failure incidence by sample size or algorithm), whilst no <code>f1</code>,
-<code>precision</code> or <code>shd</code> value is ever produced for them. Summaries count only
-the successful jobs for those metrics.</p>
+metrics cache, carrying <code>result.status: "input_failed"</code> and
+<code>result.error: "No graph present"</code>. The upstream reason the graph was not
+produced stays with the producing entry rather than being copied here. This
+keeps one entry per attempted job, so failure cases can be analysed (e.g.
+failure incidence by sample size or algorithm), whilst no <code>f1</code>, <code>precision</code>
+or <code>shd</code> value is ever produced for them. Summaries count only the
+successful jobs for those metrics.</p>
 <p>Reference cache entries must still hold an evaluable graph; a failure in the
 reference cache is an error.</p>
+<hr />
+<h2 id="workflow-metadata">Workflow Metadata<a class="headerlink" href="#workflow-metadata" title="Permanent link">&para;</a></h2>
+<p>Each cache entry records two metadata blocks alongside the framework
+provenance. Metric values are never duplicated into metadata: <code>summarise</code>
+and <code>plot</code> read the <code>metrics</code> object.</p>
+<p><strong>Parameters</strong> — every user-facing parameter is recorded, including those
+the workflow does not supply (as <code>null</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input</code></td>
+<td>Input cache path, or <code>null</code> when omitted</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td>Reference graph file or cache path</td>
+</tr>
+<tr>
+<td><code>metric</code></td>
+<td>Requested metrics as a list</td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td>Output cache path, resolved from the open step cache when the executor removes <code>output</code></td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>Filter expression, or <code>null</code> when omitted</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Result</strong> — the status of the evaluation:</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Result block</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Success</td>
+<td><code>{"status": "ok"}</code></td>
+</tr>
+<tr>
+<td>No learnt graph</td>
+<td><code>{"status": "input_failed", "error": "No graph present"}</code></td>
+</tr>
+<tr>
+<td>Dry run</td>
+<td><code>{"status": "skipped"}</code></td>
+</tr>
+</tbody>
+</table>
+<p>For example, a successful evaluation of the Asia network records:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"parameters"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">"input"</span><span class="p">:</span><span class="w"> </span><span class="s2">"results/learn.db"</span><span class="p">,</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">"reference"</span><span class="p">:</span><span class="w"> </span><span class="s2">"networks/asia/asia.xdsl"</span><span class="p">,</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">"metric"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"f1"</span><span class="p">,</span><span class="w"> </span><span class="s2">"shd"</span><span class="p">],</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">"output"</span><span class="p">:</span><span class="w"> </span><span class="s2">"results/metrics.db"</span><span class="p">,</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">"filter"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">}</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The evaluated graph type is not recorded: it can be recovered from the
+metadata history once that feature is implemented.</p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../architecture/summarisation_paradigm/">Summarisation Paradigm</a> —

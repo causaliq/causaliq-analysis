@@ -857,6 +857,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1836,7 +1864,7 @@
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><span title="causaliq_analysis.cli.commands.merge_graphs.merge_graphs_cmd(output)">output</span></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n"><span title="causaliq_analysis.cli.commands.merge_graphs.merge_graphs_cmd(filter_expr)">filter_expr</span></span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n"><span title="causaliq_analysis.cli.commands.merge_graphs.merge_graphs_cmd(weights)">weights</span></span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><span title="causaliq_analysis.cli.commands.merge_graphs.merge_graphs_cmd(object_type)">object_type</span></span><span class="p">:</span> <span class="n"><span title="typing.Optional">Optional</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">],</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><span title="causaliq_analysis.cli.commands.merge_graphs.merge_graphs_cmd(cpdag)">cpdag</span></span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n"><span title="causaliq_analysis.cli.commands.merge_graphs.merge_graphs_cmd(strategy)">strategy</span></span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
@@ -1849,7 +1877,7 @@ and combines them into a Probabilistic Dependency Graph (PDG) using
 the specified merge strategy.</p>
 <p>Input type is auto-detected by file extension:
 - .graphml: Read as GraphML file (filter/weights not applicable)
-- .db: Read graphml objects from cache entries (filter/weights apply)</p>
+- .db: Read the graphml object from cache entries (filter/weights apply)</p>
 
 
 <details class="example" open>
@@ -1860,7 +1888,7 @@ the specified merge strategy.</p>
     -f "network == 'asia' and sample_size &gt; 500" \
     -o merged.graphml</p>
 <p>causaliq-analysis merge-graphs -i results.db -w weights.json \
-    -o merged.graphml --object-type=cpdag</p>
+    -o merged.graphml --cpdag</p>
 <p>causaliq-analysis merge-graphs -i results.db \
     --strategy noisy_or -o merged.graphml</p>
 </details>

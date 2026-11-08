@@ -857,6 +857,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -4167,7 +4195,7 @@ the provider can validate and execute them without knowing their details.</p>
           <b><code><a class="autorefs autorefs-internal" title="            SummariseAction (causaliq_analysis.workflow_action.actions.SummariseAction)" href="#causaliq_analysis.workflow_action.actions.SummariseAction">SummariseAction</a></code></b>
           –
           <div class="doc-md-description">
-            <p>Summarise metric values from cache entries into CSV output.</p>
+            <p>Summarise metric values from cache entries into a table.</p>
           </div>
         </li>
     </ul>
@@ -4288,9 +4316,9 @@ the provider can validate and execute them without knowing their details.</p>
     <div class="doc doc-contents ">
 
         <p>Execute optimal DAG extraction from a PDG.</p>
-<p>Reads the PDG from the matched workflow cache entry (AGGREGATE
-pattern), extracts the optimal DAG and returns it as a GraphML
-object for the output cache.</p>
+<p>Reads the PDG from the matched workflow cache entry (MAP pattern),
+extracts the optimal DAG and returns it as a GraphML object for the
+output cache.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4518,7 +4546,7 @@ converts this to an ActionValidationError.</p>
     <div class="doc doc-contents ">
 
         <p>Evaluate the matched entry graph against the reference graph.</p>
-<p>AGGREGATE pattern action: the graph to evaluate arrives via the
+<p>MAP pattern action: exactly one graph arrives via the
 '_aggregation_entries' parameter, and the reference may be a single
 ground-truth graph file or a workflow cache (.db) whose entries
 share the input cache's key structure.</p>
@@ -5353,7 +5381,7 @@ converts this to an ActionValidationError.</p>
     <div class="doc doc-contents ">
 
 
-        <p>Summarise metric values from cache entries into CSV output.</p>
+        <p>Summarise metric values from cache entries into a table.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -5392,7 +5420,7 @@ converts this to an ActionValidationError.</p>
             <b><code><a class="autorefs autorefs-internal" title="            run (causaliq_analysis.workflow_action.actions.SummariseAction.run)" href="#causaliq_analysis.workflow_action.actions.SummariseAction.run">run</a></code></b>
             –
             <div class="doc-md-description">
-              <p>Execute metric summarisation to a CSV file.</p>
+              <p>Execute metric summarisation to a table file.</p>
             </div>
           </li>
           <li class="doc-section-item field-body">
@@ -5438,7 +5466,7 @@ converts this to an ActionValidationError.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Execute metric summarisation to a CSV file.</p>
+        <p>Execute metric summarisation to a table file.</p>
 <p>Aggregation mode summarises the pre-scanned cache entries passed
 via '_aggregation_entries' per matrix combination; direct mode
 reads entries from the 'input' cache files and produces a single

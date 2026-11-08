@@ -857,6 +857,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1975,14 +2003,138 @@
 
         <p>Summarise workflow action.</p>
 <p>Aggregates numerical metrics from cache entries into summary statistics
-(mean, standard deviation, count) and writes them to a CSV file. The action
-is stateless, so validation and execution delegate to module-level helpers
-and each step stays within the module and method limits.</p>
+(mean, standard deviation, count) and writes a table in CSV, LaTeX or
+Markdown format, named by the output extension. The action is stateless,
+so validation and execution delegate to module-level helpers and each step
+stays within the module and method limits.</p>
+<p>The action class lives in <code>action</code> and delegates to <code>request</code>
+(parameter parsing and validation), <code>execution</code> (collect, compute,
+render), <code>collect</code> (value collection from entries and caches),
+<code>columns</code> (column specifications), <code>formula</code> (derived columns),
+<code>stats</code> (statistic computation), <code>present</code> (display columns shared by
+the renderers), <code>footer</code> (footer rows) and <code>render</code> (renderer
+selection). Public names are re-exported here so the provider and
+existing imports keep working.</p>
+<p>The output extension selects the renderer: <code>.csv</code> writes raw values,
+<code>.tex</code> writes a LaTeX <code>tabular</code> fragment and <code>.md</code> writes a
+Markdown table. Only the presentation formats apply the <code>format</code> and
+<code>footer</code> parameters, so a <code>plot</code> step can still read a CSV
+numerically.</p>
 
           
 
 
 
+
+
+<p><span class="doc-section-title">Modules:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.action">action</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>The summarise action class and parameter validation.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.collect">collect</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Collecting metric values from entries and input caches.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.columns">columns</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Column specifications for the summarise action.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.execution">execution</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Running one summarisation: collect, compute, render.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.footer">footer</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Footer rows for the presentation table renderers.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.formula">formula</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Derived-column formulas for the summarise action.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.groups">groups</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Grouping helpers for report-mode summarisation.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.present">present</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Presentation columns shared by the table renderers.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.render">render</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Writing a summary table in the format named by the output path.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.render_csv">render_csv</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Writing summary rows to a CSV file.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.render_latex">render_latex</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Rendering a summary table as a LaTeX <code>tabular</code> fragment.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.render_markdown">render_markdown</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Rendering a summary table as a GitHub-flavoured Markdown table.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.report">report</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Collecting grouped metric values for report-mode summarisation.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.request">request</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Parsing and validating summarise action parameters.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.summarise.stats">stats</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Summary statistics for summarise column specifications.</p>
+          </div>
+        </li>
+    </ul>
 
 
 
@@ -1995,7 +2147,7 @@ and each step stays within the module and method limits.</p>
           <b><code><a class="autorefs autorefs-internal" title="            SummariseAction (causaliq_analysis.workflow_action.actions.summarise.SummariseAction)" href="#causaliq_analysis.workflow_action.actions.summarise.SummariseAction">SummariseAction</a></code></b>
           –
           <div class="doc-md-description">
-            <p>Summarise metric values from cache entries into CSV output.</p>
+            <p>Summarise metric values from cache entries into a table.</p>
           </div>
         </li>
     </ul>
@@ -2030,7 +2182,7 @@ and each step stays within the module and method limits.</p>
     <div class="doc doc-contents ">
 
 
-        <p>Summarise metric values from cache entries into CSV output.</p>
+        <p>Summarise metric values from cache entries into a table.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2069,7 +2221,7 @@ and each step stays within the module and method limits.</p>
             <b><code><a class="autorefs autorefs-internal" title="            run (causaliq_analysis.workflow_action.actions.summarise.SummariseAction.run)" href="#causaliq_analysis.workflow_action.actions.summarise.SummariseAction.run">run</a></code></b>
             –
             <div class="doc-md-description">
-              <p>Execute metric summarisation to a CSV file.</p>
+              <p>Execute metric summarisation to a table file.</p>
             </div>
           </li>
           <li class="doc-section-item field-body">
@@ -2115,7 +2267,7 @@ and each step stays within the module and method limits.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Execute metric summarisation to a CSV file.</p>
+        <p>Execute metric summarisation to a table file.</p>
 <p>Aggregation mode summarises the pre-scanned cache entries passed
 via '_aggregation_entries' per matrix combination; direct mode
 reads entries from the 'input' cache files and produces a single

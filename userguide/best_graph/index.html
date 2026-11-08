@@ -1092,6 +1092,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2077,7 +2105,7 @@
 Dependency Graph (PDG) using a greedy algorithm. This is useful when you have
 a PDG representing structural uncertainty (e.g., from merged graphs) and need
 to select a single best DAG for downstream analysis or inference.</p>
-<p>This is an <code>aggregate</code> action (see
+<p>This is a <code>map</code> action (see
 <a href="https://workflow.causaliq.org/userguide/action_patterns/">workflow patterns</a>)
 when used within a CausalIQ workflow: it reads the PDG from the input cache
 and writes a <code>dag</code> object to the <code>output</code> cache.</p>
@@ -2130,7 +2158,7 @@ and writes a <code>dag</code> object to the <code>output</code> cache.</p>
 <li><code>.db</code>: Read all entries from WorkflowCache database containing PDG objects</li>
 <li>In CLI mode, the <code>output</code> parameter is an output directory containing
   <code>dag.graphml</code> and <code>_meta.json</code>.</li>
-<li>In workflows, <code>best_graph</code> is an aggregate action: it reads the PDG from
+<li>In workflows, <code>best_graph</code> is a map action: it reads one PDG from
   the input cache and writes a <code>dag</code> object to the <code>output</code> cache.</li>
 </ul>
 <hr />
@@ -2269,9 +2297,10 @@ order.</p>
 <p>Only edges with max effective probability ≥ 0.5 will be included.</p>
 <hr />
 <h2 id="workflow-usage">Workflow Usage<a class="headerlink" href="#workflow-usage" title="Permanent link">&para;</a></h2>
-<p>In a CausalIQ workflow, <code>best_graph</code> operates as an AGGREGATE action that
-reads PDG objects from the input cache and writes DAG objects to a separate
-output cache:</p>
+<p>In a CausalIQ workflow, <code>best_graph</code> operates as a MAP action that reads a
+PDG object from the input cache and writes a DAG object to a separate output
+cache. One entry in gives one entry out, so the workflow <code>matrix</code> may be
+omitted and is taken from the input cache.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">steps</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Merge</span><span class="nv"> </span><span class="s">experimental</span><span class="nv"> </span><span class="s">graphs"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="s">"causaliq-analysis"</span>

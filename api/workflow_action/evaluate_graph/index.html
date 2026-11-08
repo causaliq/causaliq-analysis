@@ -857,6 +857,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../architecture/summarise_columns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summarise Columns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1572,6 +1600,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#causaliq_analysis.workflow_action.actions.evaluate_graph.NO_GRAPH_ERROR" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NO_GRAPH_ERROR
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#causaliq_analysis.workflow_action.actions.evaluate_graph.VALID_EVALUATE_METRICS" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1842,6 +1881,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#causaliq_analysis.workflow_action.actions.evaluate_graph.NO_GRAPH_ERROR" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NO_GRAPH_ERROR
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#causaliq_analysis.workflow_action.actions.evaluate_graph.VALID_EVALUATE_METRICS" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1997,16 +2047,75 @@
 
         <p>Evaluate_graph workflow action.</p>
 <p>Compares a learned graph against a ground-truth reference and returns
-structural metrics. The action reads the matched entries of the input
-graph cache (AGGREGATE pattern) and writes a single <code>metrics</code> object to
-the output cache. The action is stateless, so validation and execution
-delegate to module-level helpers and each step stays within the module and
-method limits.</p>
+structural metrics. The action reads the matched entry of the input graph
+cache (MAP pattern) and writes a single <code>metrics</code> object to the output
+cache. Metric values live only in that object: the action metadata records
+the effective parameters and the outcome status. The action is stateless, so
+validation and execution delegate to module-level helpers and each step stays
+within the module and method limits.</p>
+<p>The action class lives in <code>action</code> and delegates to <code>request</code>,
+<code>execution</code>, <code>comparison</code>, <code>reference</code> and <code>metric_values</code>; shared
+constants live in <code>constants</code>. Public names are re-exported here so the
+provider and existing imports keep working.</p>
 
           
 
 
 
+
+
+<p><span class="doc-section-title">Modules:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.action">action</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>The evaluate_graph action class and parameter validation.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.comparison">comparison</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Structural and equivalence comparisons for evaluate_graph.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.constants">constants</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Shared constants for the evaluate_graph action.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.execution">execution</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Executing one evaluate_graph comparison.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.metric_values">metric_values</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Metric values and metrics objects for evaluate_graph.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.reference">reference</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Resolving the ground-truth reference graph for evaluate_graph.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="causaliq_analysis.workflow_action.actions.evaluate_graph.request">request</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Building evaluate_graph requests and action metadata.</p>
+          </div>
+        </li>
+    </ul>
 
 
 
@@ -2029,6 +2138,35 @@ method limits.</p>
 
 
 
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="            NO_GRAPH_ERROR
+
+
+  
+      module-attribute
+   (causaliq_analysis.workflow_action.actions.evaluate_graph.NO_GRAPH_ERROR)" href="#causaliq_analysis.workflow_action.actions.evaluate_graph.NO_GRAPH_ERROR">NO_GRAPH_ERROR</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Error recorded when the input run produced no learnt graph.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><a class="autorefs autorefs-internal" title="            VALID_EVALUATE_METRICS
+
+
+  
+      module-attribute
+   (causaliq_analysis.workflow_action.actions.evaluate_graph.VALID_EVALUATE_METRICS)" href="#causaliq_analysis.workflow_action.actions.evaluate_graph.VALID_EVALUATE_METRICS">VALID_EVALUATE_METRICS</a></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Metric names supported by the evaluate_graph action.</p>
+          </div>
+        </li>
+    </ul>
+
+
 
   <div class="doc doc-children">
 
@@ -2037,6 +2175,31 @@ method limits.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="causaliq_analysis.workflow_action.actions.evaluate_graph.NO_GRAPH_ERROR" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">NO_GRAPH_ERROR</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#causaliq_analysis.workflow_action.actions.evaluate_graph.NO_GRAPH_ERROR" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">NO_GRAPH_ERROR</span> <span class="o">=</span> <span class="s1">'No graph present'</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Error recorded when the input run produced no learnt graph.</p>
+
+          
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-attribute">
 
@@ -2052,8 +2215,18 @@ method limits.</p>
 
 <a href="#causaliq_analysis.workflow_action.actions.evaluate_graph.VALID_EVALUATE_METRICS" class="headerlink" title="Permanent link">&para;</a></h4>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">VALID_EVALUATE_METRICS</span> <span class="o">=</span> <span class="n"><span title="frozenset">frozenset</span></span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="p">{</span><span class="s2">"f1"</span><span class="p">,</span> <span class="s2">"shd"</span><span class="p">,</span> <span class="s2">"precision"</span><span class="p">,</span> <span class="s2">"recall"</span><span class="p">,</span> <span class="s2">"edge"</span><span class="p">,</span> <span class="s2">"equiv.f1"</span><span class="p">,</span> <span class="s2">"equiv.shd"</span><span class="p">,</span> <span class="s2">"equiv.edge"</span><span class="p">}</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="p">{</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="s2">"f1"</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="s2">"shd"</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">"precision"</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">"recall"</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="s2">"edge"</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="s2">"node_count"</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="s2">"equiv.f1"</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="s2">"equiv.shd"</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="s2">"equiv.edge"</span><span class="p">,</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="p">}</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2167,7 +2340,7 @@ method limits.</p>
     <div class="doc doc-contents ">
 
         <p>Evaluate the matched entry graph against the reference graph.</p>
-<p>AGGREGATE pattern action: the graph to evaluate arrives via the
+<p>MAP pattern action: exactly one graph arrives via the
 '_aggregation_entries' parameter, and the reference may be a single
 ground-truth graph file or a workflow cache (.db) whose entries
 share the input cache's key structure.</p>
