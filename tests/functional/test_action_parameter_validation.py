@@ -431,11 +431,29 @@ def test_merge_graphs_accepts_all_valid_parameters() -> None:
         {
             "input": "results.db",
             "weights": {"score": {"bayesian_score": 1.0}},
-            "object_type": "cpdag",
+            "cpdag": True,
+            "strategy": "noisy_or",
             "filter": "N >= 1000",
             "output": "pdg.db",
         },
     )
+
+
+# Test merge_graphs rejects the retired object_type parameter.
+def test_merge_graphs_rejects_object_type() -> None:
+    """merge_graphs rejects the retired object_type parameter."""
+    provider = AnalysisActionProvider()
+
+    with pytest.raises(ActionValidationError) as exc_info:
+        provider.validate_parameters(
+            "merge_graphs",
+            {
+                "input": "results.db",
+                "object_type": "pdg",
+            },
+        )
+
+    assert "object_type" in str(exc_info.value)
 
 
 # =============================================================================

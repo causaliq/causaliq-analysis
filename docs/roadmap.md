@@ -1,6 +1,6 @@
 # CausalIQ Analysis - Development Roadmap
 
-**Last updated**: October 19, 2026
+**Last updated**: November 09, 2026
 
 This project roadmap fits into the
 [overall ecosystem roadmap](https://causaliq.org/projects/ecosystem_roadmap/).
@@ -19,8 +19,11 @@ Assuring reproducibility of results and assets for published papers.
 1. ✅ Diagnose failing legacy tests
 1. ✅ Replace deprecated matplotlib warnings (cap `pyparsing<3.3`)
 1. ✅ Ensure all modules meet development guidelines
+1. ✅ Remove UPDATE & NOCACHES and add PRODUCE and MAP Action Patterns1. 
+1. ✅ Move to V2 metedata structure
+1. ✅ Ensure all modules meet development guidelines
 1. ✅ Summarise a table from multiple input caches, in CSV, LaTeX or Markdown
-1. 📊 [Simplify analysis/workflow functionality](current_task.md)
+1. ✅ [Remove `object_type` parameter, replaced by the `cpdag` flag](current_task.md)
 1. 📊 Support Python 3.10-14, with 3.12 as default, and badge as [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
 1. 🛣️ When Python 3.9 support is dropped, move to matplotlib `>=3.10.7` (removes the pyparsing cap; requires re-blessing the `ord_hc_f1` SVG reference)
 1. 🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster

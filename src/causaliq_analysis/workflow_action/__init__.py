@@ -204,17 +204,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="list[float] or dict[str, dict[str, float]]",
         ),
-        "object_type": ActionInput(
-            name="object_type",
+        "cpdag": ActionInput(
+            name="cpdag",
             description=(
-                "Select graph object type to extract from cache "
-                "entries. 'dag' extracts DAG objects, 'cpdag' "
-                "extracts DAG objects and converts to CPDAGs "
-                "before merging, 'pdg' extracts PDG objects. "
-                "If not set, all graphml objects are used."
+                "Convert DAGs to their CPDAG (equivalence class) before "
+                "merging, so the result averages over equivalence "
+                "classes rather than specific edge orientations "
+                "(default: False)."
             ),
             required=False,
-            type_hint="str",
+            default=False,
+            type_hint="bool",
         ),
         "strategy": ActionInput(
             name="strategy",
@@ -420,7 +420,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "merge_graphs": {
             "input",
             "weights",
-            "object_type",
+            "cpdag",
             "strategy",
             "filter",
             "output",

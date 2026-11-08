@@ -174,7 +174,7 @@ def test_merge_graph_with_cpdag(runner, tmp_path):
             str(graphml1),
             "-o",
             str(output),
-            "--object-type=cpdag",
+            "--cpdag",
         ],
     )
 

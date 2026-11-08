@@ -107,6 +107,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Removed
+- **`object_type` parameter**: `merge_graphs` no longer takes an object-type
+  filter, as a workflow parameter or as `merge-graphs --object-type`. A cache
+  holds one object type with at most one object per entry, so the filter
+  could only ever select the entry's single object. The CPDAG behaviour it
+  carried is now requested directly with `cpdag: true` (workflow) or
+  `--cpdag` (CLI), which is what the user guide already documented, and the
+  CLI `_meta.json` records `cpdag` in place of `object_type`.
 - **`UPDATE` and `NOCACHES` action patterns**: both are gone, along with the
   `plot` action's NOCACHES declaration. `evaluate_graph`, `plot`, `best_graph`,
   `merge_graphs` and `summarise` are AGGREGATE actions that read and write

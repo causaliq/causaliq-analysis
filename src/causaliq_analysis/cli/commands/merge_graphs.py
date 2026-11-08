@@ -52,14 +52,13 @@ __all__ = ["merge_graphs_cmd"]
     "Only applies to .db cache inputs.",
 )
 @click.option(
-    "--object-type",
-    "-t",
-    "object_type",
-    default=None,
-    type=click.Choice(["dag", "cpdag", "pdg"]),
-    help="Select graph object type: 'dag' (use DAGs), 'cpdag' "
-    "(use DAGs converted to CPDAGs), 'pdg' (use PDGs). "
-    "If not set, all graphml objects are used.",
+    "--cpdag",
+    "cpdag",
+    is_flag=True,
+    default=False,
+    help="Convert DAGs to their CPDAG (equivalence class) before "
+    "merging, so the result averages over equivalence classes "
+    "rather than specific edge orientations.",
 )
 @click.option(
     "--strategy",
@@ -75,7 +74,7 @@ def merge_graphs_cmd(
     output: str,
     filter_expr: Optional[str],
     weights: Optional[str],
-    object_type: Optional[str],
+    cpdag: bool,
     strategy: str,
 ) -> None:
     """
@@ -87,7 +86,7 @@ def merge_graphs_cmd(
 
     Input type is auto-detected by file extension:
     - .graphml: Read as GraphML file (filter/weights not applicable)
-    - .db: Read graphml objects from cache entries (filter/weights apply)
+    - .db: Read the graphml object from cache entries (filter/weights apply)
 
     Example:
         causaliq-analysis merge-graphs -i graph1.graphml -i graph2.graphml \\
@@ -98,16 +97,15 @@ def merge_graphs_cmd(
             -o merged.graphml
 
         causaliq-analysis merge-graphs -i results.db -w weights.json \\
-            -o merged.graphml --object-type=cpdag
+            -o merged.graphml --cpdag
 
         causaliq-analysis merge-graphs -i results.db \\
             --strategy noisy_or -o merged.graphml
     """
-    cpdag, obj_filter = _object_filter(object_type)
     _validate_filter(filter_expr)
 
     graphs, graph_metadata, has_cache_input = _read_merge_inputs(
-        inputs, filter_expr, obj_filter
+        inputs, filter_expr
     )
     if not graphs:
         raise click.ClickException("No graphs found to merge")
@@ -120,27 +118,11 @@ def merge_graphs_cmd(
         output,
         merged,
         len(graphs),
-        object_type,
+        cpdag,
         weights,
         filter_expr,
         weights_list,
     )
-
-
-def _object_filter(
-    object_type: Optional[str],
-) -> Tuple[bool, Optional[str]]:
-    """Derive the cpdag flag and object filter from the object type.
-
-    Args:
-        object_type: Requested graph object type.
-
-    Returns:
-        Tuple of (cpdag flag, object filter).
-    """
-    cpdag = object_type == "cpdag"
-    obj_filter = "dag" if object_type == "cpdag" else object_type
-    return cpdag, obj_filter
 
 
 def _validate_filter(filter_expr: Optional[str]) -> None:
@@ -166,14 +148,12 @@ def _validate_filter(filter_expr: Optional[str]) -> None:
 def _read_merge_inputs(
     inputs: Tuple[str, ...],
     filter_expr: Optional[str],
-    obj_filter: Optional[str],
 ) -> Tuple[List[Any], List[Dict[str, Any]], bool]:
     """Read graphs and metadata from every merge input.
 
     Args:
         inputs: Input file paths.
         filter_expr: Optional cache filter expression.
-        obj_filter: Optional object type filter.
 
     Returns:
         Tuple of (graphs, per-graph metadata, has cache input).
@@ -188,7 +168,6 @@ def _read_merge_inputs(
             _read_cache_input(
                 input_path,
                 filter_expr,
-                obj_filter,
                 graphs,
                 graph_metadata,
             )
@@ -226,7 +205,6 @@ def _read_graphml_input(
 def _read_cache_input(
     input_path: str,
     filter_expr: Optional[str],
-    obj_filter: Optional[str],
     graphs: List[Any],
     graph_metadata: List[Dict[str, Any]],
 ) -> None:
@@ -235,7 +213,6 @@ def _read_cache_input(
     Args:
         input_path: Input cache (.db) path.
         filter_expr: Optional filter expression.
-        obj_filter: Optional object type filter.
         graphs: Graph list to append to.
         graph_metadata: Metadata list to append to.
 
@@ -256,7 +233,6 @@ def _read_cache_input(
                 cache,
                 input_path,
                 filter_expr,
-                obj_filter,
                 graphs,
                 graph_metadata,
             )
@@ -274,7 +250,6 @@ def _read_open_cache(
     cache: Any,
     input_path: str,
     filter_expr: Optional[str],
-    obj_filter: Optional[str],
     graphs: List[Any],
     graph_metadata: List[Dict[str, Any]],
 ) -> None:
@@ -284,7 +259,6 @@ def _read_open_cache(
         cache: Open workflow cache.
         input_path: Cache path, used in log messages.
         filter_expr: Optional filter expression.
-        obj_filter: Optional object type filter.
         graphs: Graph list to append to.
         graph_metadata: Metadata list to append to.
     """
@@ -301,7 +275,6 @@ def _read_open_cache(
             cache,
             resolved_filter,
             extra_names,
-            obj_filter,
             graphs,
             graph_metadata,
         )
@@ -315,7 +288,6 @@ def _read_cache_entry(
     cache: Any,
     resolved_filter: Optional[str],
     extra_names: Dict[str, Any],
-    obj_filter: Optional[str],
     graphs: List[Any],
     graph_metadata: List[Dict[str, Any]],
 ) -> int:
@@ -326,7 +298,6 @@ def _read_cache_entry(
         cache: Open workflow cache.
         resolved_filter: Resolved filter expression.
         extra_names: Extra filter names from random() resolution.
-        obj_filter: Optional object type filter.
         graphs: Graph list to append to.
         graph_metadata: Metadata list to append to.
 
@@ -344,7 +315,7 @@ def _read_cache_entry(
         return 1
 
     found_graphs = _append_entry_graphs(
-        entry, matrix_values, meta, obj_filter, graphs, graph_metadata
+        entry, matrix_values, meta, graphs, graph_metadata
     )
     if found_graphs == 0:
         click.echo(f"  Skipping {matrix_values}: no graphml objects")
@@ -388,17 +359,15 @@ def _append_entry_graphs(
     entry: Any,
     matrix_values: Dict[str, Any],
     meta: Dict[str, Any],
-    obj_filter: Optional[str],
     graphs: List[Any],
     graph_metadata: List[Dict[str, Any]],
 ) -> int:
-    """Append every matching GraphML object from an entry.
+    """Append the entry's GraphML object to the merge inputs.
 
     Args:
         entry: Cache entry to scan.
         matrix_values: Entry matrix values, used in error messages.
         meta: Entry metadata to record per graph.
-        obj_filter: Optional object type filter.
         graphs: Graph list to append to.
         graph_metadata: Metadata list to append to.
 
@@ -407,36 +376,13 @@ def _append_entry_graphs(
     """
     found = 0
     for obj_type in entry.object_types():
-        obj = _graphml_object(entry, obj_type, obj_filter)
-        if obj is None:
+        obj = entry.get_object(obj_type)
+        if obj is None or obj.format != "graphml":
             continue
         graphs.append(_parse_cache_object(obj, obj_type, matrix_values))
         graph_metadata.append(meta)
         found += 1
     return found
-
-
-def _graphml_object(
-    entry: Any,
-    obj_type: str,
-    obj_filter: Optional[str],
-) -> Any:
-    """Return the entry's GraphML object for an object type, if any.
-
-    Args:
-        entry: Cache entry to inspect.
-        obj_type: Object type name.
-        obj_filter: Optional object type filter.
-
-    Returns:
-        The GraphML object, or None when it should be skipped.
-    """
-    if obj_filter is not None and obj_type != obj_filter:
-        return None
-    obj = entry.get_object(obj_type)
-    if obj is None or obj.format != "graphml":
-        return None
-    return obj
 
 
 def _parse_cache_object(
@@ -633,7 +579,7 @@ def _write_merge_output(
     output: str,
     merged: Any,
     num_graphs: int,
-    object_type: Optional[str],
+    cpdag: bool,
     weights: Optional[str],
     filter_expr: Optional[str],
     weights_list: Optional[List[float]],
@@ -644,7 +590,7 @@ def _write_merge_output(
         output: Output directory path.
         merged: Merged PDG.
         num_graphs: Number of merged graphs.
-        object_type: Requested graph object type.
+        cpdag: Whether DAGs were converted to CPDAGs before merging.
         weights: Weights file path, if any.
         filter_expr: Filter expression, if any.
         weights_list: Applied weights, if any.
@@ -656,7 +602,7 @@ def _write_merge_output(
     _write_merge_metadata(
         output_dir,
         num_graphs,
-        object_type,
+        cpdag,
         weights,
         filter_expr,
         weights_list,
@@ -688,7 +634,7 @@ def _write_pdg(output_dir: Path, merged: Any) -> None:
 def _write_merge_metadata(
     output_dir: Path,
     num_graphs: int,
-    object_type: Optional[str],
+    cpdag: bool,
     weights: Optional[str],
     filter_expr: Optional[str],
     weights_list: Optional[List[float]],
@@ -698,7 +644,7 @@ def _write_merge_metadata(
     Args:
         output_dir: Output directory.
         num_graphs: Number of merged graphs.
-        object_type: Requested graph object type.
+        cpdag: Whether DAGs were converted to CPDAGs before merging.
         weights: Weights file path, if any.
         filter_expr: Filter expression, if any.
         weights_list: Applied weights, if any.
@@ -711,7 +657,7 @@ def _write_merge_metadata(
     # Write metadata
     meta_data: Dict[str, Any] = {
         "num_graphs": num_graphs,
-        "object_type": object_type,
+        "cpdag": cpdag,
         "weights_file": weights if weights else None,
         "filter": filter_expr if filter_expr else None,
     }

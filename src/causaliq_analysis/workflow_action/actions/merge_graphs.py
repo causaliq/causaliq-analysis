@@ -256,15 +256,12 @@ def _merge_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     input_files = (
         [input_raw] if isinstance(input_raw, str) else list(input_raw)
     )
-    object_type = parameters.get("object_type")
     request: Dict[str, Any] = {
         "aggregation_entries": parameters.get("_aggregation_entries"),
         "input_files": input_files,
         "weights": parameters.get("weights"),
         "filter": parameters.get("filter"),
-        "object_type": object_type,
-        "cpdag": object_type == "cpdag",
-        "obj_filter": "dag" if object_type == "cpdag" else object_type,
+        "cpdag": bool(parameters.get("cpdag", False)),
         "strategy": parameters.get("strategy", "average"),
         "is_aggregation": parameters.get("_aggregation_entries") is not None,
     }
@@ -403,11 +400,7 @@ def _graphs_from_entries(
             "Check that matrix values in workflow match those in "
             "the input cache (values are case-sensitive)."
         )
-    return helpers._extract_graphs_from_entries(
-        entries,
-        log_fn,
-        object_type=request["obj_filter"],
-    )
+    return helpers._extract_graphs_from_entries(entries, log_fn)
 
 
 def _graphs_from_files(
@@ -460,11 +453,7 @@ def _read_cache_graphs(
         Tuple of (graphs, number of cache entries read).
 
     """
-    return helpers._read_graphs_from_cache(
-        input_path,
-        log_fn,
-        object_type=request["obj_filter"],
-    )
+    return helpers._read_graphs_from_cache(input_path, log_fn)
 
 
 def _read_graphml_file(input_path: Any, log_fn: Optional[Any]) -> Any:
@@ -655,8 +644,6 @@ def _add_optional_metadata(
         weights_applied: Whether a weight specification was applied.
 
     """
-    if request["object_type"] is not None:
-        metadata["object_type"] = request["object_type"]
     if request["filter"] is not None:
         metadata["filter"] = request["filter"]
     if weights_applied:

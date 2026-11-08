@@ -237,6 +237,33 @@ def test_extract_graphs_invalid_graphml_raises_error() -> None:
     assert "Failed to parse graph" in str(exc_info.value)
 
 
+# Test a pdg object is parsed with the PDG reader.
+def test_extract_graphs_from_entries_reads_pdg() -> None:
+    """Test a pdg object is parsed with the PDG reader."""
+    mock_pdg_obj = MagicMock()
+    mock_pdg_obj.type = "pdg"
+    mock_pdg_obj.format = "graphml"
+    mock_pdg_obj.content = VALID_PDG_GRAPHML
+
+    mock_entry = MagicMock()
+    mock_entry.object_types.return_value = ["pdg"]
+    mock_entry.get_object.return_value = mock_pdg_obj
+
+    entries: List[Dict[str, Any]] = [
+        {
+            "entry": mock_entry,
+            "cache_path": "test.db",
+            "matrix_values": {"seed": 1},
+            "metadata": {},
+        },
+    ]
+
+    graphs, _, _ = helpers._extract_graphs_from_entries(entries, log_fn=None)
+
+    assert len(graphs) == 1
+    assert graphs[0].get_probabilities("A", "B").forward == pytest.approx(0.8)
+
+
 # Test _extract_graphs_from_entries logs when no graphml (lines 606-607).
 def test_extract_graphs_logs_no_graphml_objects(capsys: Any) -> None:
     """Test that entries with no graphml log a message."""
@@ -684,126 +711,9 @@ def test_merge_graphs_aggregation_mode_detected_from_empty_list() -> None:
     assert result[1]["num_inputs"] == 0
 
 
-# Test object_type filters to matching type in aggregation mode.
-def test_extract_graphs_object_type_filters_entries() -> None:
-    """Test that object_type selects only matching objects."""
-
-    # Create entry with both "dag" and "pdg" objects
-    mock_dag_obj = MagicMock()
-    mock_dag_obj.type = "dag"
-    mock_dag_obj.format = "graphml"
-    mock_dag_obj.content = VALID_GRAPHML
-
-    mock_pdg_obj = MagicMock()
-    mock_pdg_obj.type = "pdg"
-    mock_pdg_obj.format = "graphml"
-    mock_pdg_obj.content = VALID_PDG_GRAPHML
-
-    mock_entry = MagicMock()
-    mock_entry.object_types.return_value = ["dag", "pdg"]
-    mock_entry.get_object.side_effect = lambda t: (
-        mock_dag_obj if t == "dag" else mock_pdg_obj
-    )
-
-    entries: List[Dict[str, Any]] = [
-        {
-            "entry": mock_entry,
-            "cache_path": "test.db",
-            "matrix_values": {"seed": 1},
-            "metadata": {},
-        },
-    ]
-
-    # Without filter: gets both
-    graphs_all, _, _ = helpers._extract_graphs_from_entries(
-        entries, log_fn=None
-    )
-    assert len(graphs_all) == 2
-
-    # With object_type="pdg": gets only PDG
-    graphs_pdg, _, _ = helpers._extract_graphs_from_entries(
-        entries, log_fn=None, object_type="pdg"
-    )
-    assert len(graphs_pdg) == 1
-
-
-# Test object_type filters in _read_graphs_from_cache.
-def test_read_graphs_from_cache_object_type_filter() -> None:
-    """Test that object_type filters objects in cache reads."""
-
-    mock_dag_obj = MagicMock()
-    mock_dag_obj.type = "dag"
-    mock_dag_obj.format = "graphml"
-    mock_dag_obj.content = VALID_GRAPHML
-
-    mock_pdg_obj = MagicMock()
-    mock_pdg_obj.type = "pdg"
-    mock_pdg_obj.format = "graphml"
-    mock_pdg_obj.content = VALID_PDG_GRAPHML
-
-    mock_entry = MagicMock()
-    mock_entry.object_types.return_value = ["dag", "pdg"]
-    mock_entry.get_object.side_effect = lambda t: (
-        mock_dag_obj if t == "dag" else mock_pdg_obj
-    )
-
-    mock_cache = MagicMock()
-    mock_cache.list_entries.return_value = [
-        {"matrix_values": {"seed": 1}},
-    ]
-    mock_cache.get.return_value = mock_entry
-    mock_cache.__enter__ = MagicMock(return_value=mock_cache)
-    mock_cache.__exit__ = MagicMock(return_value=False)
-
-    with patch(
-        "causaliq_workflow.cache.WorkflowCache",
-        return_value=mock_cache,
-    ):
-        graphs, count = helpers._read_graphs_from_cache(
-            "test.db", log_fn=None, object_type="pdg"
-        )
-
-    assert len(graphs) == 1
-    assert count == 1
-
-
-# Test object_type passed through full merge_graphs action.
-def test_merge_graphs_object_type_end_to_end() -> None:
-    """Test object_type filters in full action execution."""
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
-
-    provider = AnalysisActionProvider()
-    mock_logger = MagicMock()
-    mock_logger.is_terminal_logging = False
-
-    mock_entry = create_mock_graphml_entry()
-    entries: List[Dict[str, Any]] = [
-        {
-            "entry": mock_entry,
-            "cache_path": "test.db",
-            "matrix_values": {"seed": 1},
-            "metadata": {},
-        },
-    ]
-
-    # Entry has "dag" object — filter for "pdg" finds nothing
-    with pytest.raises(Exception) as exc_info:
-        provider.run(
-            action="merge_graphs",
-            parameters={
-                "_aggregation_entries": entries,
-                "object_type": "pdg",
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
-    assert "No graphs found to merge" in str(exc_info.value)
-
-
-# Test object_type recorded in result metadata.
-def test_merge_graphs_object_type_in_metadata() -> None:
-    """Test object_type is included in result metadata."""
+# Test the cpdag flag is recorded in result metadata.
+def test_merge_graphs_cpdag_in_metadata() -> None:
+    """Test the cpdag flag is included in result metadata."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
@@ -824,7 +734,7 @@ def test_merge_graphs_object_type_in_metadata() -> None:
         action="merge_graphs",
         parameters={
             "_aggregation_entries": entries,
-            "object_type": "dag",
+            "cpdag": True,
         },
         mode="run",
         context=None,
@@ -832,7 +742,47 @@ def test_merge_graphs_object_type_in_metadata() -> None:
     )
 
     assert result[0] == "success"
-    assert result[1]["object_type"] == "dag"
+    assert result[1]["cpdag"] is True
+
+
+# Test the cpdag flag reaches the merge implementation.
+def test_merge_graphs_cpdag_reaches_merge(mocker: Any) -> None:
+    """Test the cpdag flag is passed to merge_graphs."""
+    from causaliq_analysis.workflow_action import (
+        AnalysisActionProvider,
+        helpers,
+    )
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entries: List[Dict[str, Any]] = [
+        {"entry": MagicMock(), "matrix_values": {"seed": 1}},
+    ]
+    mocker.patch.object(
+        helpers,
+        "_extract_graphs_from_entries",
+        return_value=([MagicMock()], [{}], {}),
+    )
+    mock_merge = mocker.patch(
+        "causaliq_analysis.merge.merge_graphs",
+        return_value=MagicMock(),
+    )
+    mocker.patch("causaliq_core.graph.io.graphml.write_pdg")
+
+    provider.run(
+        action="merge_graphs",
+        parameters={
+            "_aggregation_entries": entries,
+            "cpdag": True,
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert mock_merge.call_args.kwargs["cpdag"] is True
 
 
 # Test direct-mode GraphML input is read and logged.

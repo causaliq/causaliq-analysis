@@ -142,22 +142,19 @@ def _get_nested_value(data: Dict[str, Any], field: str) -> Any:
 def _extract_graphs_from_entries(
     entries: List[Dict[str, Any]],
     log_fn: Optional[Any],
-    *,
-    object_type: Optional[str] = None,
 ) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
     """Extract graphs from aggregation entries.
 
-    Reads graphml objects from pre-scanned cache entries provided
-    by the workflow executor in aggregation mode.
+    Reads the graphml object from pre-scanned cache entries provided
+    by the workflow executor in aggregation mode. A cache holds one
+    object type and a successful entry holds exactly one object, so no
+    type selection is needed.
 
     Args:
         entries: List of entry dictionaries from aggregation scan.
             Each entry has: matrix_values, metadata, cache_path,
             entry_hash, entry (the CacheEntry object).
         log_fn: Optional logging function.
-        object_type: If set, only extract objects with this type
-            name (e.g., 'pdg'). If None, all graphml objects
-            are extracted.
 
     Returns:
         Tuple of:
@@ -169,9 +166,7 @@ def _extract_graphs_from_entries(
         ActionExecutionError: If graph extraction fails.
     """
     sources = [item for item in entries if item.get("entry") is not None]
-    loaded = [
-        _load_entry_graphs(item, object_type, log_fn) for item in sources
-    ]
+    loaded = [_load_entry_graphs(item, log_fn) for item in sources]
     found = [item for item in loaded if item is not None]
     graphs = [graph for item in found for graph in item[0]]
     graph_metadata = [item[1] for item in found for _ in item[0]]
@@ -187,14 +182,12 @@ def _extract_graphs_from_entries(
 
 def _load_entry_graphs(
     entry_dict: Dict[str, Any],
-    object_type: Optional[str],
     log_fn: Optional[Any],
 ) -> Optional[Tuple[List[Any], Dict[str, Any]]]:
     """Load graphs and metadata for one aggregation entry.
 
     Args:
         entry_dict: Entry dictionary from the aggregation scan.
-        object_type: If set, only extract objects with this type name.
         log_fn: Optional logging function.
 
     Returns:
@@ -205,7 +198,6 @@ def _load_entry_graphs(
     graphs = _load_graphs_from_entry(
         entry_dict["entry"],
         matrix_values,
-        object_type,
         log_fn,
         "entry",
     )
@@ -220,16 +212,14 @@ def _load_entry_graphs(
 def _load_graphs_from_entry(
     entry: Any,
     matrix_values: Dict[str, Any],
-    object_type: Optional[str],
     log_fn: Optional[Any],
     location: str,
 ) -> List[Any]:
-    """Load every matching GraphML object from one cache entry.
+    """Load the GraphML object from one cache entry.
 
     Args:
         entry: Cache entry to scan.
         matrix_values: Entry matrix values, used in log messages.
-        object_type: If set, only extract objects with this type name.
         log_fn: Optional logging function.
         location: Source description used in error messages.
 
@@ -241,8 +231,6 @@ def _load_graphs_from_entry(
     """
     graphs: List[Any] = []
     for obj_type in entry.object_types():
-        if object_type is not None and obj_type != object_type:
-            continue
         obj = entry.get_object(obj_type)
         if obj is None or obj.format != "graphml":
             continue
@@ -376,19 +364,14 @@ def _normalise_weights(
 def _read_graphs_from_cache(
     cache_path: str,
     log_fn: Optional[Any],
-    *,
-    object_type: Optional[str] = None,
 ) -> Tuple[List[Any], int]:
     """Read graphs from a WorkflowCache database.
 
-    Finds graphml objects in all cache entries.
+    Finds the graphml object in every cache entry.
 
     Args:
         cache_path: Path to WorkflowCache database file (.db).
         log_fn: Optional logging function.
-        object_type: If set, only extract objects with this type
-            name (e.g., 'pdg'). If None, all graphml objects
-            are extracted.
 
     Returns:
         Tuple of (list of graphs, number of entries with graphs).
@@ -400,7 +383,7 @@ def _read_graphs_from_cache(
 
     try:
         with WorkflowCache(cache_path) as cache:
-            return _read_graphs_from_open_cache(cache, log_fn, object_type)
+            return _read_graphs_from_open_cache(cache, log_fn)
     except FileNotFoundError:
         raise ActionExecutionError(f"Cache file not found: {cache_path}")
     except Exception as e:
@@ -414,14 +397,12 @@ def _read_graphs_from_cache(
 def _read_graphs_from_open_cache(
     cache: Any,
     log_fn: Optional[Any],
-    object_type: Optional[str],
 ) -> Tuple[List[Any], int]:
     """Read graphs from every entry of an open workflow cache.
 
     Args:
         cache: Open workflow cache.
         log_fn: Optional logging function.
-        object_type: If set, only extract objects with this type name.
 
     Returns:
         Tuple of (list of graphs, number of entries with graphs).
@@ -439,7 +420,6 @@ def _read_graphs_from_open_cache(
         entry_graphs = _load_graphs_from_entry(
             entry,
             matrix_values,
-            object_type,
             log_fn,
             "cache entry",
         )
