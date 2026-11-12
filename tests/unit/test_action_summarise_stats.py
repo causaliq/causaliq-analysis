@@ -210,3 +210,26 @@ def test_summarise_extreme_and_median_stats(
     with open(output_path, encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert float(rows[0][spec]) == expected
+
+
+# Test element selection indexes lists, JSON lists, scalars and missing values.
+@pytest.mark.parametrize(
+    "value, element, expected",
+    [
+        ([0.6, 0.4], 1, 0.6),
+        ([0.6, 0.4], 2, 0.4),
+        ([0.6, 0.4], 3, ""),
+        ("[0.6, 0.4]", 1, 0.6),
+        (0.6, 1, 0.6),
+        (0.6, 2, ""),
+        ("", 1, ""),
+        (None, 1, ""),
+    ],
+)
+def test_element_value(value: Any, element: int, expected: Any) -> None:
+    """An element is selected from a list, JSON list or scalar."""
+    from causaliq_analysis.workflow_action.actions.summarise.stats import (
+        _element_value,
+    )
+
+    assert _element_value(value, element) == expected

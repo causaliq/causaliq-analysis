@@ -257,3 +257,32 @@ def test_argmax_across_sources(tmp_path: Any) -> None:
 
     row = _rows(tmp_path / "summary.csv")[0]
     assert row["f1.argmax.seed"] == "7"
+
+
+# Test an element selector reports one element of a list-valued dimension.
+def test_argmax_element_selection(tmp_path: Any) -> None:
+    """'{n}' selects the n-th element of the best entry's dimension."""
+    cache = _write_cache(
+        tmp_path / "weights.db",
+        [
+            ({"network": "alarm", "fusion_weights": [0.6, 0.4]}, {"f1": 0.9}),
+            (
+                {"network": "alarm", "fusion_weights": [0.25, 0.75]},
+                {"f1": 0.5},
+            ),
+        ],
+    )
+    _run(
+        tmp_path,
+        [cache],
+        [
+            "f1.argmax.fusion_weights{1}",
+            "f1.argmax.fusion_weights{2}",
+            "f1.argmax.fusion_weights{3}",
+        ],
+    )
+
+    row = _rows(tmp_path / "summary.csv")[0]
+    assert float(row["f1.argmax.fusion_weights{1}"]) == pytest.approx(0.6)
+    assert float(row["f1.argmax.fusion_weights{2}"]) == pytest.approx(0.4)
+    assert row["f1.argmax.fusion_weights{3}"] == ""

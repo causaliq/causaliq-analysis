@@ -9,6 +9,9 @@ the columns that precede it.
 Metric specifications extend the shared ``<field>.<stat>`` grammar with an
 optional one-based source index (``f1.mean[2]``) and a bare
 ``<field>[n]`` form, which reports the single distinct value of a field.
+An ``argmax`` column may also select one element of a list-valued
+dimension with a trailing ``{n}`` (``f1.argmax.fusion_weights{1}``),
+indexed from one like the source index.
 A specification holding an operator or a function call is a derived column
 and is parsed by ``formula``.
 
@@ -44,6 +47,8 @@ _SOURCE_PATTERN = re.compile(r"^(?P<body>.+?)\[(?P<index>\d+)\]$")
 
 _ALIAS_PATTERN = re.compile(r"^(?P<body>.+?)\s+as\s+(?P<alias>[A-Za-z_]\w*)$")
 
+_ELEMENT_PATTERN = re.compile(r"^(?P<body>.+?)\{(?P<index>\d+)\}$")
+
 # Characters that mark a specification as a derived-column expression
 _FORMULA_CHARS = ("+", "-", "*", "/", "(")
 
@@ -59,6 +64,8 @@ class ColumnSpec:
         field: Metric field name of a base column.
         stat: Statistic name of a base column.
         dimension: Matrix dimension reported by an ``argmax`` column.
+        element: One-based element of a list-valued ``argmax`` dimension
+            to report, or None to report the whole value.
         formula: Derived-column expression, or None for a base column.
         alias: Short name the column declares for use in later formulas
             and as its default label, or None.
@@ -70,6 +77,7 @@ class ColumnSpec:
     field: Optional[str] = None
     stat: Optional[str] = None
     dimension: Optional[str] = None
+    element: Optional[int] = None
     formula: Optional[str] = None
     alias: Optional[str] = None
 
@@ -158,13 +166,16 @@ def _parse_column_spec(spec: str) -> ColumnSpec:
         _validate_formula(body)
         return ColumnSpec(text=body, formula=body, alias=alias)
     plain, source = _split_source(body)
+    plain, element = _split_element(plain, body)
     field, stat, dimension = _split_stat(plain, body, source is not None)
+    _require_argmax_element(element, stat, body, dimension)
     return ColumnSpec(
         text=body,
         source=source,
         field=field,
         stat=stat,
         dimension=dimension,
+        element=element,
         alias=alias,
     )
 
@@ -227,6 +238,87 @@ def _split_source(spec: str) -> Tuple[str, Optional[int]]:
     return match.group("body"), index
 
 
+def _split_element(
+    spec: str,
+    full: str,
+) -> Tuple[str, Optional[int]]:
+    """Split a trailing ``{n}`` element index from a specification.
+
+    The element index selects one element of a list-valued matrix
+    dimension reported by an ``argmax`` column, so it is peeled off before
+    the field, statistic and dimension are split.
+
+    Args:
+        spec: Specification without its source index.
+        full: Full specification, used in error messages.
+
+    Returns:
+        Tuple of (specification without the element index, one-based
+        element index or None when the specification names no element).
+
+    Raises:
+        ValueError: If the element index is not positive.
+
+    """
+    match = _ELEMENT_PATTERN.match(spec)
+    if match is None:
+        return spec, None
+    index = int(match.group("index"))
+    if index < 1:
+        raise ValueError(
+            f"Invalid metric spec '{full}': the element index is one-based"
+        )
+    return match.group("body"), index
+
+
+def _require_argmax_element(
+    element: Optional[int],
+    stat: str,
+    spec: str,
+    dimension: Optional[str],
+) -> None:
+    """Require an element selector to belong to a clean ``argmax`` column.
+
+    Args:
+        element: Parsed one-based element index, or None.
+        stat: Statistic of the column.
+        spec: Full specification, used in error messages.
+        dimension: Matrix dimension reported by the column, or None.
+
+    Raises:
+        ValueError: If an element index is used outside an ``argmax``
+            column, or a bracket survives inside the dimension name.
+
+    """
+    if _has_bracket(dimension):
+        raise ValueError(
+            f"Invalid metric spec '{spec}': write the element before the "
+            "source index as "
+            "'<field>.argmax.<dimension>{<element>}[<source>]'"
+        )
+    if element is not None and stat != "argmax":
+        raise ValueError(
+            f"Invalid metric spec '{spec}': an element index is only "
+            "valid for an argmax column (e.g. "
+            "'f1.argmax.fusion_weights{1}')"
+        )
+
+
+def _has_bracket(dimension: Optional[str]) -> bool:
+    """Return True when a dimension name still holds a bracket character.
+
+    Args:
+        dimension: Matrix dimension name, or None.
+
+    Returns:
+        True when the dimension holds ``[``, ``]``, ``{`` or ``}``.
+
+    """
+    if dimension is None:
+        return False
+    return any(character in dimension for character in "[]{}")
+
+
 def _split_stat(
     body: str,
     spec: str,
@@ -235,7 +327,7 @@ def _split_stat(
     """Split a field, statistic and argmax dimension from a specification.
 
     Args:
-        body: Specification without its source index.
+        body: Specification without its source and element indexes.
         spec: Full specification, used in error messages.
         has_source: Whether the specification named a source cache.
 

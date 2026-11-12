@@ -48,6 +48,25 @@ def test_parse_argmax_spec() -> None:
     )
 
 
+# Test an argmax element selector.
+def test_parse_argmax_element_spec() -> None:
+    """An '{n}' suffix records the one-based element of a dimension."""
+    spec = _parse_column_spec("f1.argmax.fusion_weights{1}")
+    assert (spec.stat, spec.dimension, spec.element) == (
+        "argmax",
+        "fusion_weights",
+        1,
+    )
+
+
+# Test an element selector combines with a source index.
+def test_parse_argmax_element_with_source() -> None:
+    """An element index and source index are both recorded."""
+    spec = _parse_column_spec("f1.argmax.fusion_weights{2}[3]")
+    assert (spec.source, spec.element) == (3, 2)
+    assert spec.dimension == "fusion_weights"
+
+
 # Test an alias on a base column.
 def test_parse_alias_on_base_column() -> None:
     """An 'as' suffix names the column for later formulas."""
@@ -131,6 +150,9 @@ def test_alias_may_not_shadow_function() -> None:
         ("f1.mode", "Unknown statistic 'mode'"),
         ("f1.mean,shd.sd", "contains comma"),
         ("f1.mean[0]", "one-based"),
+        ("f1.argmax.fusion_weights{0}", "element index is one-based"),
+        ("f1.mean{1}", "only valid for an argmax"),
+        ("f1.argmax.fusion_weights[2]{1}", "before the source"),
         ("power(bnsl, 2)", "Unknown formula function 'power'"),
     ],
 )

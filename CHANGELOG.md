@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CSV output keeps raw values so a `plot` step can still read it
   - Caches joined by a source-qualified column must carry every grouping
     dimension; an entry that would match every row is rejected
+  - An `argmax` column can report one element of a list-valued matrix
+    dimension with a trailing one-based `{n}` index
+    (`f1.argmax.fusion_weights{1}`), and the whole value without one
 - **Plot Capability**: new `plot` CLI command and workflow action (NOCACHES
   pattern) which draws charts using matplotlib and Seaborn from a `summarise`
   CSV output

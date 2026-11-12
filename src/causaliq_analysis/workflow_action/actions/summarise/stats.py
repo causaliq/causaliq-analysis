@@ -5,6 +5,7 @@ the input cache that supplies it. A column without a source index draws
 on every input cache, which keeps the original union behaviour.
 """
 
+import json
 import statistics
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -79,7 +80,9 @@ def _column_value(
         return _evaluate_formula(spec.formula or "", named)
     field = spec.field or ""
     if spec.stat == "argmax":
-        return _argmax_dimension(argmax, spec.source, field, spec.dimension)
+        return _argmax_dimension(
+            argmax, spec.source, field, spec.dimension, spec.element
+        )
     collected = _field_values(values, spec.source, field)
     if spec.stat == "unique":
         return _unique_value(collected, spec.text)
@@ -142,6 +145,7 @@ def _argmax_dimension(
     source: Optional[int],
     field: str,
     dimension: Optional[str],
+    element: Optional[int] = None,
 ) -> Any:
     """Return the dimension value of the entry holding a field's maximum.
 
@@ -150,16 +154,84 @@ def _argmax_dimension(
         source: One-based source index, or None for every input cache.
         field: Metric field name.
         dimension: Matrix dimension to report.
+        element: One-based element of a list-valued dimension to report,
+            or None to report the whole value.
 
     Returns:
         The winning entry's matrix value for the dimension, or an empty
-        string when the field has no numeric value.
+        string when the field has no numeric value. When ``element`` names
+        one element of a list-valued dimension, its value is returned, or
+        an empty string when the list is too short.
 
     """
     winner = _argmax_winner(argmax, source, field)
     if winner is None or dimension is None:
         return ""
-    return winner[1].get(dimension, "")
+    value = winner[1].get(dimension, "")
+    if element is None:
+        return value
+    return _element_value(value, element)
+
+
+def _element_value(value: Any, element: int) -> Any:
+    """Return one element of a matrix dimension value.
+
+    Args:
+        value: Matrix dimension value: a list, a JSON list string or a
+            scalar.
+        element: One-based element index.
+
+    Returns:
+        The selected element, or an empty string when the value holds too
+        few elements.
+
+    """
+    items = _dimension_items(value)
+    if element > len(items):
+        return ""
+    return items[element - 1]
+
+
+def _dimension_items(value: Any) -> List[Any]:
+    """Return a matrix dimension value as a list of elements.
+
+    A missing value has no elements, a list or JSON list string yields its
+    elements, and any other value is a single element.
+
+    Args:
+        value: Matrix dimension value.
+
+    Returns:
+        Elements of the value.
+
+    """
+    if value is None or value == "":
+        return []
+    parsed = _parsed_sequence(value)
+    return parsed if parsed is not None else [value]
+
+
+def _parsed_sequence(value: Any) -> Optional[List[Any]]:
+    """Return the elements of a list or list-like string.
+
+    Args:
+        value: Matrix dimension value.
+
+    Returns:
+        The elements when the value is a list or tuple, or a string of a
+        JSON list; otherwise None.
+
+    """
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    if isinstance(value, str) and value.strip().startswith("["):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+        if isinstance(parsed, list):
+            return parsed
+    return None
 
 
 def _argmax_winner(
