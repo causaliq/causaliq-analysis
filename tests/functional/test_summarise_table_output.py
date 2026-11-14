@@ -105,6 +105,8 @@ _FUSION_FORMATS = ["", "d", ".3f", ".3f", ".3f", "+.3f"]
 
 _FUSION_FOOTER = ["AVERAGE", "", "mean", "mean", "mean", "mean"]
 
+_FUSION_HIDDEN_FORMATS = ["", "d", None, None, ".3f", "+.3f"]
+
 
 # Test a workflow table is written as Markdown.
 def test_workflow_markdown_table(tmp_path: Any) -> None:
@@ -176,6 +178,70 @@ def test_workflow_csv_table(tmp_path: Any) -> None:
     assert rows[0]["Fusion"] == "0.866"
     assert float(rows[0]["F>best"]) == pytest.approx(0.062)
     assert len(rows) == 2
+
+
+# Test hidden columns are omitted from a workflow Markdown table.
+def test_workflow_markdown_hides_columns(tmp_path: Any) -> None:
+    """Null format entries hide BNSL and LLM from the rendered table."""
+    caches = _fusion_inputs(tmp_path)
+    output = tmp_path / "hidden.md"
+    _run_action(
+        caches,
+        _FUSION_METRIC,
+        output,
+        _context(["alarm", "asia"]),
+        headers=_FUSION_HEADERS,
+        format=_FUSION_HIDDEN_FORMATS,
+        footer=_FUSION_FOOTER,
+    )
+
+    lines = output.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "| Network | Nodes | Fusion | F>best |"
+    assert lines[2] == "| alarm | 37 | 0.866 | +0.062 |"
+    assert lines[4] == "| AVERAGE |  | 0.933 | +0.110 |"
+
+
+# Test hidden columns are omitted from a workflow LaTeX table.
+def test_workflow_latex_hides_columns(tmp_path: Any) -> None:
+    """Null format entries remove columns from the tabular fragment."""
+    caches = _fusion_inputs(tmp_path)
+    output = tmp_path / "hidden.tex"
+    _run_action(
+        caches,
+        _FUSION_METRIC,
+        output,
+        _context(["alarm", "asia"]),
+        headers=_FUSION_HEADERS,
+        format=_FUSION_HIDDEN_FORMATS,
+        footer=_FUSION_FOOTER,
+    )
+
+    lines = output.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == r"\begin{tabular}{lrrr}"
+    assert lines[1] == r"Network & Nodes & Fusion & F\textgreater{}best \\"
+    assert lines[-2] == r"AVERAGE &  & 0.933 & +0.110 \\"
+
+
+# Test hidden presentation columns remain in the CSV output.
+def test_workflow_csv_keeps_hidden_columns(tmp_path: Any) -> None:
+    """Hidden presentation columns still appear in CSV output."""
+    caches = _fusion_inputs(tmp_path)
+    output = tmp_path / "hidden.csv"
+    _run_action(
+        caches,
+        _FUSION_METRIC,
+        output,
+        _context(["alarm", "asia"]),
+        headers=_FUSION_HEADERS,
+        format=_FUSION_HIDDEN_FORMATS,
+        footer=_FUSION_FOOTER,
+    )
+
+    with open(output, encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert list(rows[0]) == _FUSION_HEADERS
+    assert float(rows[0]["BNSL"]) == pytest.approx(0.804)
+    assert float(rows[0]["LLM"]) == pytest.approx(0.653)
 
 
 # Test the CLI writes a Markdown table with headers and a footer.

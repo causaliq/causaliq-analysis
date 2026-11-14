@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `headers`, `format` and `footer` parameters label and format the
     presentation outputs, and new CLI options `--header`, `--format` and
     `--footer` mirror them
+  - A null `format` entry hides that column from `.tex` and `.md` output;
+    hidden columns remain in CSV output and remain available to derived
+    formulas
   - `.tex` output is a LaTeX `tabular` fragment with escaped markup and rules
     after the header and before the footer; `.md` output is a Markdown table
     with an alignment row

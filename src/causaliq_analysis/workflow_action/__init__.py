@@ -284,10 +284,12 @@ class AnalysisActionProvider(CausalIQActionProvider):
             description=(
                 "Python format specifications for the presentation formats "
                 "(.tex and .md), in column order (e.g. ['.3f', '+.3f', "
-                "'>3d']). CSV output always holds raw values."
+                "'>3d']). A null entry hides that column from .tex and "
+                ".md output while it remains in CSV output. CSV output "
+                "always holds raw values."
             ),
             required=False,
-            type_hint="list[str]",
+            type_hint="list[str | null]",
         ),
         "footer": ActionInput(
             name="footer",

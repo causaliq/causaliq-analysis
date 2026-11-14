@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from .columns import (
     ColumnSpec,
     _normalise_list,
+    _normalise_optional_list,
     _parse_column_specs,
     _unique_fields,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "_require_tabular_output",
     "_summarise_request",
     "_validate_columns",
+    "_validate_formats",
 ]
 
 # Output extensions accepted as a table
@@ -58,8 +60,30 @@ def _validate_columns(parameters: Dict[str, Any]) -> None:
     _require_sources(specs, _input_files(parameters))
     _normalise_list(parameters.get("headers"))
     _normalise_list(parameters.get("footer"))
-    for format_spec in _normalise_list(parameters.get("format")):
-        _require_format_spec(format_spec)
+    _validate_formats(parameters.get("format"))
+
+
+def _validate_formats(value: Any) -> None:
+    """Validate declared format specifications, allowing hidden columns.
+
+    A null entry is valid and hides its column from the presentation
+    output; every other entry must be a Python format specification. At
+    least one column must remain visible.
+
+    Args:
+        value: Declared format specifications, or None.
+
+    Raises:
+        ValueError: If a non-null format specification is invalid, or every
+            entry is null.
+
+    """
+    formats = _normalise_optional_list(value)
+    for format_spec in formats:
+        if format_spec is not None:
+            _require_format_spec(format_spec)
+    if formats and all(format_spec is None for format_spec in formats):
+        raise ValueError("'format' must leave at least one visible column")
 
 
 def _require_sources(
@@ -153,7 +177,7 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
             spec.source for spec in specs if spec.source is not None
         },
         "headers": _normalise_list(parameters.get("headers")),
-        "format": _normalise_list(parameters.get("format")),
+        "format": _normalise_optional_list(parameters.get("format")),
         "footer": _normalise_list(parameters.get("footer")),
         "filter": parameters.get("filter"),
         "output": parameters.get("output"),

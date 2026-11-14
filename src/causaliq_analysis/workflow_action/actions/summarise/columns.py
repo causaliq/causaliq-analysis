@@ -32,6 +32,7 @@ __all__ = [
     "ACTION_STATS",
     "ColumnSpec",
     "_normalise_list",
+    "_normalise_optional_list",
     "_parse_column_spec",
     "_parse_column_specs",
     "_table_labels",
@@ -415,6 +416,32 @@ def _normalise_list(value: Any) -> List[str]:
         return [value]
     if isinstance(value, (list, tuple)):
         return [str(item) for item in value]
+    raise ValueError(f"expected a string or list, got {type(value).__name__}")
+
+
+def _normalise_optional_list(value: Any) -> List[Optional[str]]:
+    """Normalise a list-valued parameter, preserving null entries.
+
+    A null entry is retained for parameters in which it carries meaning,
+    such as a ``format`` entry that hides its column from the presentation
+    output. Every other entry is converted to text.
+
+    Args:
+        value: Parameter value: None, a single string or a list.
+
+    Returns:
+        List of strings and nulls, empty when the parameter is absent.
+
+    Raises:
+        ValueError: If the value is neither a string nor a list.
+
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [None if item is None else str(item) for item in value]
     raise ValueError(f"expected a string or list, got {type(value).__name__}")
 
 

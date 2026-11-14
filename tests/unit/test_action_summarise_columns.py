@@ -8,6 +8,7 @@ from causaliq_analysis.workflow_action.actions.summarise.columns import (
     ACTION_STATS,
     ColumnSpec,
     _normalise_list,
+    _normalise_optional_list,
     _parse_column_spec,
     _parse_column_specs,
     _table_labels,
@@ -209,6 +210,28 @@ def test_normalise_list_rejects_number() -> None:
     """A numeric parameter value is rejected."""
     with pytest.raises(ValueError, match="expected a string or list"):
         _normalise_list(3)
+
+
+# Test optional list parameters preserve null entries.
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, []),
+        (".3f", [".3f"]),
+        ([".3f", None], [".3f", None]),
+        ((1, None), ["1", None]),
+    ],
+)
+def test_normalise_optional_list(value: Any, expected: list) -> None:
+    """A null entry is preserved; other entries become text."""
+    assert _normalise_optional_list(value) == expected
+
+
+# Test an unsupported optional list type is rejected.
+def test_normalise_optional_list_rejects_number() -> None:
+    """A numeric optional parameter value is rejected."""
+    with pytest.raises(ValueError, match="expected a string or list"):
+        _normalise_optional_list(3)
 
 
 # Test labels default to the dimensions then each column's key.

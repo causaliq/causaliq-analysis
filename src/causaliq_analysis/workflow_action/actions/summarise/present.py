@@ -4,10 +4,14 @@ A presentation column pairs the label shown in a header with the format
 specification applied to its cells. The format specification is a Python
 format-spec string (``.3f``, ``+.3f``, ``>3d``), and its type also decides
 the column alignment, so LaTeX and Markdown tables cannot drift apart.
+
+A null format specification hides its column from the rendered table. The
+hidden column stays in the presentation model so that the declared
+headers, footer cells and value keys remain aligned with the full table.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .columns import ColumnSpec, _table_labels
 
@@ -16,6 +20,7 @@ __all__ = [
     "_align_for_spec",
     "_format_cell",
     "_table_columns",
+    "_visible_table",
 ]
 
 # Format-spec type characters that denote a numeric column
@@ -30,12 +35,14 @@ class TableColumn:
         label: Header text.
         align: Cell alignment: 'left', 'right' or 'center'.
         format_spec: Python format-spec string, empty when unformatted.
+        hidden: Whether the column is omitted from the rendered table.
 
     """
 
     label: str
     align: str
     format_spec: str
+    hidden: bool = False
 
 
 def _table_columns(
@@ -44,6 +51,11 @@ def _table_columns(
     request: Dict[str, Any],
 ) -> List[TableColumn]:
     """Build the presentation columns of a table.
+
+    A null format specification hides the column from the rendered table.
+    Hidden columns are retained in the result so that the declared
+    headers, footer cells and value keys stay aligned with the full
+    column order; ``_visible_table`` removes them before rendering.
 
     Attributes:
         dimensions: Grouping dimension names, in matrix order.
@@ -56,36 +68,104 @@ def _table_columns(
 
     Raises:
         ValueError: If the headers or formats do not match the table's
-            column count.
+            column count, or every column would be hidden.
 
     """
     labels = _table_labels(dimensions, specs, request.get("headers") or [])
     formats = _format_specs(len(labels), request.get("format") or [])
+    count = len(dimensions)
     columns = [
-        TableColumn(labels[index], "left", formats[index])
-        for index in range(len(dimensions))
+        _table_column(labels[index], formats[index], measure=False)
+        for index in range(count)
     ]
-    for offset in range(len(specs)):
-        index = len(dimensions) + offset
-        columns.append(
-            TableColumn(
-                labels[index],
-                _align_for_spec(formats[index]),
-                formats[index],
-            )
-        )
+    columns.extend(
+        _table_column(labels[count + offset], formats[count + offset], True)
+        for offset in range(len(specs))
+    )
+    _require_visible(columns)
     return columns
 
 
-def _format_specs(count: int, declared: Sequence[str]) -> List[str]:
+def _table_column(
+    label: str,
+    format_spec: Optional[str],
+    measure: bool,
+) -> TableColumn:
+    """Build one presentation column.
+
+    Args:
+        label: Header text of the column.
+        format_spec: Python format-spec string, or None to hide the column.
+        measure: Whether the column is a metric column; metric columns take
+            their alignment from the format specification, while grouping
+            dimensions align left.
+
+    Returns:
+        Presentation column for the label and format.
+
+    """
+    if format_spec is None:
+        return TableColumn(label, "left", "", hidden=True)
+    align = _align_for_spec(format_spec) if measure else "left"
+    return TableColumn(label, align, format_spec)
+
+
+def _require_visible(columns: Sequence[TableColumn]) -> None:
+    """Require at least one column to remain visible.
+
+    Args:
+        columns: Presentation columns in table order.
+
+    Raises:
+        ValueError: If every column is hidden.
+
+    """
+    if columns and all(column.hidden for column in columns):
+        raise ValueError("'format' must leave at least one visible column")
+
+
+def _visible_table(
+    columns: Sequence[TableColumn],
+    keys: Sequence[str],
+    footer: Optional[Sequence[str]],
+) -> Tuple[List[TableColumn], List[str], Optional[List[str]]]:
+    """Return the table with its hidden columns removed.
+
+    Args:
+        columns: Presentation columns in table order.
+        keys: Value keys of the columns in table order.
+        footer: Display cells of the footer row, or None for no footer.
+
+    Returns:
+        Tuple of the visible columns, their value keys and the matching
+        footer cells. A missing footer stays None.
+
+    """
+    indices = [
+        index for index, column in enumerate(columns) if not column.hidden
+    ]
+    visible_columns = [columns[index] for index in indices]
+    visible_keys = [keys[index] for index in indices]
+    visible_footer = (
+        None if footer is None else [footer[index] for index in indices]
+    )
+    return visible_columns, visible_keys, visible_footer
+
+
+def _format_specs(
+    count: int,
+    declared: Sequence[Optional[str]],
+) -> List[Optional[str]]:
     """Return one format specification per table column.
 
     Args:
         count: Number of table columns.
         declared: Declared format specifications, empty when unformatted.
+            A null entry hides its column.
 
     Returns:
-        One format specification per column, empty when unformatted.
+        One format specification per column, empty when unformatted and
+        null when the column is hidden.
 
     Raises:
         ValueError: If the formats do not match the column count.

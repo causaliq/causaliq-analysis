@@ -4,7 +4,9 @@ The output extension selects the renderer: ``.csv`` writes the raw table,
 ``.tex`` writes a LaTeX ``tabular`` fragment and ``.md`` or ``.markdown``
 writes a Markdown table. Only the presentation formats apply the
 ``format`` and ``footer`` parameters; CSV output keeps raw values so that
-a ``plot`` step can read the file numerically.
+a ``plot`` step can read the file numerically. A null ``format`` entry
+hides its column from the presentation output, but the column remains in
+the CSV output.
 """
 
 from pathlib import Path
@@ -14,7 +16,7 @@ from causaliq_analysis.workflow_action.types import ActionExecutionError
 
 from .columns import _table_labels
 from .footer import _footer_cells
-from .present import _table_columns
+from .present import _table_columns, _visible_table
 from .render_csv import _write_report
 from .render_latex import _latex_lines
 from .render_markdown import _markdown_lines
@@ -175,6 +177,7 @@ def _render_table(
     columns = _table_columns(dimensions, specs, request)
     keys = dimensions + [spec.key for spec in specs]
     footer = _footer_cells(request.get("footer"), columns, keys, rows)
+    columns, keys, footer = _visible_table(columns, keys, footer)
     if suffix in _MARKDOWN_SUFFIXES:
         return _markdown_lines(columns, keys, rows, footer)
     return _latex_lines(columns, keys, rows, footer)

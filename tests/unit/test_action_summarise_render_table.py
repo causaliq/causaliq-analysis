@@ -89,6 +89,45 @@ def test_latex_table_lines() -> None:
     assert lines[-1] == r"\end{tabular}"
 
 
+# Test the Markdown renderer omits hidden columns.
+def test_markdown_table_hides_columns() -> None:
+    """A null format entry removes its column from every row."""
+    request = _request(format=["", None, "+.3f"])
+    lines = _render_table(".md", request, _rows())
+    assert lines[0] == "| Network | LLM |"
+    assert lines[1] == "| :--- | ---: |"
+    assert lines[2] == "| alarm | +0.653 |"
+    assert lines[-1] == "| AVERAGE | +0.748 |"
+
+
+# Test the LaTeX renderer omits hidden columns.
+def test_latex_table_hides_columns() -> None:
+    """A null format entry removes its column and alignment code."""
+    request = _request(format=["", None, "+.3f"])
+    lines = _render_table(".tex", request, _rows())
+    assert lines[0] == r"\begin{tabular}{lr}"
+    assert lines[1] == r"Network & LLM \\"
+    assert lines[3] == r"alarm & +0.653 \\"
+    assert lines[-2] == r"AVERAGE & +0.748 \\"
+
+
+# Test a hidden grouping dimension is omitted from the Markdown table.
+def test_markdown_table_hides_dimension() -> None:
+    """A hidden dimension leaves only the metric columns."""
+    request = _request(format=[None, ".3f", "+.3f"])
+    lines = _render_table(".md", request, _rows())
+    assert lines[0] == "| BNSL | LLM |"
+    assert lines[2] == "| 0.804 | +0.653 |"
+
+
+# Test a hidden column without a footer keeps the table footerless.
+def test_markdown_table_hidden_without_footer() -> None:
+    """Removing a hidden column leaves a missing footer missing."""
+    request = _request(format=["", None, "+.3f"], footer=[])
+    lines = _render_table(".md", request, _rows())
+    assert lines[-1] == "| asia | +0.843 |"
+
+
 # Test LaTeX markup in a header is escaped.
 def test_latex_escapes_header() -> None:
     """A header holding markup characters is escaped."""

@@ -1,11 +1,13 @@
-# Remove `object_type` parameter from actions
+# `summarise` supports hidden columns
 
-The `evaluate_graph` action (and perhaps other actions) has an `object_type` parameter
-which is probably no longer required as workflow caches can now only contain
-one object type.
+Please devise a plan for `summarise` to be able to not display selected columns
+in the .md and .tex output. My suggestion is that I can indicate this by
+specifying a null as the format specifier for this column. Please feel free
+to suggest alternative approaches.
 
-Please check it is safe to remove this parameter from any actions that
-use it, and if so, devise a plan to remove it.
+An example of where I would want to do this is @causaliq-research /papers/pdg-merge/workflows/04_weighting/04_summarise-weighting-results.yml - I want to compute
+`oracle - max(bnsl, llm)` as the final column but don't want to include the
+llm and bnsl in the final table.
 
 # Possible future work out of scope for this task
 

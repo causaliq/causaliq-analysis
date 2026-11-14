@@ -233,3 +233,14 @@ def test_element_value(value: Any, element: int, expected: Any) -> None:
     )
 
     assert _element_value(value, element) == expected
+
+
+# Test invalid JSON list text falls back to a scalar value.
+def test_element_value_invalid_json() -> None:
+    """Text that starts a list but is not JSON is treated as a scalar."""
+    from causaliq_analysis.workflow_action.actions.summarise.stats import (
+        _element_value,
+    )
+
+    assert _element_value("[0.6,", 1) == "[0.6,"
+    assert _element_value("[0.6,", 2) == ""
