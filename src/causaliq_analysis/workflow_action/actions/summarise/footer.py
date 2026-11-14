@@ -31,8 +31,8 @@ def _footer_cells(
 
     Args:
         specs: Declared footer entries, or None for no footer.
-        columns: Presentation columns in table order.
-        keys: Value keys of the columns in table order.
+        columns: Visible presentation columns in table order.
+        keys: Value keys of the visible columns in table order.
         rows: Dimension values and computed values per body row.
 
     Returns:
@@ -48,8 +48,8 @@ def _footer_cells(
         return None
     if len(specs) != len(columns):
         raise ActionExecutionError(
-            f"'footer' must have {len(columns)} entries (one per table "
-            f"column), got {len(specs)}"
+            f"'footer' must have {len(columns)} entries (one per visible "
+            f"table column), got {len(specs)}"
         )
     return [
         _footer_cell(specs[index], columns[index], keys[index], rows)

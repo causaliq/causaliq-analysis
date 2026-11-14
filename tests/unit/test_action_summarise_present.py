@@ -12,6 +12,7 @@ from causaliq_analysis.workflow_action.actions.summarise.present import (
     _align_for_spec,
     _format_cell,
     _table_columns,
+    _visible_table,
 )
 
 
@@ -106,3 +107,69 @@ def test_table_columns_format_length() -> None:
     specs = _parse_column_specs(["f1.mean"])
     with pytest.raises(ValueError, match="'format' must have 2 entries"):
         _table_columns(["network"], specs, {"format": [".3f"]})
+
+
+# Test a null format entry hides its column.
+def test_table_columns_hidden() -> None:
+    """A null format marks its column hidden and headers count visible ones."""
+    specs = _parse_column_specs(["f1.mean[1]", "f1.mean[2]"])
+    request = {
+        "headers": ["Network", "LLM"],
+        "format": ["", None, ".3f"],
+    }
+    columns = _table_columns(["network"], specs, request)
+    assert columns == [
+        TableColumn("Network", "left", ""),
+        TableColumn("f1.mean[1]", "left", "", True),
+        TableColumn("LLM", "right", ".3f"),
+    ]
+
+
+# Test headers must match the visible column count.
+def test_table_columns_header_count_visible() -> None:
+    """Headers name only the visible columns."""
+    specs = _parse_column_specs(["f1.mean[1]", "f1.mean[2]"])
+    request = {
+        "headers": ["Network", "BNSL", "LLM"],
+        "format": ["", None, ".3f"],
+    }
+    with pytest.raises(ValueError, match="must have 2 entries"):
+        _table_columns(["network"], specs, request)
+
+
+# Test a grouping dimension can be hidden too.
+def test_table_columns_hidden_dimension() -> None:
+    """A null format entry hides a grouping dimension."""
+    specs = _parse_column_specs(["f1.mean"])
+    columns = _table_columns(["network"], specs, {"format": [None, ".3f"]})
+    assert columns[0].hidden is True
+    assert columns[1].hidden is False
+
+
+# Test every column cannot be hidden.
+def test_table_columns_all_hidden_rejected() -> None:
+    """The table must keep at least one visible column."""
+    specs = _parse_column_specs(["f1.mean"])
+    with pytest.raises(ValueError, match="at least one visible column"):
+        _table_columns([], specs, {"format": [None]})
+
+
+# Test hidden columns are removed with their value keys.
+def test_visible_table_filters_hidden_columns() -> None:
+    """Visible columns and keys keep their order."""
+    columns = [
+        TableColumn("Network", "left", ""),
+        TableColumn("BNSL", "left", "", True),
+        TableColumn("LLM", "right", ".3f"),
+    ]
+    visible = _visible_table(
+        columns,
+        ["network", "bnsl", "llm"],
+    )
+    assert visible == (
+        [
+            TableColumn("Network", "left", ""),
+            TableColumn("LLM", "right", ".3f"),
+        ],
+        ["network", "llm"],
+    )

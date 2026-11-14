@@ -7,10 +7,11 @@ import pytest
 from causaliq_analysis.workflow_action.actions.summarise.columns import (
     ACTION_STATS,
     ColumnSpec,
+    _default_labels,
     _normalise_list,
+    _normalise_optional_list,
     _parse_column_spec,
     _parse_column_specs,
-    _table_labels,
     _unique_fields,
 )
 
@@ -211,28 +212,34 @@ def test_normalise_list_rejects_number() -> None:
         _normalise_list(3)
 
 
-# Test labels default to the dimensions then each column's key.
-def test_table_labels_default() -> None:
-    """Without headers the labels are the dimensions and column keys."""
+# Test optional list parameters preserve null entries.
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, []),
+        (".3f", [".3f"]),
+        ([".3f", None], [".3f", None]),
+        ((1, None), ["1", None]),
+    ],
+)
+def test_normalise_optional_list(value: Any, expected: list) -> None:
+    """A null entry is preserved; other entries become text."""
+    assert _normalise_optional_list(value) == expected
+
+
+# Test an unsupported optional list type is rejected.
+def test_normalise_optional_list_rejects_number() -> None:
+    """A numeric optional parameter value is rejected."""
+    with pytest.raises(ValueError, match="expected a string or list"):
+        _normalise_optional_list(3)
+
+
+# Test default labels use the dimensions then each column's key.
+def test_default_labels() -> None:
+    """Default labels are the dimensions and column keys."""
     specs = _parse_column_specs(["f1.mean[1] as bnsl", "f1.max"])
-    assert _table_labels(["network"], specs, []) == [
+    assert _default_labels(["network"], specs) == [
         "network",
         "bnsl",
         "f1.max",
     ]
-
-
-# Test declared headers replace every label.
-def test_table_labels_declared() -> None:
-    """Declared headers label every column of the table."""
-    specs = _parse_column_specs(["f1.mean[1] as bnsl"])
-    labels = _table_labels(["network"], specs, ["Network", "BNSL $F_1$"])
-    assert labels == ["Network", "BNSL $F_1$"]
-
-
-# Test a header list of the wrong length is rejected.
-def test_table_labels_wrong_length() -> None:
-    """Headers must have one entry per column."""
-    specs = _parse_column_specs(["f1.mean"])
-    with pytest.raises(ValueError, match="must have 2 entries"):
-        _table_labels(["network"], specs, ["Network"])

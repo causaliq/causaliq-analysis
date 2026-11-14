@@ -31,10 +31,11 @@ from .formula import FUNCTIONS, _validate_formula
 __all__ = [
     "ACTION_STATS",
     "ColumnSpec",
+    "_default_labels",
     "_normalise_list",
+    "_normalise_optional_list",
     "_parse_column_spec",
     "_parse_column_specs",
-    "_table_labels",
     "_unique_fields",
 ]
 
@@ -418,33 +419,45 @@ def _normalise_list(value: Any) -> List[str]:
     raise ValueError(f"expected a string or list, got {type(value).__name__}")
 
 
-def _table_labels(
+def _normalise_optional_list(value: Any) -> List[Optional[str]]:
+    """Normalise a list-valued parameter, preserving null entries.
+
+    A null entry is retained for parameters in which it carries meaning,
+    such as a ``format`` entry that hides its column from the presentation
+    output. Every other entry is converted to text.
+
+    Args:
+        value: Parameter value: None, a single string or a list.
+
+    Returns:
+        List of strings and nulls, empty when the parameter is absent.
+
+    Raises:
+        ValueError: If the value is neither a string nor a list.
+
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [None if item is None else str(item) for item in value]
+    raise ValueError(f"expected a string or list, got {type(value).__name__}")
+
+
+def _default_labels(
     dimensions: Sequence[str],
     specs: Sequence[ColumnSpec],
-    headers: Sequence[str],
 ) -> List[str]:
-    """Return the column labels of the table.
+    """Return the default labels of every declared column.
 
     Args:
         dimensions: Grouping dimension names, in matrix order.
         specs: Column specifications in table order.
-        headers: Declared column labels, empty when the defaults are used.
 
     Returns:
-        Column labels: the declared headers, or the dimension names
-        followed by each column's alias or specification text.
-
-    Raises:
-        ValueError: If the headers do not match the table's column count.
+        The dimension names followed by each column's alias or
+        specification text.
 
     """
-    keys = [spec.key for spec in specs]
-    if not headers:
-        return list(dimensions) + keys
-    expected = len(dimensions) + len(keys)
-    if len(headers) != expected:
-        raise ValueError(
-            f"'headers' must have {expected} entries (one per table "
-            f"column), got {len(headers)}"
-        )
-    return list(headers)
+    return list(dimensions) + [spec.key for spec in specs]

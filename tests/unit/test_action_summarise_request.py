@@ -61,6 +61,24 @@ def test_validate_columns_rejects_format() -> None:
         _validate_columns({"metric": ["f1.mean"], "format": ["i3"]})
 
 
+# Test null format entries are accepted as hidden columns.
+def test_validate_columns_accepts_hidden_column() -> None:
+    """A null format entry hides a column and is accepted."""
+    _validate_columns(
+        {
+            "metric": ["f1.mean", "f1.max"],
+            "format": ["", None],
+        }
+    )
+
+
+# Test an all-hidden format list is rejected.
+def test_validate_columns_rejects_all_hidden() -> None:
+    """At least one column must remain visible."""
+    with pytest.raises(ValueError, match="at least one visible column"):
+        _validate_columns({"metric": ["f1.mean"], "format": [None]})
+
+
 # Test the request records the parsed columns and presentation values.
 def test_summarise_request_fields() -> None:
     """The request carries the columns, sources and presentation values."""
@@ -89,6 +107,19 @@ def test_summarise_request_fields() -> None:
     assert request["footer"] == ["mean", "", "mean"]
     assert request["input_files"] == ["a.db"]
     assert request["is_aggregation"] is False
+
+
+# Test the request preserves null format entries.
+def test_summarise_request_preserves_null_format() -> None:
+    """A null format entry stays null in the request."""
+    request = _summarise_request(
+        {
+            "metric": ["f1.mean", "f1.max"],
+            "format": ["", None],
+            "output": "a.md",
+        }
+    )
+    assert request["format"] == ["", None]
 
 
 # Test an absent optional parameter becomes an empty list.

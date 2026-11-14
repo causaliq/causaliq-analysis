@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
-from .columns import _table_labels
+from .present import _table_columns
 
 __all__ = ["_write_csv"]
 
@@ -36,11 +36,7 @@ def _write_csv(
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
     row_data = _csv_row(matrix_values, results)
-    labels = _table_labels(
-        list(matrix_values),
-        request["parsed_metrics"],
-        request.get("headers") or [],
-    )
+    labels = _csv_labels(request, matrix_values)
     try:
         file_exists = out_file.exists()
         _append_row(out_file, row_data, file_exists, labels)
@@ -50,6 +46,29 @@ def _write_csv(
             log_fn(f"Summary {verb} {out_file}")
     except Exception as e:
         raise ActionExecutionError(f"Failed to write CSV output: {e}") from e
+
+
+def _csv_labels(
+    request: Dict[str, Any],
+    matrix_values: Dict[str, Any],
+) -> List[str]:
+    """Return the CSV column labels, including hidden columns.
+
+    Args:
+        request: Summarisation request.
+        matrix_values: Matrix values from the workflow context.
+
+    Returns:
+        Column labels in column order. Hidden columns keep their default
+        label so that the CSV output still names every column.
+
+    """
+    columns = _table_columns(
+        list(matrix_values),
+        request["parsed_metrics"],
+        request,
+    )
+    return [column.label for column in columns]
 
 
 def _csv_row(

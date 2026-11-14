@@ -273,8 +273,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "headers": ActionInput(
             name="headers",
             description=(
-                "Column headers of a summarise table, in column order: the "
-                "grouping dimensions followed by one entry per metric."
+                "Column headers of a summarise table, in visible-column "
+                "order: the visible grouping dimensions followed by one "
+                "entry per visible metric."
             ),
             required=False,
             type_hint="list[str]",
@@ -283,18 +284,20 @@ class AnalysisActionProvider(CausalIQActionProvider):
             name="format",
             description=(
                 "Python format specifications for the presentation formats "
-                "(.tex and .md), in column order (e.g. ['.3f', '+.3f', "
-                "'>3d']). CSV output always holds raw values."
+                "(.tex and .md), in declared column order (e.g. ['.3f', "
+                "'+.3f', '>3d']), including hidden columns. A null entry "
+                "hides that column from .tex and .md output while it "
+                "remains in CSV output. CSV output always holds raw values."
             ),
             required=False,
-            type_hint="list[str]",
+            type_hint="list[str | null]",
         ),
         "footer": ActionInput(
             name="footer",
             description=(
                 "Optional footer row for the presentation formats, in "
-                "column order: blank, a statistic name (mean, sd, count, "
-                "min, max, median) or literal text."
+                "visible-column order: blank, a statistic name (mean, sd, "
+                "count, min, max, median) or literal text."
             ),
             required=False,
             type_hint="list[str]",
