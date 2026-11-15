@@ -48,9 +48,10 @@ object type, and a successful entry holds provenance metadata plus exactly
 one typed object, whilst a failed entry holds provenance only. A failed
 evaluation is recorded in the metrics cache as a provenance-only entry with
 status `input_failed`, so failures appear alongside results without any
-metric values. `evaluate_graph`, `best_graph` and `plot` therefore read and
-write caches whose type is implied by the workflow's `input`/`output`
-parameters. See the causaliq-workflow
+metric values. `merge_graphs`, `evaluate_graph`, `best_graph`, `summarise`
+and `plot` therefore read and write caches whose type is implied by the
+workflow's `input`/`output` parameters, and no action takes an object-type
+filter. See the causaliq-workflow
 [Cache Type Model](https://workflow.causaliq.org/architecture/cache_type_model/)
 for the full design.
 

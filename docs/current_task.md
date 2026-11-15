@@ -1,4 +1,4 @@
-# `summarise` supports significance metrics
+
 
 Please devise a plan for `summarise` to support significance statistics
 - initially Wilcoxon signed-rank, two-sided, but the approach should be extensible
@@ -22,6 +22,10 @@ Any new workflows should be put in the 03_fusion subfolders under
 
 
 # Possible future work out of scope for this task
+
+- __Per-column entry predicates in `summarise`.__ Syntax such as `f1.mean[1] where model == 'gemini' as gemini` would allow one metrics cache per ablation family, keyed by `(network, model)`, instead of one cache file per variant. It would also make factorial analyses generally easier. Implementation would touch `ColumnSpec`, column parsing, the `(source, field)` value keys in `collect.py`/`stats.py`/`report.py`, and add unit tests. This is the most useful long-term addition, but it is not needed for the proposed workflow shape.
+
+- __Per-input-group weights or a "require every input" guard in `merge_graphs`.__ Currently `weights` is a flat list over every graph read from every input cache; a missing subset makes the graph count and weight count disagree. A grouped form (`0.5` per input cache, distributed within the cache) plus a skip-if-input-empty rule would remove the barley guard and make fusion steps more robust. The two-stage subset ensemble design already handles this, so it is a convenience feature.
 
 - Use `_aggregation_entries` instead of re-reading every cache per matrix job (the `O(groups × caches)` scan on the roadmap).
 

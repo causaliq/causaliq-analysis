@@ -21,7 +21,7 @@ sample sizes, or algorithms.
 
 - Input type is auto-detected by file extension:
   - `.graphml`: Read as GraphML file (filter/weights not applicable)
-  - `.db`: Read all graphml objects from WorkflowCache entries
+  - `.db`: Read the graphml object held by each WorkflowCache entry
 - In CLI, use `-i` multiple times for multiple inputs
 - In workflows, `merge_graphs` is an aggregate action requiring `input`,
   `output`, and a grouping `matrix` definition
@@ -367,7 +367,7 @@ steps:
 Input type is auto-detected by file extension:
 
 - **`.graphml` files**: Read directly as GraphML (filter/weights not applicable)
-- **`.db` files**: Read all graphml objects from WorkflowCache database entries
+- **`.db` files**: Read the graphml object held by each WorkflowCache entry
   (filter/weights can be applied)
 
 ---

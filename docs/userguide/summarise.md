@@ -11,9 +11,11 @@ This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq
 | `metric`  | `-m`/`--metric` | Yes      | Columns of the table: metric specifications or derived-column formulas |
 | `input`   | `-i`/`--input`  | Yes      | Files containing raw results (`.json` or `.db` cache) |
 | `output`  | `-o`/`--output` | Yes      | Tabular summary in `.csv`, `.tex` or `.md` format |
-| `headers` | `--header`      | No       | Column headers, in column order |
-| `format`  | `--format`      | No       | Python format specifications for `.tex` and `.md` output |
-| `footer`  | `--footer`      | No       | Footer row for `.tex` and `.md` output |
+| `headers` | `--header`      | No       | Column headers for the visible columns, in order |
+| `format`  | `--format`      | No       | Python format specifications for `.tex` and `.md` output; `null` hides the column |
+| `footer`  | `--footer`      | No       | Footer row for the visible columns in `.tex` and `.md` output |
+| `significance` | -          | No       | Paired significance tests over metric column aliases |
+| `caption` | -               | No       | Heading of a significance table; empty suppresses it |
 | `filter`  | `-f`/`--filter` | No       | Filter entries in the input |
 
 **Notes:**
@@ -24,8 +26,9 @@ This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq
   inputs, and can use YAML list syntax in actions.
 - `output` can only have a single value, which must be a `.csv`, `.tex` or
   `.md` file in both the CLI and the action.
-- `headers`, `format` and `footer` each take one entry per table column:
-  the grouping dimensions first, then one entry per metric.
+- `headers` and `footer` take one entry per **visible** table column;
+  `format` takes one entry per **declared** column, including hidden ones
+  (see [Hidden columns](#hidden-columns)).
 
 ### `metric`
 
@@ -54,7 +57,63 @@ example, `f1.argmax.llm_temperature` reports the temperature of the best run
 in each group, which is useful for hyper-parameter analysis. A group with no
 numeric value for the field reports an empty cell.
 
-Significance testing is not yet available.
+Append a one-based element index to report one element of a list-valued
+dimension. For example, with a `fusion_weights` matrix variable declared as
+`[BNSL, LLM]`, `f1.argmax.fusion_weights{1}` reports the BNSL weight of the
+best run and `f1.argmax.fusion_weights{2}` reports the LLM weight. An index
+past the end of the list reports an empty cell.
+
+### Significance tests
+
+The `significance` parameter declares paired tests over the columns defined
+by `metric`. Each entry names a registered test and the two column aliases
+to compare:
+
+```yaml
+      metric:
+        - f1.mean[1] as bnsl
+        - f1.mean[2] as llm
+        - f1.mean[3] as fusion
+        - max(bnsl, llm) as best_solo
+      significance:
+        - wilcoxon-signed-rank-2-sided(fusion, bnsl) as "Fusion vs BNSL"
+        - wilcoxon-signed-rank-2-sided(fusion, llm) as "Fusion vs LLM"
+        - wilcoxon-signed-rank-2-sided(fusion, best_solo) as "Fusion vs best solo"
+      output: "results/fusion-significance.md"
+```
+
+The initial test is `wilcoxon-signed-rank-2-sided`, the paired Wilcoxon
+signed-rank test with a two-sided alternative. Arguments must name aliases
+declared by `metric`; use `as <label>` to set the comparison label. The
+label is optional and defaults to `<left> vs <right>`.
+
+A significance table has four columns:
+
+| Column | Default header | Default format |
+|--------|----------------|----------------|
+| Comparison label | `Comparison` | left |
+| Statistic | `W` | `.1f` |
+| p-value | `p` | `.4f` |
+| Significance | `Significance` | left |
+
+`headers` and `format` apply to these four columns exactly as they do to a
+metric table. `format` takes one entry per declared column, so a `null`
+entry hides that column from `.tex` and `.md` output; the column remains in
+CSV output. `headers` takes one entry per visible column. `footer` is not
+supported on a significance table.
+
+The default caption is `STATISTICAL TESTS (<test title>)`, which renders as
+`STATISTICAL TESTS (Wilcoxon signed-rank, two-sided)`. Use `caption` to
+override it, or `caption: ""` to suppress it.
+
+Rows are paired by the workflow grouping dimensions, so one network
+contributes one pair. A row missing either value is left out of that test.
+A test with fewer than two non-zero differences reports empty statistic
+and p-value cells.
+
+Significance tests are a workflow action feature: the CLI writes a
+single-row metric table and has no grouping, so it cannot pair rows.
+
 
 ### Multiple inputs
 
@@ -123,9 +182,10 @@ written in Python syntax. A trailing `as <name>` gives a column its alias:
 
 ### `headers`, `format` and `footer`
 
-These parameters shape the presentation formats (`.tex` and `.md`). Each
-takes one entry per table column, in column order, starting with the
-grouping dimensions:
+These parameters shape the presentation formats (`.tex` and `.md`).
+`headers` and `footer` take one entry per visible column, in column order,
+starting with the grouping dimensions. `format` takes one entry per
+declared column, because it is also what hides a column:
 
 ```yaml
       metric:
@@ -139,16 +199,48 @@ grouping dimensions:
       footer: ["AVERAGE", "", mean, mean, mean, mean]
 ```
 
-- `headers` labels the columns. Headers are free text and independent of
-  aliases: a header may be narrative or hold markup (`BNSL $F_1$`), and
-  renaming one cannot break a formula. Without headers, a column's label
-  is its alias, or its specification text when it has none.
+- `headers` labels the visible columns. Headers are free text and
+  independent of aliases: a header may be narrative or hold markup
+  (`BNSL $F_1$`), and renaming one cannot break a formula. Without
+  headers, a column's label is its alias, or its specification text when
+  it has none.
 - `format` holds Python format specifications, validated when the step
   starts. The type character also decides the alignment (`s` left, numeric
   right, an explicit `<`, `^` or `>` overrides it).
 - `footer` holds blank cells, a statistic name or literal text. A
   statistic summarises the column's row values, so the footer of a derived
   column is the mean of the derived values.
+
+### Hidden columns
+
+A `null` entry in `format` hides that column from the `.tex` and `.md`
+output. The column is still computed, so a later derived column can use it,
+and it still appears in `.csv` output for a `plot` step:
+
+```yaml
+      metric:
+        - node_count[2] as nodes
+        - f1.mean[2] as fusion
+        - f1.max[1] as oracle
+        - f1.argmax.fusion_weights{1}[1] as bnsl_weight
+        - oracle - fusion
+        - f1.mean[3] as bnsl
+        - f1.mean[4] as llm
+        - oracle - max(bnsl, llm)
+      headers: [Network, Nodes, 50/50 Fusion, Oracle Fusion, Optimal Weight,
+                Oracle vs 50/50, Oracle vs best]
+      format: ["", "d", ".3f", ".3f", ".2f", "+.3f", null, null, "+.3f"]
+      footer: [AVERAGE, "", mean, mean, "", mean, mean]
+```
+
+The table above renders seven columns: the BNSL and LLM columns are hidden,
+but `oracle - max(bnsl, llm)` still uses their values. `format` keeps one
+entry per **declared** column because the nulls are what hide BNSL and LLM.
+`headers` and `footer` hold one entry per **visible** column, so they have
+seven entries rather than nine. In `.csv` output the hidden columns remain;
+they keep their default label (the alias, or the specification text when
+there is none). At least one column must remain visible. The CLI cannot
+express a null entry, so hidden columns are a workflow action feature.
 
 ### `input`
 
