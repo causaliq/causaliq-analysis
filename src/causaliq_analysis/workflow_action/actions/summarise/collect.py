@@ -41,6 +41,9 @@ def _values_from_entries(
         if not _entry_matches(resolved, flat_meta, extra_names):
             continue
         count += 1
+        where_matches = _matching_predicates(
+            request.get("where_clauses", []), flat_meta
+        )
         _accumulate_values(
             values,
             argmax,
@@ -49,6 +52,7 @@ def _values_from_entries(
             request["unique_fields"],
             argmax_fields,
             _source_index(cache_path, request["input_files"]),
+            where_matches,
         )
         _log_entry(log_fn, matrix_values)
     return count, sources
@@ -204,6 +208,33 @@ def _entry_matches(
         return False
 
 
+def _matching_predicates(
+    clauses: List[str],
+    flat_meta: Dict[str, Any],
+) -> List[str]:
+    """Return the column predicates an entry satisfies.
+
+    Args:
+        clauses: Distinct ``where`` predicates used by the table.
+        flat_meta: Flattened metadata of the entry.
+
+    Returns:
+        Predicates that match the entry, in the order declared.
+    """
+    if not clauses:
+        return []
+    from causaliq_workflow.cache.reporting import evaluate_entry_filter
+
+    matches: List[str] = []
+    for clause in clauses:
+        try:
+            if evaluate_entry_filter(clause, flat_meta):
+                matches.append(clause)
+        except Exception:
+            continue
+    return matches
+
+
 def _accumulate_values(
     values: Values,
     argmax: Argmax,
@@ -212,32 +243,51 @@ def _accumulate_values(
     unique_fields: List[str],
     argmax_fields: List[str],
     source_index: int,
+    where_matches: List[str],
 ) -> None:
     """Append numeric metric values from one entry.
 
+    Every value is recorded once without a predicate, for plain columns,
+    and once per satisfied predicate, for predicate-qualified columns.
+
     Args:
-        values: Values per source and field, updated in place.
-        argmax: Winning entry per source and field, updated in place.
+        values: Values per source, field and predicate, updated in place.
+        argmax: Winning entry per source, field and predicate, updated in
+            place.
         flat_meta: Flattened metadata of the entry.
         matrix_values: Matrix values of the entry.
         unique_fields: Fields to collect values for.
         argmax_fields: Fields whose argmax is tracked.
         source_index: One-based position of the entry's input cache.
+        where_matches: Predicates the entry satisfies.
 
     """
     for field in unique_fields:
         value = helpers._get_nested_value(flat_meta, field)
         if value is None or not isinstance(value, (int, float)):
             continue
-        values.setdefault((source_index, field), []).append(float(value))
+        number = float(value)
+        values.setdefault((source_index, field, None), []).append(number)
+        for clause in where_matches:
+            values.setdefault((source_index, field, clause), []).append(number)
         if field in argmax_fields:
             _track_argmax(
                 argmax,
                 source_index,
                 field,
-                float(value),
+                number,
                 matrix_values,
+                None,
             )
+            for clause in where_matches:
+                _track_argmax(
+                    argmax,
+                    source_index,
+                    field,
+                    number,
+                    matrix_values,
+                    clause,
+                )
 
 
 def _track_argmax(
@@ -246,20 +296,26 @@ def _track_argmax(
     field: str,
     value: float,
     matrix_values: Dict[str, Any],
+    where: Optional[str],
 ) -> None:
     """Record the entry holding a field's maximum value.
 
     Args:
-        argmax: Winning entry per source and field, updated in place.
+        argmax: Winning entry per source, field and predicate, updated in
+            place.
         source_index: One-based position of the entry's input cache.
         field: Field whose maximum is tracked.
         value: Candidate value.
         matrix_values: Matrix values of the candidate entry.
+        where: Entry predicate, or None for the unpredicated column.
 
     """
-    current = argmax.get((source_index, field))
+    current = argmax.get((source_index, field, where))
     if current is None or value > current[0]:
-        argmax[(source_index, field)] = (value, dict(matrix_values))
+        argmax[(source_index, field, where)] = (
+            value,
+            dict(matrix_values),
+        )
 
 
 def _require_cache_file(cache_path: str) -> None:

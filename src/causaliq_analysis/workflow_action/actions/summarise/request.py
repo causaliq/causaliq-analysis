@@ -330,6 +330,7 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         "significance": significance,
         "caption": parameters.get("caption"),
         "unique_fields": _unique_fields(specs),
+        "where_clauses": sorted({spec.where for spec in specs if spec.where}),
         "argmax_fields": [
             spec.field or "" for spec in specs if spec.stat == "argmax"
         ],

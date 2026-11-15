@@ -557,3 +557,166 @@ def test_summarise_direct_mode_filter_exception_skips_entry(
     # All entries should be skipped due to filter exception
     assert result[1]["f1.count"] == 0
     assert result[1]["f1.mean"] == ""  # Empty string for non-computable stats
+
+
+# Test where predicates select entries per column.
+def test_summarise_where_predicate_selects_entries(tmp_path: Any) -> None:
+    """Verify each predicate-qualified column draws on its own entries."""
+    import csv
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {"seed": 1, "status": "completed"},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {"seed": 2, "status": "failed"},
+            "metadata": {"provenance": {}, "result": {"f1": 0.5}},
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {"seed": 3, "status": "completed"},
+            "metadata": {"provenance": {}, "result": {"f1": 0.9}},
+            "cache_path": "test.db",
+        },
+    ]
+    output_path = tmp_path / "where.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": [
+                "f1.mean as all",
+                "f1.mean where status == 'completed' as completed",
+                "f1.mean where status == 'failed' as failed",
+            ],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    with output_path.open() as handle:
+        row = next(csv.DictReader(handle))
+    assert float(row["all"]) == pytest.approx((0.8 + 0.5 + 0.9) / 3)
+    assert float(row["completed"]) == pytest.approx((0.8 + 0.9) / 2)
+    assert float(row["failed"]) == pytest.approx(0.5)
+
+
+# Test a predicate that cannot be evaluated is ignored.
+def test_summarise_where_predicate_error_is_ignored(tmp_path: Any) -> None:
+    """An undefined predicate field contributes no values."""
+    import csv
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {"seed": 1, "status": "completed"},
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
+            "cache_path": "test.db",
+        }
+    ]
+    output_path = tmp_path / "where_error.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": [
+                "f1.mean as all",
+                "f1.mean where missing_field == 1 as broken",
+            ],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    with output_path.open() as handle:
+        row = next(csv.DictReader(handle))
+    assert float(row["all"]) == pytest.approx(0.8)
+    assert row["broken"] == ""
+
+
+# Test argmax winners are tracked per where predicate.
+def test_summarise_where_argmax_tracks_predicate(tmp_path: Any) -> None:
+    """A predicate-qualified argmax column reports its own winner."""
+    import csv
+
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    aggregation_entries: List[Dict[str, Any]] = [
+        {
+            "matrix_values": {
+                "seed": 1,
+                "status": "completed",
+                "pdg_seed": 11,
+            },
+            "metadata": {"provenance": {}, "result": {"f1": 0.8}},
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {
+                "seed": 2,
+                "status": "completed",
+                "pdg_seed": 22,
+            },
+            "metadata": {"provenance": {}, "result": {"f1": 0.9}},
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {
+                "seed": 3,
+                "status": "failed",
+                "pdg_seed": 33,
+            },
+            "metadata": {"provenance": {}, "result": {"f1": 0.95}},
+            "cache_path": "test.db",
+        },
+    ]
+    output_path = tmp_path / "where_argmax.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": aggregation_entries,
+            "metric": [
+                "f1.argmax.pdg_seed as best_all",
+                (
+                    "f1.argmax.pdg_seed where status == 'completed' "
+                    "as best_completed"
+                ),
+            ],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    with output_path.open() as handle:
+        row = next(csv.DictReader(handle))
+    assert int(float(row["best_all"])) == 33
+    assert int(float(row["best_completed"])) == 22

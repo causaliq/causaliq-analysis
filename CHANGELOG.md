@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Markdown depending on the output extension
   - A trailing one-based source index names the cache that supplies a column
     (`f1.mean[2]`); a column without one still unions every input cache
+  - A `where <predicate>` clause selects the entries one base column draws
+    on (`f1.mean[1] where model == 'gemini' as gemini`), so one variant-keyed
+    cache can supply several columns
   - A bare `<field>[<source>]` reports the single distinct value of a field
     (new `unique` statistic) and rejects conflicting values
   - Derived columns compute a value from the columns before them: a metric

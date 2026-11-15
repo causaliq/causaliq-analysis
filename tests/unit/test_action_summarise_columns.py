@@ -78,6 +78,44 @@ def test_parse_alias_on_base_column() -> None:
     assert spec.key == "bnsl"
 
 
+# Test a where predicate on a base column.
+def test_parse_where_on_base_column() -> None:
+    """A 'where' clause records the entry predicate."""
+    spec = _parse_column_spec("f1.mean[1] where model == 'gemini' as gemini")
+    assert spec.where == "model == 'gemini'"
+    assert spec.source == 1
+    assert spec.alias == "gemini"
+    assert spec.key == "gemini"
+
+
+# Test a where predicate without an alias becomes part of the key.
+def test_parse_where_without_alias_keys_on_text() -> None:
+    """Without an alias the predicate distinguishes the column."""
+    spec = _parse_column_spec("f1.mean[1] where model == 'gemini'")
+    assert spec.key == "f1.mean[1] where model == 'gemini'"
+
+
+# Test an empty where body or predicate is rejected.
+def test_parse_where_requires_body_and_predicate() -> None:
+    """A where clause must have both a column and a predicate."""
+    with pytest.raises(ValueError, match="requires a column and a predicate"):
+        _parse_column_spec("   where model == 'gemini'")
+
+
+# Test where is rejected on a derived-column formula.
+def test_parse_where_on_formula_rejected() -> None:
+    """A formula cannot carry an entry predicate."""
+    with pytest.raises(ValueError, match="only valid on a base column"):
+        _parse_column_spec("bnsl + llm where model == 'gemini'")
+
+
+# Test an invalid where predicate is rejected.
+def test_parse_where_rejects_invalid_filter() -> None:
+    """The predicate must be a valid filter expression."""
+    with pytest.raises(ValueError, match="Invalid filter expression"):
+        _parse_column_spec("f1.mean where model ==")
+
+
 # Test an alias on a derived column.
 def test_parse_alias_on_formula() -> None:
     """A formula may declare an alias and keep its expression text."""

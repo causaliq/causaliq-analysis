@@ -16,12 +16,12 @@ from .formula import _evaluate_formula
 
 __all__ = ["_compute_stats", "_stat_value"]
 
-# Collected values per (one-based source index, field)
-Values = Dict[Tuple[int, str], List[float]]
+# Collected values per (one-based source index, field, where predicate)
+Values = Dict[Tuple[int, str, Optional[str]], List[float]]
 
-# Winning entry per (one-based source index, field): its value and the
-# matrix values of the entry holding it
-Argmax = Dict[Tuple[int, str], Tuple[float, Dict[str, Any]]]
+# Winning entry per (one-based source index, field, where predicate): its
+# value and the matrix values of the entry holding it
+Argmax = Dict[Tuple[int, str, Optional[str]], Tuple[float, Dict[str, Any]]]
 
 
 def _compute_stats(
@@ -81,9 +81,14 @@ def _column_value(
     field = spec.field or ""
     if spec.stat == "argmax":
         return _argmax_dimension(
-            argmax, spec.source, field, spec.dimension, spec.element
+            argmax,
+            spec.source,
+            field,
+            spec.dimension,
+            spec.element,
+            spec.where,
         )
-    collected = _field_values(values, spec.source, field)
+    collected = _field_values(values, spec.source, field, spec.where)
     if spec.stat == "unique":
         return _unique_value(collected, spec.text)
     return _stat_value(spec.stat or "", collected)
@@ -93,23 +98,26 @@ def _field_values(
     values: Values,
     source: Optional[int],
     field: str,
+    where: Optional[str],
 ) -> List[float]:
-    """Return the values collected for a field.
+    """Return the values collected for a field and predicate.
 
     Args:
-        values: Collected values per source and field.
+        values: Collected values per source, field and predicate.
         source: One-based source index, or None for every input cache.
         field: Metric field name.
+        where: Entry predicate, or None for entries that carry no
+            predicate.
 
     Returns:
         Collected values in collection order.
 
     """
     if source is not None:
-        return list(values.get((source, field), []))
+        return list(values.get((source, field, where), []))
     collected: List[float] = []
-    for (_, name), field_values in values.items():
-        if name == field:
+    for (_, name, clause), field_values in values.items():
+        if name == field and clause == where:
             collected.extend(field_values)
     return collected
 
@@ -146,16 +154,19 @@ def _argmax_dimension(
     field: str,
     dimension: Optional[str],
     element: Optional[int] = None,
+    where: Optional[str] = None,
 ) -> Any:
     """Return the dimension value of the entry holding a field's maximum.
 
     Args:
-        argmax: Winning entry per source and field.
+        argmax: Winning entry per source, field and predicate.
         source: One-based source index, or None for every input cache.
         field: Metric field name.
         dimension: Matrix dimension to report.
         element: One-based element of a list-valued dimension to report,
             or None to report the whole value.
+        where: Entry predicate, or None for entries that carry no
+            predicate.
 
     Returns:
         The winning entry's matrix value for the dimension, or an empty
@@ -164,7 +175,7 @@ def _argmax_dimension(
         an empty string when the list is too short.
 
     """
-    winner = _argmax_winner(argmax, source, field)
+    winner = _argmax_winner(argmax, source, field, where)
     if winner is None or dimension is None:
         return ""
     value = winner[1].get(dimension, "")
@@ -238,13 +249,16 @@ def _argmax_winner(
     argmax: Argmax,
     source: Optional[int],
     field: str,
+    where: Optional[str] = None,
 ) -> Optional[Tuple[float, Dict[str, Any]]]:
     """Return the entry holding a field's maximum value.
 
     Args:
-        argmax: Winning entry per source and field.
+        argmax: Winning entry per source, field and predicate.
         source: One-based source index, or None for every input cache.
         field: Metric field name.
+        where: Entry predicate, or None for entries that carry no
+            predicate.
 
     Returns:
         The winning value and its matrix values, or None when the field
@@ -252,8 +266,12 @@ def _argmax_winner(
 
     """
     if source is not None:
-        return argmax.get((source, field))
-    winners = [winner for (_, name), winner in argmax.items() if name == field]
+        return argmax.get((source, field, where))
+    winners = [
+        winner
+        for (_, name, clause), winner in argmax.items()
+        if name == field and clause == where
+    ]
     return max(winners, key=lambda item: item[0]) if winners else None
 
 

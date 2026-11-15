@@ -12,6 +12,10 @@ optional one-based source index (``f1.mean[2]``) and a bare
 An ``argmax`` column may also select one element of a list-valued
 dimension with a trailing ``{n}`` (``f1.argmax.fusion_weights{1}``),
 indexed from one like the source index.
+A base column may add a ``where <predicate>`` clause before its alias
+(``f1.mean[1] where variant == 'a' as variant_a``). The predicate is
+evaluated against the entry's reporting view, so a table can select
+different entries of one input cache for different columns.
 A specification holding an operator or a function call is a derived column
 and is parsed by ``formula``.
 
@@ -24,7 +28,10 @@ import re
 from dataclasses import dataclass
 from typing import Any, FrozenSet, List, Optional, Sequence, Set, Tuple
 
-from causaliq_analysis.validation import SUPPORTED_STATS
+from causaliq_analysis.validation import (
+    SUPPORTED_STATS,
+    validate_filter_expression,
+)
 
 from .formula import FUNCTIONS, _validate_formula
 
@@ -50,6 +57,8 @@ _ALIAS_PATTERN = re.compile(r"^(?P<body>.+?)\s+as\s+(?P<alias>[A-Za-z_]\w*)$")
 
 _ELEMENT_PATTERN = re.compile(r"^(?P<body>.+?)\{(?P<index>\d+)\}$")
 
+_WHERE_PATTERN = re.compile(r"^(?P<body>.+?)\s+where\s+(?P<where>.+)$")
+
 # Characters that mark a specification as a derived-column expression
 _FORMULA_CHARS = ("+", "-", "*", "/", "(")
 
@@ -67,6 +76,8 @@ class ColumnSpec:
         dimension: Matrix dimension reported by an ``argmax`` column.
         element: One-based element of a list-valued ``argmax`` dimension
             to report, or None to report the whole value.
+        where: Entry predicate selecting the rows a base column draws on,
+            or None when the column draws on every matching entry.
         formula: Derived-column expression, or None for a base column.
         alias: Short name the column declares for use in later formulas
             and as its default label, or None.
@@ -79,6 +90,7 @@ class ColumnSpec:
     stat: Optional[str] = None
     dimension: Optional[str] = None
     element: Optional[int] = None
+    where: Optional[str] = None
     formula: Optional[str] = None
     alias: Optional[str] = None
 
@@ -90,7 +102,11 @@ class ColumnSpec:
     @property
     def key(self) -> str:
         """Return the name that identifies the column in the table."""
-        return self.alias or self.text
+        if self.alias:
+            return self.alias
+        if self.where:
+            return f"{self.text} where {self.where}"
+        return self.text
 
 
 def _parse_column_specs(specs: Sequence[str]) -> List[ColumnSpec]:
@@ -163,13 +179,21 @@ def _parse_column_spec(spec: str) -> ColumnSpec:
 
     """
     body, alias = _split_alias(spec)
+    body, where = _split_where(body, spec)
     if _is_formula(body):
+        if where is not None:
+            raise ValueError(
+                f"Invalid metric spec '{spec}': 'where' is only valid on "
+                "a base column, not a formula"
+            )
         _validate_formula(body)
         return ColumnSpec(text=body, formula=body, alias=alias)
     plain, source = _split_source(body)
     plain, element = _split_element(plain, body)
     field, stat, dimension = _split_stat(plain, body, source is not None)
     _require_argmax_element(element, stat, body, dimension)
+    if where is not None:
+        validate_filter_expression(where)
     return ColumnSpec(
         text=body,
         source=source,
@@ -177,8 +201,42 @@ def _parse_column_spec(spec: str) -> ColumnSpec:
         stat=stat,
         dimension=dimension,
         element=element,
+        where=where,
         alias=alias,
     )
+
+
+def _split_where(
+    spec: str,
+    full: str,
+) -> Tuple[str, Optional[str]]:
+    """Split a trailing ``where <predicate>`` from a specification.
+
+    The predicate selects the cache entries a base column draws on. It is
+    evaluated against the same reporting view the step-level filter uses,
+    so it can name matrix dimensions and metadata fields.
+
+    Args:
+        spec: Specification without its alias.
+        full: Full specification, used in error messages.
+
+    Returns:
+        Tuple of (specification without the predicate, predicate or None).
+
+    Raises:
+        ValueError: If ``where`` is present but the predicate is empty.
+    """
+    match = _WHERE_PATTERN.match(spec)
+    if match is None:
+        return spec, None
+    body = match.group("body").strip()
+    where = match.group("where").strip()
+    if not body or not where:
+        raise ValueError(
+            f"Invalid metric spec '{full}': 'where' requires a column and "
+            "a predicate"
+        )
+    return body, where
 
 
 def _is_formula(body: str) -> bool:

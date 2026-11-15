@@ -8,6 +8,7 @@ from causaliq_analysis.workflow_action.actions.summarise.collect import (
     _entry_matches,
     _entry_metadata,
     _log_processed,
+    _matching_predicates,
     _require_cache_file,
     _resolve_filter,
 )
@@ -118,6 +119,9 @@ def _fold_cache(
         matrix_values, flat_meta = _entry_metadata(entry_dict)
         if not _entry_matches(resolved, flat_meta, extra_names):
             continue
+        where_matches = _matching_predicates(
+            request.get("where_clauses", []), flat_meta
+        )
         _fold_groups(
             matrix_values,
             flat_meta,
@@ -128,6 +132,7 @@ def _fold_cache(
             collected,
             log_fn,
             source_index,
+            where_matches,
         )
 
 
@@ -199,6 +204,7 @@ def _fold_groups(
     collected: _ReportValues,
     log_fn: Optional[Any],
     source_index: int,
+    where_matches: List[str],
 ) -> None:
     """Append one entry's values to every group it belongs to.
 
@@ -212,6 +218,7 @@ def _fold_groups(
         collected: Accumulator updated in place.
         log_fn: Logging callback for progress reporting.
         source_index: One-based position of the entry's input cache.
+        where_matches: Column predicates the entry satisfies.
 
     """
     for index, group in enumerate(groups):
@@ -226,6 +233,7 @@ def _fold_groups(
             fields,
             argmax_fields,
             source_index,
+            where_matches,
         )
         _log_processed(log_fn, matrix_values)
 
