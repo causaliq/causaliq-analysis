@@ -1,6 +1,6 @@
 """Parsing and validating summarise action parameters."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .columns import (
     ColumnSpec,
@@ -9,6 +9,8 @@ from .columns import (
     _parse_column_specs,
     _unique_fields,
 )
+from .significance import SignificanceSpec
+from .significance_specs import _parse_significance_specs
 
 __all__ = [
     "_input_files",
@@ -16,10 +18,14 @@ __all__ = [
     "_summarise_request",
     "_validate_columns",
     "_validate_formats",
+    "_validate_significance",
 ]
 
 # Output extensions accepted as a table
 _TABLE_EXTENSIONS = (".csv", ".tex", ".md", ".markdown")
+
+# Number of columns in a significance table
+_SIGNIFICANCE_COLUMNS = 4
 
 
 def _require_tabular_output(parameters: Dict[str, Any]) -> None:
@@ -149,6 +155,157 @@ def _is_format_spec(format_spec: str, value: Any) -> bool:
     return True
 
 
+def _validate_significance(parameters: Dict[str, Any]) -> None:
+    """Validate the significance parameter and its presentation columns.
+
+    Args:
+        parameters: Action parameter values.
+
+    Raises:
+        ValueError: If a test specification, alias, header, format or
+            caption is invalid, or the significance table cannot be
+            rendered.
+    """
+    raw = _normalise_list(parameters.get("significance"))
+    if not raw:
+        return
+    specs = _parse_column_specs(_metric_specs(parameters))
+    aliases = {spec.alias for spec in specs if spec.alias}
+    _parse_significance_specs(raw, aliases)
+    _require_significance_input(parameters)
+    _validate_significance_format(parameters.get("format"))
+    _validate_significance_headers(
+        parameters.get("headers"),
+        parameters.get("format"),
+    )
+    _require_no_significance_footer(parameters.get("footer"))
+    _validate_caption(parameters.get("caption"))
+
+
+def _require_significance_input(parameters: Dict[str, Any]) -> None:
+    """Require input caches for a significance table.
+
+    Args:
+        parameters: Action parameter values.
+
+    Raises:
+        ValueError: If no input cache was given.
+    """
+    if not _input_files(parameters):
+        raise ValueError(
+            "significance requires 'input' cache files and a workflow "
+            "matrix"
+        )
+
+
+def _validate_significance_format(value: Any) -> None:
+    """Validate the format specifications of a significance table.
+
+    Args:
+        value: Declared format specifications, or None.
+
+    Raises:
+        ValueError: If the format count does not match the four
+            significance columns, or a specification is invalid.
+    """
+    formats = _normalise_optional_list(value)
+    if formats and len(formats) != _SIGNIFICANCE_COLUMNS:
+        raise ValueError(
+            f"'format' must have {_SIGNIFICANCE_COLUMNS} entries "
+            f"(one per significance column), got {len(formats)}"
+        )
+    _validate_formats(value)
+
+
+def _validate_significance_headers(
+    headers: Any,
+    formats: Any,
+) -> None:
+    """Validate the headers of a significance table.
+
+    Args:
+        headers: Declared column headers, or None.
+        formats: Declared format specifications, or None.
+
+    Raises:
+        ValueError: If the header count does not match the visible
+            significance columns.
+    """
+    values = _normalise_list(headers)
+    if not values:
+        return
+    visible = _visible_column_count(_normalise_optional_list(formats))
+    if len(values) != visible:
+        raise ValueError(
+            f"'headers' must have {visible} entries (one per visible "
+            f"significance column), got {len(values)}"
+        )
+
+
+def _visible_column_count(formats: List[Optional[str]]) -> int:
+    """Return the number of visible significance columns.
+
+    Args:
+        formats: Declared format specifications, empty when unformatted.
+
+    Returns:
+        Number of columns that are not hidden.
+    """
+    if not formats:
+        return _SIGNIFICANCE_COLUMNS
+    return sum(1 for format_spec in formats if format_spec is not None)
+
+
+def _require_no_significance_footer(footer: Any) -> None:
+    """Reject a footer on a significance table.
+
+    Args:
+        footer: Declared footer cells, or None.
+
+    Raises:
+        ValueError: If a footer was declared.
+    """
+    if _normalise_list(footer):
+        raise ValueError(
+            "'footer' is not supported with significance tests; "
+            "use 'caption' for a heading"
+        )
+
+
+def _validate_caption(value: Any) -> None:
+    """Require the caption to be a string or absent.
+
+    Args:
+        value: Declared caption, or None.
+
+    Raises:
+        ValueError: If the caption is not a string.
+    """
+    if value is None or isinstance(value, str):
+        return
+    raise ValueError(f"'caption' must be a string, got {type(value).__name__}")
+
+
+def _significance_request(
+    parameters: Dict[str, Any],
+    specs: List[ColumnSpec],
+) -> List[SignificanceSpec]:
+    """Return the parsed significance specifications.
+
+    Args:
+        parameters: Action parameter values.
+        specs: Parsed metric column specifications.
+
+    Returns:
+        Parsed significance specifications, empty when absent.
+    """
+    raw = _normalise_list(parameters.get("significance"))
+    if not raw:
+        return []
+    aliases = {spec.alias for spec in specs if spec.alias}
+    return _parse_significance_specs(raw, aliases)
+
+
 def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Build the summarisation request from action parameters.
 
@@ -166,9 +323,12 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """
     metric_specs = _metric_specs(parameters)
     specs = _parse_column_specs(metric_specs)
+    significance = _significance_request(parameters, specs)
     return {
         "metric_specs": metric_specs,
         "parsed_metrics": specs,
+        "significance": significance,
+        "caption": parameters.get("caption"),
         "unique_fields": _unique_fields(specs),
         "argmax_fields": [
             spec.field or "" for spec in specs if spec.stat == "argmax"

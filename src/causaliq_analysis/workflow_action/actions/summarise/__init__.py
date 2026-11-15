@@ -11,8 +11,10 @@ The action class lives in ``action`` and delegates to ``request``
 (parameter parsing and validation), ``execution`` (collect, compute,
 render), ``collect`` (value collection from entries and caches),
 ``columns`` (column specifications), ``formula`` (derived columns),
-``stats`` (statistic computation), ``present`` (display columns shared by
-the renderers), ``footer`` (footer rows) and ``render`` (renderer
+``stats`` (statistic computation), ``significance`` (significance tests),
+``significance_specs`` (test specifications), ``render_significance``
+(significance tables), ``present`` (display columns shared by the
+renderers), ``footer`` (footer rows) and ``render`` (renderer
 selection). Public names are re-exported here so the provider and
 existing imports keep working.
 

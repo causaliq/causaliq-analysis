@@ -1,13 +1,25 @@
-# `summarise` supports hidden columns
+# `summarise` supports significance metrics
 
-Please devise a plan for `summarise` to be able to not display selected columns
-in the .md and .tex output. My suggestion is that I can indicate this by
-specifying a null as the format specifier for this column. Please feel free
-to suggest alternative approaches.
+Please devise a plan for `summarise` to support significance statistics
+- initially Wilcoxon signed-rank, two-sided, but the approach should be extensible
+so that new metrics can be added as needed.
 
-An example of where I would want to do this is @causaliq-research /papers/pdg-merge/workflows/04_weighting/04_summarise-weighting-results.yml - I want to compute
-`oracle - max(bnsl, llm)` as the final column but don't want to include the
-llm and bnsl in the final table.
+This perhaps could be done with a syntax like `f1.mean.wilcoxon-signed-rank-2-sided` or
+perhaps a more compact, but still understandable name.
+
+The initial aim is to be able to generate the following data produced by
+@causaliq-research/papers/pdg-merge/src/main_results.py:
+
+```text
+STATISTICAL TESTS (Wilcoxon signed-rank, two-sided)
+  Fusion vs BNSL            W=   17.0  p=0.0000 ***
+  Fusion vs LLM             W=    3.0  p=0.0000 ***
+  Fusion vs best solo       W=   36.0  p=0.0001 ***
+```
+
+Any new workflows should be put in the 03_fusion subfolders under
+@causaliq-research/papers/pdg-merge/workflows
+
 
 # Possible future work out of scope for this task
 

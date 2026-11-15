@@ -12,7 +12,9 @@ from .collect import _values_from_entries
 from .groups import _report_groups
 from .render import _is_csv_output, _write_single_table, _write_summary
 from .render_csv import _write_csv
-from .report import _collect_report_values
+from .render_significance import _write_significance
+from .report import _collect_report_values, _ReportValues
+from .significance import _significance_rows
 from .stats import Argmax, Values, _compute_stats
 
 __all__ = [
@@ -43,6 +45,7 @@ def _dry_run_result(
             "message": "Dry-run mode",
             "aggregation_mode": request["is_aggregation"],
             "metrics": request["metric_specs"],
+            "significance": len(request["significance"]),
         },
         [],
     )
@@ -137,6 +140,8 @@ def _summarise_report(
         )
         for index, group in enumerate(groups)
     ]
+    if request["significance"]:
+        return _significance_result(request, collected, rows, log_fn)
     _write_summary(request, rows, log_fn)
     metadata = _summarise_metadata(
         request,
@@ -144,6 +149,41 @@ def _summarise_report(
         collected.sources,
         _report_metadata(rows),
     )
+    return ("success", metadata, [])
+
+
+def _significance_result(
+    request: Dict[str, Any],
+    collected: _ReportValues,
+    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+    log_fn: Optional[Any],
+) -> ActionResult:
+    """Write a significance table and return its result metadata.
+
+    Args:
+        request: Summarisation request.
+        collected: Collected values and source paths per group.
+        rows: Group matrix values and computed metric values.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        ActionResult tuple with status "success".
+
+    Raises:
+        ActionExecutionError: If the table cannot be written.
+    """
+    test_rows = _significance_rows(request["significance"], rows)
+    _write_significance(request, test_rows, log_fn)
+    metadata: Dict[str, Any] = {
+        "source_count": sum(collected.counts),
+        "source_caches": sorted(set(collected.sources)),
+        "metrics": request["metric_specs"],
+        "significance": [dict(result) for _, result in test_rows],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "table_output": str(request["output"]),
+    }
+    if request["filter"]:
+        metadata["filter"] = request["filter"]
     return ("success", metadata, [])
 
 
@@ -188,6 +228,11 @@ def _summarise_entries(
         ActionExecutionError: If collection or the output write fails.
 
     """
+    if request["significance"]:
+        raise ActionExecutionError(
+            "significance requires 'input' cache files and a workflow "
+            "matrix"
+        )
     if not request["is_aggregation"]:
         raise ActionExecutionError(
             "summarise requires either aggregation entries or "

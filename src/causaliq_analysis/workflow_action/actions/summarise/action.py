@@ -15,6 +15,7 @@ from .request import (
     _require_tabular_output,
     _summarise_request,
     _validate_columns,
+    _validate_significance,
 )
 
 __all__ = ["SummariseAction"]
@@ -43,6 +44,7 @@ class SummariseAction(AnalysisAction):
                 converts this to an ActionValidationError.
 
         """
+        _validate_significance(parameters)
         _validate_columns(parameters)
         validate_filter_expression(parameters.get("filter"))
         _require_tabular_output(parameters)

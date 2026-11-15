@@ -302,6 +302,26 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="list[str]",
         ),
+        "significance": ActionInput(
+            name="significance",
+            description=(
+                "Significance tests over the per-row columns declared by "
+                "'metric', in '<test>(<left>, <right>) [as <label>]' form "
+                "(e.g. 'wilcoxon-signed-rank-2-sided(fusion, bnsl) as "
+                '"Fusion vs BNSL"\'). The output is a test table.'
+            ),
+            required=False,
+            type_hint="list[str] | str",
+        ),
+        "caption": ActionInput(
+            name="caption",
+            description=(
+                "Heading of a significance table. Defaults to the test "
+                "title; an empty string suppresses the heading."
+            ),
+            required=False,
+            type_hint="str",
+        ),
         # best_graph inputs - uses 'input' for cache containing merged_pdg
         "threshold": ActionInput(
             name="threshold",
@@ -399,6 +419,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "source_count": "Number of input entries summarised",
         "csv_output": "CSV file with summary statistics",
         "table_output": "LaTeX or Markdown file with summary statistics",
+        "significance": "Significance test results for a summarise table",
         # best_graph outputs
         "edges_included": "Number of edges in optimal DAG",
         "edges_skipped_cycle": "Edges skipped to avoid cycles",
@@ -449,6 +470,8 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "headers",
             "format",
             "footer",
+            "significance",
+            "caption",
             "filter",
             "input",
             "output",
