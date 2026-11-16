@@ -31,31 +31,62 @@ def _values_from_entries(
     """
     entries = request["aggregation_entries"] or []
     resolved, extra_names = _resolve_filter(request["filter"], entries)
-    argmax_fields = request["argmax_fields"]
     sources: List[str] = []
     count = 0
     for entry_dict in entries:
-        matrix_values, flat_meta = _entry_metadata(entry_dict)
-        cache_path = entry_dict.get("cache_path", "unknown")
-        sources.append(cache_path)
-        if not _entry_matches(resolved, flat_meta, extra_names):
-            continue
-        count += 1
-        where_matches = _matching_predicates(
-            request.get("where_clauses", []), flat_meta
-        )
-        _accumulate_values(
-            values,
-            argmax,
-            flat_meta,
-            matrix_values,
-            request["unique_fields"],
-            argmax_fields,
-            _source_index(cache_path, request["input_files"]),
-            where_matches,
-        )
-        _log_entry(log_fn, matrix_values)
+        sources.append(entry_dict.get("cache_path", "unknown"))
+        if _collect_entry(
+            entry_dict, request, values, argmax, resolved, extra_names, log_fn
+        ):
+            count += 1
     return count, sources
+
+
+def _collect_entry(
+    entry_dict: Dict[str, Any],
+    request: Dict[str, Any],
+    values: Values,
+    argmax: Argmax,
+    resolved_filter: Optional[str],
+    extra_names: Dict[str, Any],
+    log_fn: Optional[Any],
+) -> bool:
+    """Collect one entry's values when it passes the filter.
+
+    Args:
+        entry_dict: Pre-scanned cache entry descriptor.
+        request: Summarisation request.
+        values: Values per source and field, updated in place.
+        argmax: Winning entry per source and field, updated in place.
+        resolved_filter: Resolved filter expression, if any.
+        extra_names: Extra names resolved for the filter.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        True when the entry passed the filter and was collected.
+
+    """
+    matrix_values, flat_meta = _entry_metadata(entry_dict)
+    if not _entry_matches(resolved_filter, flat_meta, extra_names):
+        return False
+    where_matches = _matching_predicates(
+        request.get("where_clauses", []), flat_meta
+    )
+    _accumulate_values(
+        values,
+        argmax,
+        flat_meta,
+        matrix_values,
+        request["unique_fields"],
+        request["argmax_fields"],
+        _source_index(
+            entry_dict.get("cache_path", "unknown"),
+            request["input_files"],
+        ),
+        where_matches,
+    )
+    _log_entry(log_fn, matrix_values)
+    return True
 
 
 def _source_index(cache_path: Any, input_files: List[str]) -> int:
@@ -223,16 +254,30 @@ def _matching_predicates(
     """
     if not clauses:
         return []
+    return [
+        clause for clause in clauses if _is_predicate_match(clause, flat_meta)
+    ]
+
+
+def _is_predicate_match(clause: str, flat_meta: Dict[str, Any]) -> bool:
+    """Return whether an entry satisfies a column predicate.
+
+    A predicate that cannot be evaluated does not match the entry.
+
+    Args:
+        clause: ``where`` predicate to evaluate.
+        flat_meta: Flattened metadata of the entry.
+
+    Returns:
+        True when the predicate evaluates to a truthy value.
+
+    """
     from causaliq_workflow.cache.reporting import evaluate_entry_filter
 
-    matches: List[str] = []
-    for clause in clauses:
-        try:
-            if evaluate_entry_filter(clause, flat_meta):
-                matches.append(clause)
-        except Exception:
-            continue
-    return matches
+    try:
+        return bool(evaluate_entry_filter(clause, flat_meta))
+    except Exception:
+        return False
 
 
 def _accumulate_values(
@@ -263,31 +308,96 @@ def _accumulate_values(
 
     """
     for field in unique_fields:
-        value = helpers._get_nested_value(flat_meta, field)
-        if value is None or not isinstance(value, (int, float)):
+        number = _numeric_field_value(flat_meta, field)
+        if number is None:
             continue
-        number = float(value)
-        values.setdefault((source_index, field, None), []).append(number)
-        for clause in where_matches:
-            values.setdefault((source_index, field, clause), []).append(number)
+        _record_field_values(
+            values, source_index, field, number, where_matches
+        )
         if field in argmax_fields:
-            _track_argmax(
+            _record_field_argmax(
                 argmax,
                 source_index,
                 field,
                 number,
                 matrix_values,
-                None,
+                where_matches,
             )
-            for clause in where_matches:
-                _track_argmax(
-                    argmax,
-                    source_index,
-                    field,
-                    number,
-                    matrix_values,
-                    clause,
-                )
+
+
+def _numeric_field_value(
+    flat_meta: Dict[str, Any],
+    field: str,
+) -> Optional[float]:
+    """Return a field's numeric value, or None when it is not numeric.
+
+    Args:
+        flat_meta: Flattened metadata of the entry.
+        field: Metric field name.
+
+    Returns:
+        The field value as a float, or None when it is absent or not a
+        number.
+
+    """
+    value = helpers._get_nested_value(flat_meta, field)
+    if value is None or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _record_field_values(
+    values: Values,
+    source_index: int,
+    field: str,
+    number: float,
+    where_matches: List[str],
+) -> None:
+    """Append a field's value without a predicate and per predicate.
+
+    Args:
+        values: Values per source, field and predicate, updated in place.
+        source_index: One-based position of the entry's input cache.
+        field: Metric field name.
+        number: Numeric value of the field.
+        where_matches: Predicates the entry satisfies.
+
+    """
+    values.setdefault((source_index, field, None), []).append(number)
+    for clause in where_matches:
+        values.setdefault((source_index, field, clause), []).append(number)
+
+
+def _record_field_argmax(
+    argmax: Argmax,
+    source_index: int,
+    field: str,
+    number: float,
+    matrix_values: Dict[str, Any],
+    where_matches: List[str],
+) -> None:
+    """Record an entry as argmax candidate without and per predicate.
+
+    Args:
+        argmax: Winning entry per source, field and predicate, updated in
+            place.
+        source_index: One-based position of the entry's input cache.
+        field: Metric field name.
+        number: Numeric value of the field.
+        matrix_values: Matrix values of the candidate entry.
+        where_matches: Predicates the entry satisfies.
+
+    """
+    _track_argmax(argmax, source_index, field, number, matrix_values, None)
+    for clause in where_matches:
+        _track_argmax(
+            argmax,
+            source_index,
+            field,
+            number,
+            matrix_values,
+            clause,
+        )
 
 
 def _track_argmax(

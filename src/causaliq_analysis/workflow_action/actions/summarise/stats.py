@@ -236,13 +236,25 @@ def _parsed_sequence(value: Any) -> Optional[List[Any]]:
     if isinstance(value, (list, tuple)):
         return list(value)
     if isinstance(value, str) and value.strip().startswith("["):
-        try:
-            parsed = json.loads(value)
-        except (TypeError, ValueError):
-            return None
-        if isinstance(parsed, list):
-            return parsed
+        return _parsed_json_list(value)
     return None
+
+
+def _parsed_json_list(value: str) -> Optional[List[Any]]:
+    """Return the elements of a JSON list string.
+
+    Args:
+        value: Text that starts like a JSON list.
+
+    Returns:
+        The parsed list, or None when the text is not a JSON list.
+
+    """
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isinstance(parsed, list) else None
 
 
 def _argmax_winner(
