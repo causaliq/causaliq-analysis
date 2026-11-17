@@ -159,6 +159,21 @@ def _graph_to_pdg(graph: Any) -> PDG:
     return PDG(nodes, _positive_edge_probs(graph, nodes))
 
 
+def graph_to_pdg(graph: Any) -> PDG:
+    """Return a graph as a PDG, converting deterministic graphs.
+
+    Args:
+        graph: PDG, or DAG/PDAG whose edges become probability 1.0.
+
+    Returns:
+        The graph as a PDG.
+
+    Raises:
+        TypeError: If graph is neither a PDG nor a PDAG/DAG.
+    """
+    return _graph_to_pdg(graph)
+
+
 def pdg_compare(
     graph: Any,
     reference: Any,

@@ -1,5 +1,6 @@
 """Running one summarisation: collect, compute, render."""
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -100,9 +101,133 @@ def _summarise(
 
     """
     log_fn = _log_fn(logger)
+    cache_mode = _is_cache_request(request, context)
+    if request["output"] is None and not cache_mode:
+        raise ActionExecutionError(
+            "summarise requires 'output' parameter with a .csv, .tex, "
+            ".md or .db path"
+        )
+    if cache_mode:
+        return _summarise_cache(request, context, log_fn)
     if request["input_files"]:
         return _summarise_report(request, context, log_fn)
     return _summarise_entries(request, context, log_fn)
+
+
+def _is_cache_request(
+    request: Dict[str, Any],
+    context: Optional[Any],
+) -> bool:
+    """Return True when the summary is written to a metrics cache.
+
+    Args:
+        request: Summarisation request.
+        context: Workflow context holding the open output cache, if any.
+
+    Returns:
+        True when a ``.db`` output was requested, or when no output path
+        remains (the executor removes it) and an output cache is open.
+
+    """
+    if request.get("is_cache_output"):
+        return True
+    if request.get("output") is not None:
+        return False
+    return getattr(context, "cache", None) is not None
+
+
+def _summarise_cache(
+    request: Dict[str, Any],
+    context: Optional[Any],
+    log_fn: Optional[Any],
+) -> ActionResult:
+    """Summarise the matched entries into a metrics object.
+
+    One metrics object is returned for the current matrix combination;
+    the workflow executor stores it under that combination's values.
+
+    Args:
+        request: Summarisation request.
+        context: Workflow context holding the open output cache.
+        log_fn: Logging callback for progress reporting.
+
+    Returns:
+        ActionResult tuple with status "success".
+
+    Raises:
+        ActionExecutionError: If the request cannot produce a cache entry.
+
+    """
+    if request["significance"]:
+        raise ActionExecutionError(
+            "significance requires table output, not a metrics cache"
+        )
+    if not request["is_aggregation"]:
+        raise ActionExecutionError(
+            "summarise metrics-cache output requires 'input' cache files"
+        )
+    values: Values = {}
+    argmax: Argmax = {}
+    count, sources = _values_from_entries(request, values, argmax, log_fn)
+    results = _compute_stats(request["parsed_metrics"], values, argmax)
+    metadata = _cache_metadata(request, context, count, sources)
+    return ("success", metadata, _metrics_object(results))
+
+
+def _cache_metadata(
+    request: Dict[str, Any],
+    context: Optional[Any],
+    source_count: int,
+    sources: List[str],
+) -> Dict[str, Any]:
+    """Build the metadata for a metrics-cache summary entry.
+
+    The computed values live in the metrics object rather than the
+    metadata, so the cache entry keeps one source of truth.
+
+    Args:
+        request: Summarisation request.
+        context: Workflow context holding the open output cache.
+        source_count: Number of entries contributing values.
+        sources: Source cache paths.
+
+    Returns:
+        Action metadata describing the metrics object.
+
+    """
+    metadata: Dict[str, Any] = {
+        "source_count": source_count,
+        "source_caches": sorted(set(sources)),
+        "metrics": request["metric_specs"],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "output": {"type": "metrics", "format": "json"},
+    }
+    if request["filter"]:
+        metadata["filter"] = request["filter"]
+    db_path = getattr(getattr(context, "cache", None), "db_path", None)
+    if db_path is not None:
+        metadata["output_path"] = str(db_path)
+    return metadata
+
+
+def _metrics_object(results: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Build the metrics object written to the output cache.
+
+    Args:
+        results: Computed column values.
+
+    Returns:
+        Single-element list holding the metrics object.
+
+    """
+    return [
+        {
+            "type": "metrics",
+            "format": "json",
+            "action": "summarise",
+            "content": json.dumps(results),
+        }
+    ]
 
 
 def _summarise_report(

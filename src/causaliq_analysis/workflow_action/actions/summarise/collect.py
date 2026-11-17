@@ -308,64 +308,72 @@ def _accumulate_values(
 
     """
     for field in unique_fields:
-        number = _numeric_field_value(flat_meta, field)
-        if number is None:
+        numbers = _numeric_field_values(flat_meta, field)
+        if not numbers:
             continue
         _record_field_values(
-            values, source_index, field, number, where_matches
+            values, source_index, field, numbers, where_matches
         )
-        if field in argmax_fields:
+        if field in argmax_fields and len(numbers) == 1:
             _record_field_argmax(
                 argmax,
                 source_index,
                 field,
-                number,
+                numbers[0],
                 matrix_values,
                 where_matches,
             )
 
 
-def _numeric_field_value(
+def _numeric_field_values(
     flat_meta: Dict[str, Any],
     field: str,
-) -> Optional[float]:
-    """Return a field's numeric value, or None when it is not numeric.
+) -> List[float]:
+    """Return a field's numeric values, flattening lists.
+
+    A scalar field contributes one value per entry; a list-valued field
+    (for example a per-pair agreement list) contributes every numeric
+    element, so the standard statistics pool the values across entries.
 
     Args:
         flat_meta: Flattened metadata of the entry.
         field: Metric field name.
 
     Returns:
-        The field value as a float, or None when it is absent or not a
-        number.
+        Numeric values of the field, empty when it is absent or holds no
+        numbers.
 
     """
     value = helpers._get_nested_value(flat_meta, field)
-    if value is None or not isinstance(value, (int, float)):
-        return None
-    return float(value)
+    if isinstance(value, (list, tuple)):
+        return [
+            float(item) for item in value if isinstance(item, (int, float))
+        ]
+    if isinstance(value, (int, float)):
+        return [float(value)]
+    return []
 
 
 def _record_field_values(
     values: Values,
     source_index: int,
     field: str,
-    number: float,
+    numbers: List[float],
     where_matches: List[str],
 ) -> None:
-    """Append a field's value without a predicate and per predicate.
+    """Append a field's values without a predicate and per predicate.
 
     Args:
         values: Values per source, field and predicate, updated in place.
         source_index: One-based position of the entry's input cache.
         field: Metric field name.
-        number: Numeric value of the field.
+        numbers: Numeric values contributed by the field.
         where_matches: Predicates the entry satisfies.
 
     """
-    values.setdefault((source_index, field, None), []).append(number)
+    values.setdefault((source_index, field, None), []).extend(numbers)
     for clause in where_matches:
-        values.setdefault((source_index, field, clause), []).append(number)
+        values.setdefault((source_index, field, clause), []).extend(numbers)
 
 
 def _record_field_argmax(

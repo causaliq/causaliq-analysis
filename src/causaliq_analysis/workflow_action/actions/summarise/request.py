@@ -24,31 +24,61 @@ __all__ = [
 # Output extensions accepted as a table
 _TABLE_EXTENSIONS = (".csv", ".tex", ".md", ".markdown")
 
+# Output extension accepted as a metrics workflow cache
+_CACHE_EXTENSION = ".db"
+
+# Presentation parameters that do not apply to a metrics cache
+_CACHE_UNSUPPORTED = ("headers", "format", "footer", "significance", "caption")
+
 # Number of columns in a significance table
 _SIGNIFICANCE_COLUMNS = 4
 
 
 def _require_tabular_output(parameters: Dict[str, Any]) -> None:
-    """Require a CSV, LaTeX or Markdown output path.
+    """Require a table or metrics-cache output path.
+
+    A missing path is valid at execution time because the workflow
+    executor removes ``output`` before invoking an action that writes to
+    a cache. A ``.db`` path selects metrics-cache output, which does not
+    support the table presentation parameters.
 
     Args:
         parameters: Action parameter values.
 
     Raises:
-        ValueError: If no output path is given, or it is not a .csv, .tex
-            or .md file.
+        ValueError: If the output is not a table or cache path, or a
+            cache output declares presentation parameters.
 
     """
     output_path = parameters.get("output")
     if output_path is None:
+        return
+    lowered = str(output_path).lower()
+    if lowered.endswith(_CACHE_EXTENSION):
+        _require_cache_options(parameters)
+        return
+    if not lowered.endswith(_TABLE_EXTENSIONS):
         raise ValueError(
-            "summarise requires 'output' parameter with a .csv, .tex or "
-            ".md file path."
-        )
-    if not str(output_path).lower().endswith(_TABLE_EXTENSIONS):
-        raise ValueError(
-            "summarise output must be a .csv, .tex or .md file. "
+            "summarise output must be a .csv, .tex, .md or .db file. "
             f"Got: {output_path}"
+        )
+
+
+def _require_cache_options(parameters: Dict[str, Any]) -> None:
+    """Reject table presentation options on a metrics-cache output.
+
+    Args:
+        parameters: Action parameter values.
+
+    Raises:
+        ValueError: If a table-only option is present.
+
+    """
+    invalid = [name for name in _CACHE_UNSUPPORTED if parameters.get(name)]
+    if invalid:
+        raise ValueError(
+            "summarise metrics-cache output does not support: "
+            + ", ".join(sorted(invalid))
         )
 
 
@@ -342,10 +372,26 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         "footer": _normalise_list(parameters.get("footer")),
         "filter": parameters.get("filter"),
         "output": parameters.get("output"),
+        "is_cache_output": _is_cache_output(parameters.get("output")),
         "input_files": _input_files(parameters),
         "aggregation_entries": parameters.get("_aggregation_entries"),
         "is_aggregation": parameters.get("_aggregation_entries") is not None,
     }
+
+
+def _is_cache_output(output: Any) -> bool:
+    """Return True when the output path names a metrics workflow cache.
+
+    Args:
+        output: Output path, if any.
+
+    Returns:
+        True for a ``.db`` output path.
+
+    """
+    return output is not None and str(output).lower().endswith(
+        _CACHE_EXTENSION
+    )
 
 
 def _input_files(parameters: Dict[str, Any]) -> List[str]:

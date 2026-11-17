@@ -1,5 +1,6 @@
 """Unit tests for validate_parameters method with mocked dependencies."""
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -143,17 +144,43 @@ def test_validate_merge_graphs_invalid_weights() -> None:
         )
 
 
-# Test evaluate_graph validation requires reference.
-def test_validate_evaluate_graph_requires_reference() -> None:
-    """evaluate_graph requires reference parameter."""
+# Test evaluate_graph validation accepts description mode.
+def test_validate_evaluate_graph_allows_description_mode() -> None:
+    """A missing reference selects description mode, so it is valid."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    provider.validate_parameters("evaluate_graph", {})
+
+
+# Test evaluate_graph validates probability parameters.
+@pytest.mark.parametrize(
+    "value, message",
+    [
+        ("high", "must be a number"),
+        (True, "must be a number"),
+        (1.5, "between 0.0 and 1.0"),
+    ],
+)
+def test_validate_evaluate_graph_probability_parameters(
+    value: Any,
+    message: str,
+) -> None:
+    """Threshold parameters must be probabilities."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-
-    with pytest.raises(ActionValidationError, match="requires 'reference'"):
-        provider.validate_parameters("evaluate_graph", {})
+    with pytest.raises(ActionValidationError, match=message):
+        provider.validate_parameters(
+            "evaluate_graph",
+            {
+                "reference": "ground_truth.graphml",
+                "metric": ["edge"],
+                "threshold": value,
+            },
+        )
 
 
 # Test evaluate_graph validation requires metric.
@@ -312,19 +339,34 @@ def test_validate_summarise_invalid_metric_spec() -> None:
         )
 
 
-# Test summarise requires output parameter.
-def test_validate_summarise_requires_output() -> None:
-    """summarise validation requires output parameter."""
+# Test summarise validation allows a cache output at execution.
+def test_validate_summarise_output_is_optional() -> None:
+    """Validation allows a missing output because the executor removes it."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    provider.validate_parameters(
+        "summarise",
+        {"metric": ["f1.mean"], "_aggregation_entries": []},
+    )
+
+
+# Test summarise rejects an unknown output extension.
+def test_validate_summarise_rejects_unknown_extension() -> None:
+    """A non-table, non-cache output extension is rejected."""
     from causaliq_core import ActionValidationError
 
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-
-    with pytest.raises(ActionValidationError, match="requires 'output'"):
+    with pytest.raises(ActionValidationError, match="must be a .csv"):
         provider.validate_parameters(
             "summarise",
-            {"metric": ["f1.mean"], "_aggregation_entries": []},
+            {
+                "metric": ["f1.mean"],
+                "output": "summary.txt",
+                "_aggregation_entries": [],
+            },
         )
 
 
@@ -454,14 +496,16 @@ def test_validate_evaluate_graph_all_valid_metrics() -> None:
     )
 
 
-# Test evaluate_graph accepts an empty metric list.
+# Test evaluate_graph rejects a missing metric list with a reference.
 def test_validate_evaluate_graph_empty_metric_list() -> None:
-    """evaluate_graph skips metric checks for an empty metric list."""
+    """A reference requires at least one comparison metric."""
+    from causaliq_core import ActionValidationError
+
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
-    # Should not raise: an empty metric list requests no metrics
-    provider.validate_parameters(
-        "evaluate_graph",
-        {"reference": "ground_truth.graphml", "metric": []},
-    )
+    with pytest.raises(ActionValidationError, match="requires 'metric'"):
+        provider.validate_parameters(
+            "evaluate_graph",
+            {"reference": "ground_truth.graphml", "metric": []},
+        )

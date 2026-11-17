@@ -130,21 +130,16 @@ def _apply_tick_rotation(axes: Any, properties: Dict[str, Any]) -> None:
     """Rotate the x-axis tick labels."""
     if "xaxis.ticks_rotation" not in properties:
         return
-    _fix_xtick_locator(axes)
-    axes.set_xticklabels(
-        axes.get_xticklabels(), rotation=properties["xaxis.ticks_rotation"]
-    )
+    for label in axes.get_xticklabels():
+        label.set_rotation(properties["xaxis.ticks_rotation"])
 
 
 def _apply_tick_halign(axes: Any, properties: Dict[str, Any]) -> None:
     """Set the horizontal alignment of the x-axis tick labels."""
     if "xaxis.ticks_halign" not in properties:
         return
-    _fix_xtick_locator(axes)
-    axes.set_xticklabels(
-        axes.get_xticklabels(),
-        horizontalalignment=properties["xaxis.ticks_" + "halign"],
-    )
+    for label in axes.get_xticklabels():
+        label.set_horizontalalignment(properties["xaxis.ticks_halign"])
 
 
 def _fix_xtick_locator(axes: Any) -> None:

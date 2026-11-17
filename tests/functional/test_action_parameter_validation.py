@@ -249,9 +249,20 @@ def test_evaluate_graph_accepts_all_valid_parameters() -> None:
 # =============================================================================
 
 
-# Test evaluate_graph requires reference parameter.
-def test_evaluate_graph_requires_reference() -> None:
-    """evaluate_graph requires reference parameter."""
+# Test evaluate_graph accepts a missing reference (description mode).
+def test_evaluate_graph_allows_description_mode() -> None:
+    """A missing reference selects description mode, so it is valid."""
+    provider = AnalysisActionProvider()
+
+    provider.validate_parameters(
+        "evaluate_graph",
+        {"metric": ["exist_agree", "dir_agree"]},
+    )
+
+
+# Test comparison metrics are rejected in description mode.
+def test_evaluate_graph_rejects_comparison_metric_without_reference() -> None:
+    """Description mode only accepts the agreement metrics."""
     provider = AnalysisActionProvider()
 
     with pytest.raises(ActionValidationError) as exc_info:
@@ -260,12 +271,12 @@ def test_evaluate_graph_requires_reference() -> None:
             {"metric": ["f1"]},
         )
 
-    assert "requires 'reference'" in str(exc_info.value)
+    assert "Invalid metric(s): f1" in str(exc_info.value)
 
 
-# Test evaluate_graph requires metric parameter.
+# Test evaluate_graph requires a metric when a reference is given.
 def test_evaluate_graph_requires_metric() -> None:
-    """evaluate_graph requires metric parameter."""
+    """evaluate_graph requires a metric parameter with a reference."""
     provider = AnalysisActionProvider()
 
     with pytest.raises(ActionValidationError) as exc_info:

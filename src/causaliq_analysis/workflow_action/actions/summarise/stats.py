@@ -89,6 +89,8 @@ def _column_value(
             spec.where,
         )
     collected = _field_values(values, spec.source, field, spec.where)
+    if spec.stat in {"bin", "pct"}:
+        return _bin_value(collected, spec.bounds, spec.stat == "pct")
     if spec.stat == "unique":
         return _unique_value(collected, spec.text)
     return _stat_value(spec.stat or "", collected)
@@ -120,6 +122,37 @@ def _field_values(
         if name == field and clause == where:
             collected.extend(field_values)
     return collected
+
+
+def _bin_value(
+    values: List[float],
+    bounds: Optional[Tuple[float, float]],
+    percentage: bool,
+) -> Any:
+    """Return the count or percentage of values inside a half-open bin.
+
+    The bin is ``low <= value < high``; an infinite upper bound includes
+    every value at or above the lower bound. A percentage of an empty
+    collection is an empty cell rather than a division by zero.
+
+    Args:
+        values: Collected values for the field.
+        bounds: Lower and upper bound of the bin, or None.
+        percentage: Whether to return a percentage instead of a count.
+
+    Returns:
+        Count of values in the bin, or their percentage (0-100).
+
+    """
+    if bounds is None:  # pragma: no cover - parsing guarantees bounds
+        return ""
+    low, high = bounds
+    count = sum(1 for value in values if low <= value < high)
+    if not percentage:
+        return count
+    if not values:
+        return ""
+    return 100.0 * count / len(values)
 
 
 def _unique_value(values: List[float], spec: str) -> Any:

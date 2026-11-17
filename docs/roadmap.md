@@ -26,7 +26,8 @@ Assuring reproducibility of results and assets for published papers.
 1. ✅ Remove `object_type` parameter, replaced by the `cpdag` flag
 1. ✅ Summarise supports hidden columns(current_task.md)
 1. ✅ Summarise supports significance metrics
-1. ✅ [Per-column entry predicates in summarise](current_task.md)
+1. ✅ Per-column entry predicates in summarise
+1. ✅ [Replicate pdg-merge analysis charts](current_task.md)
 1. 📊 Support Python 3.10-14, with 3.12 as default, and badge as [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
 1. 🛣️ When Python 3.9 support is dropped, move to matplotlib `>=3.10.7` (removes the pyparsing cap; requires re-blessing the `ord_hc_f1` SVG reference)
 1. 🛣️ Optimise summarise (aggregate workflow patterns) so it is much faster

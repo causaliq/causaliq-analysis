@@ -12,12 +12,22 @@ __all__ = [
 ]
 
 
-def _compute_metrics(graph: Any, reference: Any) -> Dict[str, Any]:
+def _compute_metrics(
+    graph: Any,
+    reference: Any,
+    threshold: Optional[float] = None,
+) -> Dict[str, Any]:
     """Compute structural metrics, comparing PDGs probabilistically.
+
+    When a threshold is given, both graphs are reduced to deterministic
+    edge states before the comparison, so the low-level edge counts are
+    integer counts of the thresholded graphs.
 
     Args:
         graph: Graph evaluated from the entry.
         reference: Reference graph.
+        threshold: Minimum ``p_exist`` for an edge to be retained, or
+            None to compare the probability vectors directly.
 
     Returns:
         Raw comparison metrics.
@@ -28,9 +38,13 @@ def _compute_metrics(graph: Any, reference: Any) -> Dict[str, Any]:
     """
     from causaliq_core.graph import PDG
 
+    from causaliq_analysis.edge_analysis import threshold_graph
     from causaliq_analysis.metrics import pdag_compare, pdg_compare
 
     try:
+        if threshold is not None:
+            graph = threshold_graph(graph, threshold)
+            reference = threshold_graph(reference, threshold)
         if isinstance(graph, PDG) or isinstance(reference, PDG):
             return pdg_compare(graph, reference)
         return pdag_compare(graph, reference)

@@ -75,44 +75,43 @@ def test_summarise_unknown_stat() -> None:
     assert "Unknown statistic 'mode'" in str(exc_info.value)
 
 
-# Test summarise rejects .db output (only table formats supported).
-def test_summarise_rejects_db_output() -> None:
-    """Test that summarise rejects .db output files."""
-    from causaliq_core import ActionValidationError
-
+# Test summarise accepts .db output as a metrics cache.
+def test_summarise_accepts_db_output() -> None:
+    """Test that summarise writes a metrics object for .db output."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with pytest.raises(ActionValidationError) as exc_info:
-        provider.run(
-            action="summarise",
-            parameters={
-                "_aggregation_entries": [{"matrix_values": {}}],
-                "metric": ["f1.mean"],
-                "output": "results.db",
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
-        )
-    assert "must be a .csv, .tex or .md file" in str(exc_info.value)
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": [{"matrix_values": {}}],
+            "metric": ["f1.mean"],
+            "output": "results.db",
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+    assert result[0] == "success"
+    assert result[2][0]["type"] == "metrics"
 
 
 # Test summarise requires output parameter.
 def test_summarise_requires_output_parameter() -> None:
-    """Test that summarise requires output parameter."""
-    from causaliq_core import ActionValidationError
-
-    from causaliq_analysis.workflow_action import AnalysisActionProvider
+    """Test that summarise requires an output path or an open cache."""
+    from causaliq_analysis.workflow_action import (
+        ActionExecutionError,
+        AnalysisActionProvider,
+    )
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    with pytest.raises(ActionValidationError) as exc_info:
+    with pytest.raises(ActionExecutionError) as exc_info:
         provider.run(
             action="summarise",
             parameters={

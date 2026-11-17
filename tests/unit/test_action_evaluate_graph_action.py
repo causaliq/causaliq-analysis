@@ -81,6 +81,9 @@ def test_evaluate_graph_records_all_parameters() -> None:
         "input": None,
         "reference": "ref.graphml",
         "metric": ["f1"],
+        "threshold": None,
+        "present_threshold": 0.0,
+        "direction_threshold": 0.0,
         "output": None,
         "filter": None,
     }
@@ -223,34 +226,155 @@ def test_evaluate_graph_reports_empty_aggregation_entries() -> None:
     assert "results/learn.db" in str(exc_info.value)
 
 
-# Test evaluate_graph requires reference parameter.
-def test_evaluate_graph_requires_reference() -> None:
-    """Test error when reference is not provided."""
+# Test evaluate_graph describes a graph when no reference is provided.
+def test_evaluate_graph_describes_without_reference() -> None:
+    """Test that a missing reference selects description mode."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
     provider = AnalysisActionProvider()
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    update_entry = {
-        "matrix_values": {"seed": 42},
+    entry = {
+        "matrix_values": {"network": "asia"},
+        "metadata": {},
+        "entry": MagicMock(),
+    }
+    values = {"exist_agree": [1.0, 0.6], "dir_agree": [1.0]}
+
+    with patch(
+        "causaliq_analysis.workflow_action.actions.evaluate_graph.execution"
+        "._entry_graph",
+        return_value=(MagicMock(), "pdg"),
+    ):
+        with patch(
+            "causaliq_analysis.workflow_action.actions.evaluate_graph"
+            ".description.pdg_edge_agreement",
+            return_value=values,
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_aggregation_entries": [entry],
+                    "output": "metrics.db",
+                },
+                mode="run",
+                context=None,
+                logger=mock_logger,
+            )
+
+    assert result[0] == "success"
+    assert _metric(result, "exist_agree") == [1.0, 0.6]
+    assert _metric(result, "dir_agree") == [1.0]
+
+
+def test_evaluate_graph_describes_with_terminal_logger(capsys: Any) -> None:
+    """Description mode reports the number of collected values."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    logger = MagicMock()
+    logger.is_terminal_logging = True
+    entry = {
+        "matrix_values": {"network": "asia"},
         "metadata": {},
         "entry": MagicMock(),
     }
 
-    with pytest.raises(Exception) as exc_info:
-        provider.run(
-            action="evaluate_graph",
-            parameters={
-                "_aggregation_entries": [update_entry],
-                "output": "metrics.db",
-                "metric": ["f1"],
-            },
-            mode="run",
-            context=None,
-            logger=mock_logger,
+    with patch(
+        "causaliq_analysis.workflow_action.actions.evaluate_graph.execution"
+        "._entry_graph",
+        return_value=(MagicMock(), "pdg"),
+    ):
+        with patch(
+            "causaliq_analysis.workflow_action.actions.evaluate_graph"
+            ".description.pdg_edge_agreement",
+            return_value={"exist_agree": [1.0], "dir_agree": [0.9]},
+        ):
+            result = provider.run(
+                action="evaluate_graph",
+                parameters={
+                    "_aggregation_entries": [entry],
+                    "output": "metrics.db",
+                },
+                mode="run",
+                context=None,
+                logger=logger,
+            )
+
+    assert result[0] == "success"
+    assert "Described exist_agree: 1 values" in capsys.readouterr().out
+
+
+def test_evaluate_request_requires_metric_with_reference() -> None:
+    """The request builder rejects a reference without a metric."""
+    from causaliq_analysis.workflow_action.actions.evaluate_graph import (
+        request as evaluate_request,
+    )
+    from causaliq_analysis.workflow_action.types import ActionExecutionError
+
+    with pytest.raises(ActionExecutionError, match="requires 'metric'"):
+        evaluate_request._evaluate_request(
+            {
+                "_aggregation_entries": [{"matrix_values": {}}],
+                "reference": "ref.graphml",
+            }
         )
-    assert "reference" in str(exc_info.value)
+
+
+def test_evaluate_graph_dry_run_describes(capsys: Any) -> None:
+    """A dry run without a reference previews description mode."""
+    from causaliq_analysis.workflow_action.actions.evaluate_graph import (
+        request as evaluate_request,
+    )
+
+    logger = MagicMock()
+    logger.is_terminal_logging = True
+    request = evaluate_request._evaluate_request(
+        {"_aggregation_entries": [{"matrix_values": {"network": "asia"}}]}
+    )
+    block = evaluate_request._parameter_block({}, request, None)
+
+    result = evaluate_request._dry_run_result(request, block, logger)
+
+    assert result[0] == "skipped"
+    assert "Would describe graph" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("forward, expected", [(0.8, 1), (0.2, 0)])
+def test_evaluate_graph_thresholds_before_comparison(
+    forward: float,
+    expected: int,
+) -> None:
+    """A threshold reduces the graph before the counts are computed."""
+    from causaliq_core.graph import PDG, EdgeProbabilities
+
+    from causaliq_analysis.workflow_action.actions.evaluate_graph import (
+        comparison as evaluate_comparison,
+    )
+
+    graph = PDG(
+        ["A", "B"],
+        {
+            ("A", "B"): EdgeProbabilities(
+                forward=forward,
+                backward=0.0,
+                undirected=0.0,
+                none=1.0 - forward,
+            )
+        },
+    )
+    reference = PDG(
+        ["A", "B"],
+        {("A", "B"): EdgeProbabilities(forward=1.0, none=0.0)},
+    )
+
+    metrics = evaluate_comparison._compute_metrics(
+        graph, reference, threshold=0.3
+    )
+
+    assert metrics["arc_matched"] == expected
+    assert metrics["arc_missing"] == 1 - expected
 
 
 # Test evaluate_graph requires metric parameter.

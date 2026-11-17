@@ -10,6 +10,7 @@ from causaliq_analysis.workflow_action.types import (
 
 from .comparison import _compute_metrics, _equiv_metrics
 from .constants import NO_GRAPH_ERROR
+from .description import _describe
 from .metric_values import _metric_values, _metrics_objects
 from .reference import _resolve_reference_graph
 from .request import _action_metadata
@@ -27,7 +28,7 @@ def _evaluate(
     parameters_block: Dict[str, Any],
     logger: Optional[Any],
 ) -> ActionResult:
-    """Evaluate the entry graph against the reference graph.
+    """Evaluate or describe the entry graph.
 
     Args:
         request: Evaluation request.
@@ -51,10 +52,12 @@ def _evaluate(
             [],
         )
     graph, graph_type = _entry_graph(request)
+    if request["reference"] is None:
+        return _describe(request, parameters_block, logger, graph)
     reference = _resolve_reference_graph(
         request["reference"], request["entry"]
     )
-    metrics = _compute_metrics(graph, reference)
+    metrics = _compute_metrics(graph, reference, request["threshold"])
     equiv_metrics = _equiv_metrics(
         graph, reference, request["metrics"], logger
     )

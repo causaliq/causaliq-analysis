@@ -7,6 +7,8 @@ from causaliq_analysis.workflow_action.types import (
     ActionResult,
 )
 
+from .constants import DESCRIPTION_METRICS
+
 __all__ = [
     "_action_metadata",
     "_dry_run_result",
@@ -34,11 +36,15 @@ def _requested_metrics(parameters: Dict[str, Any]) -> Optional[List[str]]:
 def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Build the evaluation request from action parameters.
 
+    A missing reference selects description mode: the matched graph is
+    described rather than compared. Comparison mode requires a metric.
+
     Args:
         parameters: Action parameter values.
 
     Returns:
-        Request holding the matched entry, reference path and metrics.
+        Request holding the matched entry, reference path, metrics and
+        thresholds.
 
     Raises:
         ActionExecutionError: If a required parameter is missing or more
@@ -64,18 +70,22 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     reference_path = parameters.get("reference")
-    if not reference_path:  # pragma: no cover
-        raise ActionExecutionError(
-            "evaluate_graph requires 'reference' parameter"
-        )
-
     metrics = _requested_metrics(parameters)
-    # Type assertion: metric is required, so this is always a list
-    assert metrics is not None, "metric is required"
+    if reference_path and metrics is None:
+        raise ActionExecutionError(
+            "evaluate_graph requires 'metric' parameter when a "
+            "'reference' is given"
+        )
+    if not reference_path and metrics is None:
+        metrics = list(DESCRIPTION_METRICS)
+    assert metrics is not None
     return {
         "entry": entries[0],
         "reference": reference_path,
         "metrics": metrics,
+        "threshold": parameters.get("threshold"),
+        "present_threshold": parameters.get("present_threshold", 0.0),
+        "direction_threshold": parameters.get("direction_threshold", 0.0),
     }
 
 
@@ -103,6 +113,9 @@ def _parameter_block(
         "input": parameters.get("input"),
         "reference": request["reference"],
         "metric": request["metrics"],
+        "threshold": request["threshold"],
+        "present_threshold": request["present_threshold"],
+        "direction_threshold": request["direction_threshold"],
         "output": _resolved_output(parameters, context),
         "filter": parameters.get("filter"),
     }
@@ -173,8 +186,11 @@ def _dry_run_result(
     """
     matrix_values = request["entry"].get("matrix_values", {})
     if logger and logger.is_terminal_logging:
-        print(
-            f"Would evaluate graph {matrix_values} "
-            f"vs reference: {request['reference']}"
-        )
+        if request["reference"]:
+            print(
+                f"Would evaluate graph {matrix_values} "
+                f"vs reference: {request['reference']}"
+            )
+        else:
+            print(f"Would describe graph {matrix_values}")
     return ("skipped", _action_metadata(parameters_block, "skipped"), [])

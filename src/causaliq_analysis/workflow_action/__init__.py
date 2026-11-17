@@ -246,25 +246,26 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "metric": ActionInput(
             name="metric",
             description=(
-                "For evaluate_graph: List of metrics to include in output "
-                "(e.g., ['f1', 'shd', 'precision', 'recall', 'edge', "
-                "'node_count', 'equiv.f1', 'equiv.shd', 'equiv.edge']). "
-                "Required. "
-                "The 'edge' and 'equiv.edge' values expand to the "
-                "low-level edge counts returned by pdag_compare or "
-                "pdg_compare (fractional for PDG inputs). "
-                "'node_count' is the number of nodes in the evaluated "
-                "graph; a comparison requires identical node sets, so it "
-                "is also the reference's node count. "
+                "For evaluate_graph: List of metrics to include in output. "
+                "With a reference: ['f1', 'shd', 'precision', 'recall', "
+                "'edge', 'node_count', 'equiv.f1', 'equiv.shd', "
+                "'equiv.edge']; the 'edge' and 'equiv.edge' values expand "
+                "to the low-level edge counts returned by pdag_compare or "
+                "pdg_compare (fractional for PDG inputs, integer when a "
+                "threshold is applied). Without a reference the graph is "
+                "described instead: ['exist_agree', 'dir_agree'] report "
+                "per-pair existence and direction agreement lists. "
                 "For summarise: List of metric specs as <field>.<stat> "
                 "(e.g., ['f1.mean', 'shd.sd']), <field>.argmax.<dimension>, "
                 "'<field>[<source>]' to take the field from one input cache "
                 "(e.g. 'f1.mean[2]'), a bare '<field>[<source>]' for a "
-                "single value, or a derived-column formula over the aliases "
-                "of earlier columns (e.g. 'fusion - max(bnsl, llm)'); any "
-                "spec may declare an alias with 'as <name>'. Supported "
-                "statistics are mean, sd, count, min, max, median and "
-                "unique."
+                "single value, a binned stat '<field>.bin(lo, hi)' or "
+                "'<field>.pct(lo, hi)', or a derived-column formula over "
+                "the aliases of earlier columns (e.g. "
+                "'fusion - max(bnsl, llm)'); any spec may declare an alias "
+                "with 'as <name>', and a spec may be a bare alias to copy "
+                "that column. Supported statistics are mean, sd, count, "
+                "min, max, median, unique, bin and pct."
             ),
             required=False,
             type_hint="list[str] | str",
@@ -322,12 +323,38 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="str",
         ),
-        # best_graph inputs - uses 'input' for cache containing merged_pdg
+        # best_graph and evaluate_graph inputs
         "threshold": ActionInput(
             name="threshold",
             description=(
-                "Minimum edge probability threshold for inclusion "
-                "(default: 0.0)"
+                "Minimum edge probability threshold. For best_graph: the "
+                "minimum p_exist for an edge to enter the optimal DAG "
+                "(default: 0.0). For evaluate_graph: threshold both graphs "
+                "to deterministic edge states before comparison, so the "
+                "edge counts are integer counts (default: compare the "
+                "probability vectors directly)."
+            ),
+            required=False,
+            default=0.0,
+            type_hint="float",
+        ),
+        "present_threshold": ActionInput(
+            name="present_threshold",
+            description=(
+                "evaluate_graph description mode: minimum p_exist for a "
+                "node pair to contribute an existence-agreement value "
+                "(default: 0.0)."
+            ),
+            required=False,
+            default=0.0,
+            type_hint="float",
+        ),
+        "direction_threshold": ActionInput(
+            name="direction_threshold",
+            description=(
+                "evaluate_graph description mode: minimum p_exist for a "
+                "node pair to contribute a direction-agreement value "
+                "(default: 0.0)."
             ),
             required=False,
             default=0.0,
@@ -415,6 +442,14 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "Low-level edge counts from CPDAG comparison, prefixed with "
             "'equiv.'"
         ),
+        "exist_agree": (
+            "evaluate_graph description mode: per-pair existence "
+            "agreement values (list)"
+        ),
+        "dir_agree": (
+            "evaluate_graph description mode: per-pair direction "
+            "agreement values (list)"
+        ),
         # summarise outputs
         "source_count": "Number of input entries summarised",
         "csv_output": "CSV file with summary statistics",
@@ -455,6 +490,9 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "filter",
             "metric",
             "reference",
+            "threshold",
+            "present_threshold",
+            "direction_threshold",
             "output",
             "_aggregation_entries",  # Internal workflow parameter
         },

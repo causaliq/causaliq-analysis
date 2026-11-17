@@ -48,8 +48,10 @@ __all__ = [
 
 # Statistics available to the summarise action, in addition to the shared
 # statistics understood by the CLI. 'unique' reports the single distinct
-# value of a field and rejects a field holding conflicting values.
-ACTION_STATS: FrozenSet[str] = SUPPORTED_STATS | {"unique"}
+# value of a field and rejects a field holding conflicting values. 'bin'
+# and 'pct' count the values inside a half-open range and report the
+# percentage of values inside it.
+ACTION_STATS: FrozenSet[str] = SUPPORTED_STATS | {"unique", "bin", "pct"}
 
 _SOURCE_PATTERN = re.compile(r"^(?P<body>.+?)\[(?P<index>\d+)\]$")
 
@@ -58,6 +60,12 @@ _ALIAS_PATTERN = re.compile(r"^(?P<body>.+?)\s+as\s+(?P<alias>[A-Za-z_]\w*)$")
 _ELEMENT_PATTERN = re.compile(r"^(?P<body>.+?)\{(?P<index>\d+)\}$")
 
 _WHERE_PATTERN = re.compile(r"^(?P<body>.+?)\s+where\s+(?P<where>.+)$")
+
+# A binned statistic names a half-open range: <field>.<stat>(lo, hi)
+_BIN_PATTERN = re.compile(
+    r"^(?P<body>.+?)\.(?P<stat>bin|pct)"
+    r"\(\s*(?P<low>[^,]+?)\s*,\s*(?P<high>[^)]+?)\s*\)$"
+)
 
 # Characters that mark a specification as a derived-column expression
 _FORMULA_CHARS = ("+", "-", "*", "/", "(")
@@ -81,6 +89,8 @@ class ColumnSpec:
         formula: Derived-column expression, or None for a base column.
         alias: Short name the column declares for use in later formulas
             and as its default label, or None.
+        bounds: Half-open range ``(low, high)`` of a ``bin`` or ``pct``
+            column, or None.
 
     """
 
@@ -93,6 +103,7 @@ class ColumnSpec:
     where: Optional[str] = None
     formula: Optional[str] = None
     alias: Optional[str] = None
+    bounds: Optional[Tuple[float, float]] = None
 
     @property
     def is_derived(self) -> bool:
@@ -130,7 +141,7 @@ def _parse_column_specs(specs: Sequence[str]) -> List[ColumnSpec]:
     aliases: Set[str] = set()
     keys: Set[str] = set()
     for spec in specs:
-        column = _parse_column_spec(spec)
+        column = _alias_reference(spec, aliases) or _parse_column_spec(spec)
         _require_unique_key(column, keys)
         if column.is_derived:
             _validate_formula(column.formula or "", aliases)
@@ -165,6 +176,31 @@ def _require_unique_key(column: ColumnSpec, keys: Set[str]) -> None:
         )
 
 
+def _alias_reference(
+    spec: str,
+    aliases: Set[str],
+) -> Optional[ColumnSpec]:
+    """Return a column copying an earlier column when the spec is its alias.
+
+    A specification that is a bare alias copies that column's value. It is
+    useful when a matrix dimension selects which computed column becomes
+    the output, for example ``{{panel}} as y``.
+
+    Args:
+        spec: Metric specification to parse.
+        aliases: Aliases declared by the preceding columns.
+
+    Returns:
+        A derived column copying the alias, or None when the spec is not a
+        bare alias reference.
+
+    """
+    body, alias = _split_alias(spec)
+    if body.strip() not in aliases:
+        return None
+    return ColumnSpec(text=body.strip(), formula=body.strip(), alias=alias)
+
+
 def _parse_column_spec(spec: str) -> ColumnSpec:
     """Parse one metric specification or derived-column expression.
 
@@ -180,14 +216,80 @@ def _parse_column_spec(spec: str) -> ColumnSpec:
     """
     body, alias = _split_alias(spec)
     body, where = _split_where(body, spec)
+    binned = _parse_binned(body)
+    if binned is not None:
+        return _binned_column(body, alias, where, binned)
+    _reject_inline_binned(body, spec)
     if _is_formula(body):
-        if where is not None:
-            raise ValueError(
-                f"Invalid metric spec '{spec}': 'where' is only valid on "
-                "a base column, not a formula"
-            )
-        _validate_formula(body)
-        return ColumnSpec(text=body, formula=body, alias=alias)
+        return _formula_column(body, alias, where, spec)
+    return _base_column(body, alias, where)
+
+
+def _reject_inline_binned(body: str, spec: str) -> None:
+    """Reject a binned statistic embedded inside a larger expression.
+
+    Args:
+        body: Specification without its alias or predicate.
+        spec: Full specification, used in the error message.
+
+    Raises:
+        ValueError: If the body contains a binned statistic.
+
+    """
+    if ".bin(" in body or ".pct(" in body:
+        raise ValueError(
+            f"Invalid metric spec '{spec}': a binned statistic must be "
+            "its own column; declare it with an alias and use the alias "
+            "in the formula"
+        )
+
+
+def _formula_column(
+    body: str,
+    alias: Optional[str],
+    where: Optional[str],
+    spec: str,
+) -> ColumnSpec:
+    """Build the column specification for a derived-column formula.
+
+    Args:
+        body: Specification without its alias or predicate.
+        alias: Declared alias, if any.
+        where: Entry predicate, if any.
+        spec: Full specification, used in the error message.
+
+    Returns:
+        Parsed formula column specification.
+
+    Raises:
+        ValueError: If the formula carries a predicate or is invalid.
+
+    """
+    if where is not None:
+        raise ValueError(
+            f"Invalid metric spec '{spec}': 'where' is only valid on "
+            "a base column, not a formula"
+        )
+    _validate_formula(body)
+    return ColumnSpec(text=body, formula=body, alias=alias)
+
+
+def _base_column(
+    body: str,
+    alias: Optional[str],
+    where: Optional[str],
+) -> ColumnSpec:
+    """Build the column specification for a base statistic.
+
+    Args:
+        body: Specification without its alias or predicate.
+        alias: Declared alias, if any.
+        where: Entry predicate, if any.
+
+    Returns:
+        Parsed base column specification.
+
+    """
     plain, source = _split_source(body)
     plain, element = _split_element(plain, body)
     field, stat, dimension = _split_stat(plain, body, source is not None)
@@ -201,6 +303,94 @@ def _parse_column_spec(spec: str) -> ColumnSpec:
         stat=stat,
         dimension=dimension,
         element=element,
+        where=where,
+        alias=alias,
+    )
+
+
+def _parse_binned(
+    body: str,
+) -> Optional[Tuple[str, str, Tuple[float, float]]]:
+    """Parse a ``<field>.<stat>(lo, hi)`` specification.
+
+    Args:
+        body: Specification without its alias or predicate.
+
+    Returns:
+        Tuple of (field, statistic, bounds), or None when the body is not
+        a binned specification.
+
+    Raises:
+        ValueError: If a bound is not a number, or the range is reversed.
+
+    """
+    match = _BIN_PATTERN.match(body)
+    if match is None:
+        return None
+    low = _bound_value(match.group("low"), body)
+    high = _bound_value(match.group("high"), body)
+    if low > high:
+        raise ValueError(
+            f"Invalid metric spec '{body}': the bin lower bound is above "
+            "its upper bound"
+        )
+    return match.group("body").strip(), match.group("stat"), (low, high)
+
+
+def _bound_value(text: str, spec: str) -> float:
+    """Return a bin bound as a float, accepting infinities.
+
+    Args:
+        text: Bound text.
+        spec: Full specification, used in error messages.
+
+    Returns:
+        The bound as a float.
+
+    Raises:
+        ValueError: If the text is not a number or infinity.
+
+    """
+    cleaned = text.strip().lower()
+    if cleaned in {"inf", "+inf", "infinity", "+infinity"}:
+        return float("inf")
+    if cleaned in {"-inf", "-infinity"}:
+        return float("-inf")
+    try:
+        return float(cleaned)
+    except ValueError:
+        raise ValueError(
+            f"Invalid metric spec '{spec}': '{text.strip()}' is not a "
+            "number"
+        )
+
+
+def _binned_column(
+    body: str,
+    alias: Optional[str],
+    where: Optional[str],
+    binned: Tuple[str, str, Tuple[float, float]],
+) -> ColumnSpec:
+    """Build the column specification for a binned statistic.
+
+    Args:
+        body: Specification without its alias or predicate.
+        alias: Declared alias, if any.
+        where: Entry predicate, if any.
+        binned: Field, statistic and bounds parsed from the body.
+
+    Returns:
+        Parsed binned column specification.
+
+    """
+    if where is not None:
+        validate_filter_expression(where)
+    field, stat, bounds = binned
+    return ColumnSpec(
+        text=body,
+        field=field,
+        stat=stat,
+        bounds=bounds,
         where=where,
         alias=alias,
     )

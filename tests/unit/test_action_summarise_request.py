@@ -19,18 +19,23 @@ def test_require_tabular_output_accepts(output: str) -> None:
     _require_tabular_output({"output": output})
 
 
-# Test a non-table output extension is rejected.
-def test_require_tabular_output_rejects_db() -> None:
-    """A cache path is not a table output."""
-    with pytest.raises(ValueError, match="must be a .csv, .tex or .md"):
-        _require_tabular_output({"output": "summary.db"})
+# Test a metrics-cache output is accepted.
+def test_require_tabular_output_accepts_cache() -> None:
+    """A .db path selects metrics-cache output."""
+    _require_tabular_output({"output": "summary.db"})
 
 
-# Test a missing output path is rejected.
-def test_require_tabular_output_requires_output() -> None:
-    """The output parameter is required."""
-    with pytest.raises(ValueError, match="requires 'output'"):
-        _require_tabular_output({})
+# Test a cache output rejects table presentation options.
+def test_require_tabular_output_rejects_cache_options() -> None:
+    """A cache output cannot carry table headers."""
+    with pytest.raises(ValueError, match="does not support"):
+        _require_tabular_output({"output": "summary.db", "headers": ["F1"]})
+
+
+# Test a missing output path is allowed for cache output at execution.
+def test_require_tabular_output_allows_missing_path() -> None:
+    """The executor removes the output path for a cache write."""
+    _require_tabular_output({})
 
 
 # Test a valid column parameter set passes validation.

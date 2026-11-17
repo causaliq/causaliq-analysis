@@ -137,6 +137,23 @@ def test_set_axes_props_tick_rotation():
     assert rotation == 45.0
 
 
+# Rotating categorical tick labels preserves their text.
+def test_tick_rotation_preserves_categorical_labels():
+    """Rotating labels does not blank a categorical axis."""
+    fig, axes = plt.subplots()
+    axes.bar(["a", "b", "c"], [1, 2, 3])
+    _set_axes_props(
+        axes,
+        {
+            "xaxis.ticks_rotation": 30,
+            "xaxis.ticks_halign": "right",
+        },
+        "a",
+    )
+    labels = [label.get_text() for label in axes.get_xticklabels()]
+    assert labels == ["a", "b", "c"]
+
+
 # Set axes props inverts bars with a negative range.
 def test_set_axes_props_yaxis_invert():
     """Test _set_axes_props inverts bars using the yaxis range."""

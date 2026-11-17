@@ -104,6 +104,8 @@ def plot_scatter(
         g = _build_scatter(data, palette, facet_kws, col_wrap)
         _apply_figure_title(g, props)
         _apply_subplot_adjust(g, props)
+        if props.get("scatter.connect"):
+            _connect_scatter(g, data)
         _set_subplot_axes(g, props)
         _apply_scatter_legend(g, props)
         _save_figure(g, props, plot_file, default_dpi=600)
@@ -332,6 +334,8 @@ def _build_bar(
         aspect=style.aspect,
         sharex=sharex,
         sharey=sharey,
+        palette=style.palette,
+        facet_kws=style.facet_kws,
     )
 
 
@@ -341,7 +345,7 @@ def _build_scatter(
     facet_kws: Dict[str, Any],
     col_wrap: Optional[int],
 ) -> Any:
-    """Build a scatter lmplot grid."""
+    """Build a scatter lmplot grid without a fitted regression line."""
     return sns.lmplot(
         data=data,
         x="x_val",
@@ -351,7 +355,43 @@ def _build_scatter(
         facet_kws=facet_kws,
         col_wrap=col_wrap,
         palette=palette,
+        fit_reg=False,
     )
+
+
+def _connect_scatter(g: Any, data: DataFrame) -> None:
+    """Connect the two hue groups at each x value on every subplot.
+
+    Args:
+        g: Seaborn figure grid holding the scatter subplots.
+        data: Long-form data with subplot, x_val and y_val columns.
+
+    """
+    for axes in g.axes.flat:
+        subplot = _subplot_name(axes)
+        subset = data[data["subplot"] == subplot]
+        _connect_axes(axes, subset)
+
+
+def _connect_axes(axes: Any, subset: DataFrame) -> None:
+    """Draw one vertical connector per x value with exactly two values.
+
+    Args:
+        axes: Matplotlib axes of one subplot.
+        subset: Long-form data belonging to that subplot.
+
+    """
+    for x_val, rows in subset.groupby("x_val"):
+        values = [value for value in rows["y_val"] if value == value]
+        if len(values) != 2:
+            continue
+        axes.plot(
+            [x_val, x_val],
+            values,
+            color="#888888",
+            linewidth=0.8,
+            zorder=1,
+        )
 
 
 def _apply_figure_title(g: Any, props: Dict[str, Any]) -> None:
@@ -415,19 +455,42 @@ def _annotate_axes(
 
 
 def _apply_legend(g: Any, props: Dict[str, Any]) -> None:
-    """Apply legend title, labels and manual key to the grid legend."""
+    """Apply legend location, title and labels to the grid legend."""
     legend = g._legend
     if legend is None and "legend.key" in props:
         legend = _build_manual_legend(props)
+    _relocate_legend(legend, props)
     _set_legend_title(legend, props)
     _set_legend_labels(legend, props)
 
 
 def _apply_scatter_legend(g: Any, props: Dict[str, Any]) -> None:
-    """Apply the scatter legend title and labels."""
+    """Apply the scatter legend location, title and labels."""
     legend = g._legend
+    _relocate_legend(legend, props)
     _set_legend_title(legend, props, size=18)
     _set_legend_labels(legend, props)
+
+
+def _relocate_legend(legend: Any, props: Dict[str, Any]) -> None:
+    """Move an existing legend to the configured location.
+
+    The legend object is kept so its title and labels survive the move;
+    rebuilding it with ``add_legend`` would leave the original drawn as
+    well.
+
+    Args:
+        legend: Legend to move, or None.
+        props: Chart properties holding an optional ``legend.loc``.
+
+    """
+    if legend is None or "legend.loc" not in props:
+        return
+    loc = props["legend.loc"]
+    if hasattr(legend, "set_loc"):
+        legend.set_loc(loc)
+    else:  # pragma: no cover - older matplotlib
+        legend._set_loc(loc)
 
 
 def _build_manual_legend(props: Dict[str, Any]) -> Any:
