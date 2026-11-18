@@ -275,3 +275,41 @@ def test_entry_metrics_ignores_non_dict_payload() -> None:
     entry.add_object("metrics", "json", "[1, 2]")
 
     assert _entry_metrics(entry) is None
+
+
+# The long-form builder carries the connector key when requested.
+def test_build_long_form_with_key():
+    """Test _build_long_form adds the row key column."""
+    from causaliq_analysis.plot.run import _build_long_form
+
+    frame = DataFrame(
+        {
+            "network": ["asia", "asia"],
+            "subplot": ["a", "a"],
+            "group": ["s1", "s2"],
+            "x": [8, 8],
+            "y": [0.5, 0.6],
+        }
+    )
+    data = _build_long_form(frame, "subplot", "group", "x", "y", "network")
+    assert list(data["row_key"]) == ["asia", "asia"]
+
+
+# Run plot reports a missing connector key column.
+def test_run_plot_missing_connect_key(tmp_path):
+    """Test run_plot validates the scatter connect key column."""
+    csv_path = tmp_path / "data.csv"
+    DataFrame({"subplot": ["a"], "group": ["g"], "x": [1], "y": [0.5]}).to_csv(
+        csv_path, index=False
+    )
+    with pytest.raises(ValueError, match="missing required column"):
+        run_plot(
+            input_path=str(csv_path),
+            output=str(tmp_path / "out.png"),
+            kind="scatter",
+            subplot="subplot",
+            group="group",
+            x="x",
+            y="y",
+            properties=["scatter.connect_key=network"],
+        )

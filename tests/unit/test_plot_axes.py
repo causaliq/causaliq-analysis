@@ -201,3 +201,45 @@ def test_plot_violin_means(capsys):
     captured = capsys.readouterr()
     assert "Data for 0 is {'mean': 0.5}" in captured.out
     assert len(axes.texts) == 2
+
+
+# Set axes props draws the panel tag in the corner.
+def test_set_axes_props_tag():
+    """Test _set_axes_props draws a bold panel tag."""
+    fig, axes = plt.subplots()
+    _set_axes_props(axes, {"subplot.tag": {"a": "A"}}, "a")
+    assert axes.texts[0].get_text() == "A"
+    assert axes.texts[0].get_fontweight() == "bold"
+    plt.close(fig)
+
+
+# A tag defined for another subplot is not drawn.
+def test_set_axes_props_tag_other_subplot():
+    """Test _set_axes_props skips a tag for a different subplot."""
+    fig, axes = plt.subplots()
+    _set_axes_props(axes, {"subplot.tag": {"b": "B"}}, "a")
+    assert len(axes.texts) == 0
+    plt.close(fig)
+
+
+# Set axes props applies the subplot title font weight.
+def test_set_axes_props_title_weight():
+    """Test _set_axes_props sets the subplot title weight."""
+    fig, axes = plt.subplots()
+    _set_axes_props(
+        axes,
+        {"subplot.title": "Panel A", "subplot.title_fontweight": "bold"},
+        "a",
+    )
+    assert axes.title.get_fontweight() == "bold"
+    plt.close(fig)
+
+
+# Set axes props applies the bar opacity.
+def test_set_axes_props_bar_alpha():
+    """Test _set_axes_props sets the bar patches' alpha."""
+    fig, axes = plt.subplots()
+    axes.bar([1, 2], [0.5, 0.8])
+    _set_axes_props(axes, {"bar.alpha": 0.85}, "a")
+    assert axes.patches[0].get_alpha() == 0.85
+    plt.close(fig)

@@ -6,17 +6,17 @@ module-level helpers.
 """
 
 import re
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.patches import Patch
 from pandas import DataFrame
 
+from causaliq_analysis.plot import legend as legend_helpers
+from causaliq_analysis.plot import style as style_helpers
 from causaliq_analysis.plot.axes import (
     CONTEXT_PROPS,
     FACET_PROPS,
-    SUBPLOT_ADJUST,
     VIOLIN_PROPS,
     SubplotInfo,
     _plot_violin_means,
@@ -31,6 +31,10 @@ SUPPORTED_KINDS = frozenset(
 
 # Pattern matching the per-subplot titles assigned by seaborn.
 _SUBPLOT_TITLE = re.compile(r"^subplot\s\=\s(.+)$")
+
+# Default style of the scatter connectors.
+CONNECT_COLOUR = "#888888"
+CONNECT_WIDTH = 0.8
 
 __all__ = [
     "SUPPORTED_KINDS",
@@ -77,11 +81,13 @@ def relplot(
 
     with plt.rc_context(rc=style.rc_params):
         g = _build_figure(kind, data, props, style)
-        _apply_figure_title(g, props)
-        _apply_subplot_adjust(g, props)
-        _apply_axes_with_annotations(g, props, kind, info)
-        _apply_legend(g, props)
-        _save_figure(g, props, plot_file, default_dpi=80)
+        subplots = _subplot_axes(g)
+        style_helpers.apply_figure_size(g, props)
+        style_helpers.apply_figure_title(g, props)
+        style_helpers.apply_layout_or_adjust(g, props)
+        _apply_axes_with_annotations(subplots, props, kind, info)
+        legend_helpers.apply_legend(g, subplots, props)
+        style_helpers.save_figure(g, props, plot_file, default_dpi=80)
 
 
 def plot_scatter(
@@ -101,14 +107,16 @@ def plot_scatter(
     rc_params = _rc_params(props)
 
     with plt.rc_context(rc=rc_params):
-        g = _build_scatter(data, palette, facet_kws, col_wrap)
-        _apply_figure_title(g, props)
-        _apply_subplot_adjust(g, props)
+        g = _build_scatter(data, props, palette, facet_kws, col_wrap)
+        subplots = _subplot_axes(g)
+        style_helpers.apply_figure_size(g, props)
+        style_helpers.apply_figure_title(g, props)
+        style_helpers.apply_layout_or_adjust(g, props)
         if props.get("scatter.connect"):
-            _connect_scatter(g, data)
-        _set_subplot_axes(g, props)
-        _apply_scatter_legend(g, props)
-        _save_figure(g, props, plot_file, default_dpi=600)
+            _connect_scatter(g, data, props, subplots)
+        _set_subplot_axes(subplots, props)
+        legend_helpers.apply_scatter_legend(g, subplots, props)
+        style_helpers.save_figure(g, props, plot_file, default_dpi=600)
 
 
 def plot_degree_distribution(dist: DataFrame, plot_file: str) -> None:
@@ -206,7 +214,11 @@ def _col_wrap(props: Dict[str, Any]) -> Optional[int]:
 
 def _rc_params(props: Dict[str, Any]) -> Dict[str, Any]:
     """Return the rcParams derived from the chart properties."""
-    return {p: props[k] for k, p in CONTEXT_PROPS.items() if k in props}
+    params = style_helpers.theme_rc_params(props)
+    params.update(
+        {p: props[k] for k, p in CONTEXT_PROPS.items() if k in props}
+    )
+    return params
 
 
 def _build_figure(
@@ -321,8 +333,6 @@ def _build_bar(
     props: Dict[str, Any], data: DataFrame, style: _FigureStyle
 ) -> Any:
     """Build a bar catplot grid."""
-    sharex = props["xaxis.shared"] if "xaxis.shared" in props else True
-    sharey = props["yaxis.shared"] if "yaxis.shared" in props else True
     return sns.catplot(
         x="x_val",
         y="y_val",
@@ -332,15 +342,14 @@ def _build_bar(
         hue="y_var",
         kind="bar",
         aspect=style.aspect,
-        sharex=sharex,
-        sharey=sharey,
         palette=style.palette,
-        facet_kws=style.facet_kws,
+        **style_helpers.catplot_kwargs(props, style.facet_kws),
     )
 
 
 def _build_scatter(
     data: DataFrame,
+    props: Dict[str, Any],
     palette: Optional[List[Any]],
     facet_kws: Dict[str, Any],
     col_wrap: Optional[int],
@@ -355,81 +364,93 @@ def _build_scatter(
         facet_kws=facet_kws,
         col_wrap=col_wrap,
         palette=palette,
+        markers=style_helpers.scatter_markers(props),
+        scatter_kws=style_helpers.scatter_kws(props),
         fit_reg=False,
     )
 
 
-def _connect_scatter(g: Any, data: DataFrame) -> None:
+def _connect_scatter(
+    g: Any,
+    data: DataFrame,
+    props: Optional[Dict[str, Any]] = None,
+    subplots: Optional[List[Tuple[Any, str]]] = None,
+) -> None:
     """Connect the two hue groups at each x value on every subplot.
 
     Args:
         g: Seaborn figure grid holding the scatter subplots.
         data: Long-form data with subplot, x_val and y_val columns.
-
+        props: chart properties holding the connector style.
+        subplots: pairs of axes and subplot name; read from the titles
+            when not supplied.
     """
-    for axes in g.axes.flat:
-        subplot = _subplot_name(axes)
+    props = props or {}
+    targets = subplots if subplots is not None else _subplot_axes(g)
+    for axes, subplot in targets:
         subset = data[data["subplot"] == subplot]
-        _connect_axes(axes, subset)
+        _connect_axes(axes, subset, props)
 
 
-def _connect_axes(axes: Any, subset: DataFrame) -> None:
-    """Draw one vertical connector per x value with exactly two values.
+def _connect_axes(
+    axes: Any, subset: DataFrame, props: Optional[Dict[str, Any]] = None
+) -> None:
+    """Draw one vertical connector per paired group of values.
 
     Args:
         axes: Matplotlib axes of one subplot.
         subset: Long-form data belonging to that subplot.
-
+        props: chart properties holding the connector style.
     """
-    for x_val, rows in subset.groupby("x_val"):
-        values = [value for value in rows["y_val"] if value == value]
-        if len(values) != 2:
-            continue
+    props = props or {}
+    colour = props.get("scatter.connect_colour", CONNECT_COLOUR)
+    width = props.get("scatter.connect_linewidth", CONNECT_WIDTH)
+    for x_val, values in _connector_pairs(subset):
         axes.plot(
             [x_val, x_val],
             values,
-            color="#888888",
-            linewidth=0.8,
+            color=colour,
+            linewidth=width,
             zorder=1,
         )
 
 
-def _apply_figure_title(g: Any, props: Dict[str, Any]) -> None:
-    """Set the figure super-title when requested."""
-    if "figure.title" not in props:
-        return
-    size = (
-        props["figure.title_fontsize"]
-        if "figure.title_fontsize" in props
-        else 30
-    )
-    g.fig.suptitle(props["figure.title"], size=size)
+def _connector_pairs(subset: DataFrame) -> Iterator[Tuple[Any, List[Any]]]:
+    """Yield the x value and two y values of each paired group.
 
-
-def _apply_subplot_adjust(g: Any, props: Dict[str, Any]) -> None:
-    """Adjust the figure subplot layout when requested."""
-    adjust = {p: props[k] for k, p in SUBPLOT_ADJUST.items() if k in props}
-    if len(adjust):
-        g.fig.subplots_adjust(**adjust)
+    Rows are grouped by the scatter.connect_key column when it is
+    present, so repeated x values stay paired by their source row.
+    """
+    key = "row_key" if "row_key" in subset.columns else "x_val"
+    for _, rows in subset.groupby(key, sort=False):
+        values = [value for value in rows["y_val"] if value == value]
+        if len(values) == 2:
+            yield rows["x_val"].iloc[0], values
 
 
 def _apply_axes_with_annotations(
-    g: Any,
+    subplots: List[Tuple[Any, str]],
     props: Dict[str, Any],
     kind: Optional[str],
     info: Optional[Dict[str, SubplotInfo]],
 ) -> None:
     """Apply axes properties and box/violin annotations to each subplot."""
-    for axes in g.axes.flat:
-        subplot = _subplot_name(axes)
+    for axes, subplot in subplots:
         _set_axes_props(axes, props, subplot)
         _annotate_axes(axes, props, kind, subplot, info)
 
 
-def _set_subplot_axes(g: Any, props: Dict[str, Any]) -> None:
+def _set_subplot_axes(
+    subplots: List[Tuple[Any, str]], props: Dict[str, Any]
+) -> None:
     """Apply axes properties to every subplot."""
-    for axes in g.axes.flat:
-        _set_axes_props(axes, props, _subplot_name(axes))
+    for axes, subplot in subplots:
+        _set_axes_props(axes, props, subplot)
+
+
+def _subplot_axes(g: Any) -> List[Tuple[Any, str]]:
+    """Return each axes with its subplot name, before retitling."""
+    return [(axes, _subplot_name(axes)) for axes in g.axes.flat]
 
 
 def _subplot_name(axes: Any) -> str:
@@ -452,83 +473,3 @@ def _annotate_axes(
         )
     elif kind == "violin" and info is not None:
         _plot_violin_means(axes, info[subplot], props)
-
-
-def _apply_legend(g: Any, props: Dict[str, Any]) -> None:
-    """Apply legend location, title and labels to the grid legend."""
-    legend = g._legend
-    if legend is None and "legend.key" in props:
-        legend = _build_manual_legend(props)
-    _relocate_legend(legend, props)
-    _set_legend_title(legend, props)
-    _set_legend_labels(legend, props)
-
-
-def _apply_scatter_legend(g: Any, props: Dict[str, Any]) -> None:
-    """Apply the scatter legend location, title and labels."""
-    legend = g._legend
-    _relocate_legend(legend, props)
-    _set_legend_title(legend, props, size=18)
-    _set_legend_labels(legend, props)
-
-
-def _relocate_legend(legend: Any, props: Dict[str, Any]) -> None:
-    """Move an existing legend to the configured location.
-
-    The legend object is kept so its title and labels survive the move;
-    rebuilding it with ``add_legend`` would leave the original drawn as
-    well.
-
-    Args:
-        legend: Legend to move, or None.
-        props: Chart properties holding an optional ``legend.loc``.
-
-    """
-    if legend is None or "legend.loc" not in props:
-        return
-    loc = props["legend.loc"]
-    if hasattr(legend, "set_loc"):
-        legend.set_loc(loc)
-    else:  # pragma: no cover - older matplotlib
-        legend._set_loc(loc)
-
-
-def _build_manual_legend(props: Dict[str, Any]) -> Any:
-    """Build a legend from the legend.key property."""
-    loc = props["legend.loc"] if "legend.loc" in props else None
-    ncol = props["legend.ncol"] if "legend.ncol" in props else 1
-    artists = [
-        Patch(fc=colour, ec="gray", label=key)
-        for key, colour in props["legend.key"].items()
-    ]
-    return plt.legend(handles=artists, handlelength=1, ncol=ncol, loc=loc)
-
-
-def _set_legend_title(
-    legend: Any, props: Dict[str, Any], size: Optional[int] = None
-) -> None:
-    """Set the legend title, optionally at a fixed font size."""
-    if legend is None or "legend.title" not in props:
-        return
-    if size is None:
-        legend.set_title(props["legend.title"])
-    else:
-        legend.set_title(props["legend.title"], {"size": size})
-
-
-def _set_legend_labels(legend: Any, props: Dict[str, Any]) -> None:
-    """Apply the legend.labels mapping to the legend entries."""
-    if legend is None or "legend.labels" not in props:
-        return
-    for label in legend.texts:
-        metric = label.get_text()
-        if metric in props["legend.labels"]:
-            label.set_text(props["legend.labels"][metric])
-
-
-def _save_figure(
-    g: Any, props: Dict[str, Any], plot_file: str, default_dpi: int
-) -> None:
-    """Save the figure to a file at the configured dpi."""
-    dpi = props["figure.dpi"] if "figure.dpi" in props else default_dpi
-    g.fig.savefig(plot_file, dpi=dpi)

@@ -1,7 +1,7 @@
 """Unit tests for the plot chart builders."""
 
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -231,3 +231,40 @@ def test_supported_kinds():
         "bar",
         "scatter",
     }
+
+
+# Plot scatter passes the markers and sizes to the lmplot grid.
+def test_plot_scatter_marker_props(tmp_path):
+    """Test plot_scatter forwards the marker properties to seaborn."""
+    grid = MagicMock()
+    grid.axes.flat = []
+    props = {
+        "scatter.markers": ["o", "D"],
+        "scatter.size": 80,
+        "scatter.alpha": 0.85,
+    }
+    with patch("seaborn.lmplot", return_value=grid) as mock_lmplot:
+        plot_scatter(_make_relplot_data(), props, str(tmp_path / "s.png"))
+
+    kwargs = mock_lmplot.call_args.kwargs
+    assert kwargs["markers"] == ["o", "D"]
+    assert kwargs["scatter_kws"] == {"s": 80, "alpha": 0.85}
+
+
+# Relplot applies the figure size, theme, tags and title weights.
+def test_relplot_style_props(tmp_path):
+    """Test relplot applies the figure style properties."""
+    out_path = tmp_path / "styled.png"
+    props = {
+        "subplot.kind": "bar",
+        "theme": "whitegrid",
+        "figure.size": (7, 3),
+        "subplot.tag": {"a": "A"},
+        "subplot.title_fontweight": "bold",
+    }
+    relplot(_make_box_data(), props, str(out_path))
+
+    fig = plt.gcf()
+    assert tuple(fig.get_size_inches()) == (7, 3)
+    assert fig.axes[0].texts[0].get_text() == "A"
+    assert fig.axes[0].title.get_fontweight() == "bold"

@@ -53,6 +53,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Operates on plain files without workflow caches or the matrix, running
     once per workflow
   - Tests verify the output image exactly replicates a reference image
+- **Plot styling for figure replication**: new `plot` properties replicate
+  figures drawn by matplotlib scripts
+  - `theme` applies a Seaborn axes style (e.g. `whitegrid`), while
+    `figure.size`, `figure.layout` (`tight` or `constrained`) and
+    `figure.bbox_inches` control the figure geometry and cropping
+  - `figure.title_fontweight` and `subplot.title_fontweight` set bold
+    titles, and `subplot.tag` / `subplot.tag_fontsize` draw panel labels
+    such as `A` and `B` in the axes corners
+  - `legend.subplots` (a list of subplot names, or `all`) draws the legend
+    inside the named panels, with `legend.framealpha` for its opacity and
+    an empty `legend.title` to suppress the title
+  - `scatter.markers`, `scatter.size` and `scatter.alpha` style the points,
+    while `scatter.connect_colour` and `scatter.connect_linewidth` style
+    the connectors; `scatter.connect_key` pairs the connectors by a row
+    column so rows sharing an x value stay separate
+  - `bar.alpha` sets the opacity of the bar patches
+  - New `causaliq_analysis.plot.style` and `causaliq_analysis.plot.legend`
+    modules keep the chart builders within the module size target
 - **NOCACHES Action Pattern**: new `ActionPattern.NOCACHES` value (in
   `causaliq-core`) for actions that read/write plain files without workflow
   caches or the matrix; `causaliq-workflow` runs such steps once and skips
@@ -147,6 +165,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Warning-free plotting**: cap `pyparsing<3.3` so matplotlib 3.9 no longer
   emits `PyparsingDeprecationWarning` during SVG export and mathtext
   (log-scale) rendering; chart output is unchanged.
+- **Bar chart facet keywords**: `sharex`, `sharey` and `legend_out` are now
+  passed to `seaborn.catplot` as explicit parameters instead of through
+  `facet_kws`, which raised `TypeError: got multiple values for keyword
+  argument` whenever a bar chart set `xaxis.shared`, `yaxis.shared` or
+  `legend.outside`.
+- **Empty legend titles**: an empty `legend.title` now clears the title
+  Seaborn derives from the hue column instead of leaving it in place.
 
 ### Security
 - Nothing yet

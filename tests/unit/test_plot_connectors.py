@@ -87,7 +87,8 @@ def test_build_bar_passes_palette_and_facets() -> None:
     assert grid == "grid"
     kwargs = mock_catplot.call_args.kwargs
     assert kwargs["palette"] == [(1.0, 0.0, 0.0)]
-    assert kwargs["facet_kws"] == {"legend_out": True}
+    assert kwargs["facet_kws"] == {}
+    assert kwargs["legend_out"] is True
 
 
 def test_plot_scatter_disables_regression_and_connects(
@@ -146,3 +147,48 @@ def test_plot_scatter_applies_legend_location(tmp_path: Any) -> None:
         )
 
     grid._legend.set_loc.assert_called_once_with("lower left")
+
+
+# Connectors are paired by row key when an x value repeats.
+def test_connect_axes_pairs_by_key() -> None:
+    """Two networks sharing an x value get two short connectors."""
+    import matplotlib.pyplot as plt
+
+    from causaliq_analysis.plot.charts import _connect_axes
+
+    frame = pd.DataFrame(
+        {
+            "x_val": [10, 10, 10, 10],
+            "y_val": [0.2, 0.25, 0.6, 0.7],
+            "row_key": ["a", "a", "b", "b"],
+        }
+    )
+    figure, axes = plt.subplots()
+    _connect_axes(axes, frame)
+
+    assert len(axes.lines) == 2
+    assert list(axes.lines[0].get_ydata()) == [0.2, 0.25]
+    plt.close(figure)
+
+
+# Connectors use the configured colour and width.
+def test_connect_axes_style() -> None:
+    """The connector style properties are applied to each line."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import to_hex
+
+    from causaliq_analysis.plot.charts import _connect_axes
+
+    figure, axes = plt.subplots()
+    _connect_axes(
+        axes,
+        _long_frame(),
+        {
+            "scatter.connect_colour": "#123456",
+            "scatter.connect_linewidth": 2,
+        },
+    )
+    line = axes.lines[0]
+    assert to_hex(line.get_color()) == "#123456"
+    assert line.get_linewidth() == 2
+    plt.close(figure)

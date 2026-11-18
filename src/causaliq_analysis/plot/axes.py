@@ -72,6 +72,11 @@ VIOLIN_PROPS = {
 # Type of the per-subplot info dictionary used for box/violin annotations.
 SubplotInfo = Dict[str, Any]
 
+# Position and default size of the panel tags, in axes coordinates.
+TAG_X = -0.02
+TAG_Y = 1.02
+TAG_FONTSIZE = 16
+
 
 def _set_axes_props(
     axes: Any,
@@ -90,7 +95,10 @@ def _set_axes_props(
     _apply_tick_labels(axes, properties)
     _apply_tick_rotation(axes, properties)
     _apply_tick_halign(axes, properties)
+    _apply_title_weight(axes, properties)
+    _apply_subplot_tag(axes, properties, subplot)
     _invert_axis_bars(axes, properties, subplot)
+    _apply_bar_alpha(axes, properties)
 
 
 def _apply_axis_params(
@@ -169,6 +177,52 @@ def _has_invert_range(
         and subplot in properties["yaxis.invert"]
         and "yaxis.range" in properties
         and subplot in properties["yaxis.range"]
+    )
+
+
+def _apply_bar_alpha(axes: Any, properties: Dict[str, Any]) -> None:
+    """Set the opacity of the bar patches."""
+    alpha = properties.get("bar.alpha")
+    if alpha is None:
+        return
+    for bar in axes.patches:
+        bar.set_alpha(alpha)
+
+
+def _apply_title_weight(axes: Any, properties: Dict[str, Any]) -> None:
+    """Set the font weight of the subplot title."""
+    weight = properties.get("subplot.title_fontweight")
+    if not weight:
+        return
+    axes.title.set_fontweight(weight)
+
+
+def _apply_subplot_tag(
+    axes: Any, properties: Dict[str, Any], subplot: Optional[str]
+) -> None:
+    """Draw a panel tag (e.g. ``A``) in the top-left corner of a subplot.
+
+    Args:
+        axes: matplotlib axes object for a subplot.
+        properties: axis properties holding an optional ``subplot.tag``
+            and ``subplot.tag_fontsize``.
+        subplot: name of the subplot the axes belongs to.
+    """
+    tags = properties.get("subplot.tag")
+    if not tags:
+        return
+    tag = _axis_param_value(tags, subplot, "")
+    if not tag:
+        return
+    size = properties.get("subplot.tag_fontsize", TAG_FONTSIZE)
+    axes.text(
+        TAG_X,
+        TAG_Y,
+        tag,
+        transform=axes.transAxes,
+        fontsize=size,
+        fontweight="bold",
+        va="bottom",
     )
 
 

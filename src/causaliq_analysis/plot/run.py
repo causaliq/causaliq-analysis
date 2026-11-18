@@ -59,11 +59,13 @@ def run_plot(
     """
     _validate_kind(kind)
     _log_start(log_fn, kind, input_path, output)
-    frame = _load_frame(input_path)
-    _require_columns(frame, (subplot, group, x, y))
-    data = _build_long_form(frame, subplot, group, x, y)
-
     props: Dict[str, Any] = parse_properties(properties)
+    key = _connect_key(props)
+    frame = _load_frame(input_path)
+    columns = (subplot, group, x, y) + ((key,) if key else ())
+    _require_columns(frame, columns)
+    data = _build_long_form(frame, subplot, group, x, y, key)
+
     props["subplot.kind"] = kind
     _log_properties(log_fn, props)
     _ensure_output_dir(output)
@@ -176,11 +178,21 @@ def _require_columns(frame: DataFrame, columns: Tuple[str, ...]) -> None:
         )
 
 
+def _connect_key(props: Dict[str, Any]) -> str:
+    """Return the column which pairs the scatter connectors."""
+    return props.get("scatter.connect_key") or ""
+
+
 def _build_long_form(
-    frame: DataFrame, subplot: str, group: str, x: str, y: str
+    frame: DataFrame,
+    subplot: str,
+    group: str,
+    x: str,
+    y: str,
+    key: str = "",
 ) -> DataFrame:
     """Build the long-form data required by the plotting functions."""
-    return DataFrame(
+    data = DataFrame(
         {
             "subplot": frame[subplot].astype(str).str.strip(),
             "x_val": frame[x],
@@ -188,6 +200,9 @@ def _build_long_form(
             "y_val": to_numeric(frame[y], errors="coerce"),
         }
     )
+    if key:
+        data["row_key"] = frame[key].astype(str).str.strip()
+    return data
 
 
 def _log_properties(

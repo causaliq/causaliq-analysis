@@ -7,7 +7,9 @@ re-exports its public names so existing imports keep resolving:
 - ``parse_properties`` from ``plot.properties``;
 - ``relplot``, ``plot_scatter``, ``plot_degree_distribution`` and
   ``SUPPORTED_KINDS`` from ``plot.charts``;
-- the axes helpers from ``plot.axes``.
+- the axes helpers from ``plot.axes``;
+- the figure style helpers from ``plot.style`` and the legend helpers
+  from ``plot.legend``.
 
 The code is split so each part stays within the code limits: property
 parsing in ``plot.properties``, axis styling and annotations in

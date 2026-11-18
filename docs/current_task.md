@@ -1,27 +1,12 @@
-# Replicate pdg-merge analysis charts
+# Replicating the original pdg-merge charts__
 
-### `evaluate_graph`
-
-- `reference` is now __optional__: without it the action describes the graph, writing list-valued `exist_agree` / `dir_agree` metrics (with `present_threshold` and `direction_threshold`, default 0.0).
-- New `threshold` parameter: both graphs are reduced to deterministic edge states (`p_exist < t → none`, dominant direction otherwise) before comparison, so `metric: [edge]` returns integer counts.
-- New `causaliq_analysis/edge_analysis.py` with `threshold_graph`, `pdg_edge_agreement`, and a public `graph_to_pdg` wrapper in `metrics.py`.
-- Provider metadata (`workflow_action/__init__.py`) documents the new parameters and description metrics.
-- No new derived metric names: `edge_recall` / `orientation_accuracy` are workflow formulas over the ten counts.
-
-### `summarise`
-
-- __`.db` output__: writes one `metrics` object per matrix combination; `plot` reads it directly, so no CSV reshaping is needed. Table outputs are unchanged; table-only options are rejected with a `.db` path.
-- __List-valued fields__ are flattened into the value pool: `count` is the pooled value count, `mean`/`median`/… operate over the pool.
-- __`bin(lo, hi)` / `pct(lo, hi)`__: half-open lower-inclusive ranges, `inf` allowed for the top bucket; empty pools give empty cells.
-- __Bare alias references__ (`"{{panel}} as y"`) copy a preceding column, letting a matrix dimension select which computed column becomes the plot's `y`.
-
-### `plot`
-
-- `scatter.connect=True` draws connectors between the two hue groups at each x (scatter no longer adds a regression line).
-- Bar charts now honour `palette` and `legend.outside`.
-- `legend.loc` moves the existing legend in place (no duplicate legend).
-- Fixed a latent bug where applying `xaxis.ticks_rotation` blanked categorical tick labels.
-
+- Figure styling: `theme` (Seaborn axes style, merged under the explicit properties), `figure.size`, `figure.layout` (`tight`/`constrained`), `figure.bbox_inches`, `figure.title_fontweight` and `subplot.title_fontweight`.
+- Panel tags: `subplot.tag` and `subplot.tag_fontsize` draw the bold `A`/`B` labels in the axes corners.
+- In-panel legends: `legend.subplots` (a list of subplot names, or `all`) removes the grid legend and rebuilds it inside the named panels; `legend.framealpha` sets its opacity and an empty `legend.title` suppresses the title.
+- Scatter styling: `scatter.markers`, `scatter.size` and `scatter.alpha`, plus `scatter.connect_colour` and `scatter.connect_linewidth`. `scatter.connect_key` pairs the connectors by a row column so networks sharing an x value get one connector each; the column is carried into the long-form data as `row_key`.
+- Bars: `bar.alpha` sets the patch opacity.
+- Fixed a latent duplicate-keyword bug: `sharex`, `sharey` and `legend_out` are now passed to `catplot` directly rather than through `facet_kws` (matplotlib raised when both were given).
+- New modules `plot.style` and `plot.legend` keep `plot.charts` within the module size target.
 
 
 # Possible future work out of scope for this task
@@ -45,4 +30,3 @@
 - __Cross-repo__ — refresh `causaliq-workflow/docs/architecture/cache_type_model.md` (it still shows `result.reference` and `result.evaluated_graph`).
 
 - __Later audit__ — shared `ActionMetadata` builder once `best_graph`, `summarise`, `merge_graphs` and `plot` adopt the same contract.
-
