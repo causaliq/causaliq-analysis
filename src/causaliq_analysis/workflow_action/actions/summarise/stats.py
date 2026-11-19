@@ -17,7 +17,7 @@ from .formula import _evaluate_formula
 __all__ = ["_compute_stats", "_stat_value"]
 
 # Collected values per (one-based source index, field, where predicate)
-Values = Dict[Tuple[int, str, Optional[str]], List[float]]
+Values = Dict[Tuple[int, str, Optional[str]], List[Any]]
 
 # Winning entry per (one-based source index, field, where predicate): its
 # value and the matrix values of the entry holding it
@@ -101,7 +101,7 @@ def _field_values(
     source: Optional[int],
     field: str,
     where: Optional[str],
-) -> List[float]:
+) -> List[Any]:
     """Return the values collected for a field and predicate.
 
     Args:
@@ -117,15 +117,43 @@ def _field_values(
     """
     if source is not None:
         return list(values.get((source, field, where), []))
-    collected: List[float] = []
+    collected: List[Any] = []
     for (_, name, clause), field_values in values.items():
         if name == field and clause == where:
             collected.extend(field_values)
     return collected
 
 
+def _numeric_values(values: List[Any]) -> List[float]:
+    """Return the numeric values of a collected field.
+
+    Text values are ignored so that a text-only field does not turn a
+    numeric statistic into an error. Numeric strings are converted, which
+    keeps values loaded from CSV-like metadata comparable.
+
+    Args:
+        values: Collected values for a field.
+
+    Returns:
+        Numeric values in collection order.
+
+    """
+    numbers: List[float] = []
+    for value in values:
+        if isinstance(value, bool) or value is None or value == "":
+            continue
+        if isinstance(value, (int, float)):
+            numbers.append(float(value))
+            continue
+        try:
+            numbers.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    return numbers
+
+
 def _bin_value(
-    values: List[float],
+    values: List[Any],
     bounds: Optional[Tuple[float, float]],
     percentage: bool,
 ) -> Any:
@@ -147,16 +175,17 @@ def _bin_value(
     if bounds is None:  # pragma: no cover - parsing guarantees bounds
         return ""
     low, high = bounds
-    count = sum(1 for value in values if low <= value < high)
+    numbers = _numeric_values(values)
+    count = sum(1 for value in numbers if low <= value < high)
     if not percentage:
         return count
-    if not values:
+    if not numbers:
         return ""
-    return 100.0 * count / len(values)
+    return 100.0 * count / len(numbers)
 
 
-def _unique_value(values: List[float], spec: str) -> Any:
-    """Return the single value of a field.
+def _unique_value(values: List[Any], spec: str) -> Any:
+    """Return the single raw value of a field.
 
     Args:
         values: Collected values for the field.
@@ -169,7 +198,7 @@ def _unique_value(values: List[float], spec: str) -> Any:
         ActionExecutionError: If the field holds conflicting values.
 
     """
-    distinct = sorted(set(values))
+    distinct = _distinct_values(values)
     if not distinct:
         return ""
     if len(distinct) > 1:
@@ -178,7 +207,32 @@ def _unique_value(values: List[float], spec: str) -> Any:
             f"{len(distinct)} distinct values: {distinct}"
         )
     value = distinct[0]
-    return int(value) if float(value).is_integer() else value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+def _distinct_values(values: List[Any]) -> List[Any]:
+    """Return distinct values in first-seen order.
+
+    Values are compared by equality while retaining their original type, so
+    a text field can report a string and a numeric field can report a
+    number.
+
+    Args:
+        values: Collected values for a field.
+
+    Returns:
+        Distinct values in collection order.
+
+    """
+    distinct: List[Any] = []
+    for value in values:
+        if value is None or value == "":
+            continue
+        if not any(value == seen for seen in distinct):
+            distinct.append(value)
+    return distinct
 
 
 def _argmax_dimension(
@@ -320,12 +374,12 @@ def _argmax_winner(
     return max(winners, key=lambda item: item[0]) if winners else None
 
 
-def _stat_value(stat: str, values: List[float]) -> Any:
+def _stat_value(stat: str, values: List[Any]) -> Any:
     """Compute a single summary statistic.
 
     Args:
-        stat: Statistic name ('mean', 'sd', 'count', 'min', 'max' or
-            'median').
+        stat: Statistic name ('mean', 'sd', 'count', 'min', 'max',
+            'median' or 'sum').
         values: Collected values for the field.
 
     Returns:
@@ -333,17 +387,20 @@ def _stat_value(stat: str, values: List[float]) -> Any:
 
     """
     if stat == "count":
-        return len(values)
-    if not values:
+        return len(_numeric_values(values))
+    numbers = _numeric_values(values)
+    if not numbers:
         return ""
     if stat == "mean":
-        return statistics.mean(values)
+        return statistics.mean(numbers)
+    if stat == "sum":
+        return sum(numbers)
     if stat == "min":
-        return min(values)
+        return min(numbers)
     if stat == "max":
-        return max(values)
+        return max(numbers)
     if stat == "median":
-        return statistics.median(values)
-    if len(values) >= 2:
-        return statistics.stdev(values)
+        return statistics.median(numbers)
+    if len(numbers) >= 2:
+        return statistics.stdev(numbers)
     return ""

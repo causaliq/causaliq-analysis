@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 # Supported summary statistics for metric specifications
 SUPPORTED_STATS: FrozenSet[str] = frozenset(
-    {"mean", "sd", "count", "min", "max", "median"}
+    {"mean", "sd", "count", "min", "max", "median", "sum"}
 )
 
 

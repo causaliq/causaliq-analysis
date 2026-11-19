@@ -3,6 +3,10 @@
 import json
 from typing import Any, Dict, List
 
+from causaliq_analysis.workflow_action.types import ActionExecutionError
+
+from .context import _context_values
+
 __all__ = [
     "_metric_values",
     "_metrics_objects",
@@ -14,6 +18,7 @@ def _metric_values(
     metrics: Dict[str, Any],
     equiv_metrics: Dict[str, Any],
     graph: Any,
+    reference: Any,
 ) -> Dict[str, Any]:
     """Return the requested metric values for the metrics object.
 
@@ -22,13 +27,16 @@ def _metric_values(
         metrics: Raw comparison metrics.
         equiv_metrics: Computed equivalence-class metrics.
         graph: Evaluated graph, used for the node count.
+        reference: Reference graph, used for the reference arc count.
 
     Returns:
         Mapping of requested metric names to values.
 
     """
     wanted = _wanted_metrics(request["metrics"])
-    all_metrics = _all_metrics(metrics, equiv_metrics, wanted, graph)
+    all_metrics = _all_metrics(
+        metrics, equiv_metrics, wanted, graph, reference, request
+    )
     return {k: v for k, v in all_metrics.items() if k in wanted}
 
 
@@ -37,6 +45,8 @@ def _all_metrics(
     equiv_metrics: Dict[str, Any],
     wanted: List[str],
     graph: Any,
+    reference: Any,
+    request: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Build the complete metric mapping for an evaluation.
 
@@ -45,9 +55,11 @@ def _all_metrics(
         equiv_metrics: Computed equivalence-class metrics.
         wanted: Requested metric names after group expansion.
         graph: Evaluated graph, used for the node count.
+        reference: Reference graph, used for the arc count.
+        request: Evaluation request, used for context values.
 
     Returns:
-        Mapping of every standard and equivalence metric name.
+        Mapping of every standard, reference and equivalence metric name.
 
     """
     all_metrics: Dict[str, Any] = {
@@ -59,9 +71,67 @@ def _all_metrics(
     }
     if "node_count" in wanted:
         all_metrics["node_count"] = len(graph.nodes)
+    if "reference_arc_count" in wanted:
+        all_metrics["reference_arc_count"] = _reference_arc_count(reference)
+    _add_context_metrics(all_metrics, wanted, request)
     if "edge" in wanted:
         _add_edge_counts(all_metrics, metrics)
     return all_metrics
+
+
+def _add_context_metrics(
+    all_metrics: Dict[str, Any],
+    wanted: List[str],
+    request: Dict[str, Any],
+) -> None:
+    """Add context provenance metrics when they are requested.
+
+    Args:
+        all_metrics: Metric mapping being built.
+        wanted: Requested metric names after group expansion.
+        request: Evaluation request holding the context path.
+
+    Raises:
+        ActionExecutionError: If a context metric is requested without a
+            context path.
+    """
+    names = {"domain", "source_repository"} & set(wanted)
+    if not names:
+        return
+    if not request.get("context"):
+        raise ActionExecutionError(
+            "evaluate_graph context metrics require a 'context' file: "
+            + ", ".join(sorted(names))
+        )
+    values = _context_values(request.get("context"))
+    for name in names:
+        all_metrics[name] = values[name]
+
+
+def _reference_arc_count(reference: Any) -> int:
+    """Return the number of directed arcs in a reference graph.
+
+    Args:
+        reference: Reference graph.
+
+    Returns:
+        Number of directed arcs.
+    """
+    edges = getattr(reference, "edges", None)
+    if edges is None:
+        return 0
+    if isinstance(edges, dict):
+        try:
+            from causaliq_core.graph import EdgeType
+
+            return sum(
+                1
+                for edge_type in edges.values()
+                if edge_type == EdgeType.DIRECTED
+            )
+        except Exception:  # pragma: no cover - defensive fallback
+            return len(edges)
+    return len(edges)
 
 
 def _add_edge_counts(

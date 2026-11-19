@@ -242,6 +242,16 @@ class AnalysisActionProvider(CausalIQActionProvider):
             required=False,
             type_hint="str",
         ),
+        "context": ActionInput(
+            name="context",
+            description=(
+                "Optional network context JSON file. When supplied, the "
+                "'domain' and 'source_repository' metrics report the "
+                "context's domain and provenance values unchanged."
+            ),
+            required=False,
+            type_hint="str",
+        ),
         # metric input (used by evaluate_graph and summarise)
         "metric": ActionInput(
             name="metric",
@@ -313,6 +323,17 @@ class AnalysisActionProvider(CausalIQActionProvider):
             ),
             required=False,
             type_hint="list[str] | str",
+        ),
+        "significance_detail": ActionInput(
+            name="significance_detail",
+            description=(
+                "When true, a significance table reports the paired "
+                "wins, losses and mean difference as well as the test "
+                "statistic and p-value."
+            ),
+            required=False,
+            default=False,
+            type_hint="bool",
         ),
         "caption": ActionInput(
             name="caption",
@@ -432,6 +453,13 @@ class AnalysisActionProvider(CausalIQActionProvider):
         "f1": "Structural F1 score",
         "shd": "Structural Hamming Distance",
         "node_count": "Number of nodes in the evaluated graph",
+        "reference_arc_count": (
+            "Number of directed arcs in the reference graph"
+        ),
+        "domain": "Context domain value (context files only)",
+        "source_repository": (
+            "Context source repository value (context files only)"
+        ),
         "edge": (
             "Low-level edge counts from direct comparison (arc_matched, "
             "arc_reversed, edge_not_arc, arc_not_edge, edge_matched, "
@@ -490,6 +518,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "filter",
             "metric",
             "reference",
+            "context",
             "threshold",
             "present_threshold",
             "direction_threshold",
@@ -509,6 +538,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
             "format",
             "footer",
             "significance",
+            "significance_detail",
             "caption",
             "filter",
             "input",

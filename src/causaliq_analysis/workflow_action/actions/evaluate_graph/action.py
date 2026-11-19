@@ -60,6 +60,7 @@ class EvaluateGraphAction(AnalysisAction):
         _require_valid_metrics(parameters)
         _require_probabilities(parameters)
         _require_cache_output(parameters)
+        _require_context(parameters)
 
     def run(
         self,
@@ -183,3 +184,20 @@ def _require_cache_output(parameters: Dict[str, Any]) -> None:
             "evaluate_graph output must be a workflow cache (.db). "
             f"Got: {output_path}"
         )
+
+
+def _require_context(parameters: Dict[str, Any]) -> None:
+    """Validate the optional context path.
+
+    Args:
+        parameters: Action parameter values.
+
+    Raises:
+        ValueError: If the context path is not a string.
+    """
+    context = parameters.get("context")
+    if context is None or isinstance(context, str):
+        return
+    raise ValueError(
+        f"'context' must be a path string, got {type(context).__name__}"
+    )

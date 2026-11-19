@@ -1,5 +1,6 @@
 """Unit tests for the summarise significance engine."""
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
@@ -13,6 +14,7 @@ from causaliq_analysis.workflow_action.actions.summarise.significance import (
     SignificanceSpec,
     _default_caption,
     _numeric_value,
+    _paired_summary,
     _paired_values,
     _significance_row,
     _significance_rows,
@@ -216,6 +218,59 @@ def test_registry_metadata() -> None:
     assert test.statistic_label == "W"
     assert test.arity == 2
     assert callable(test.run)
+
+
+# Test the Spearman test and detailed paired summary.
+def test_spearman_and_paired_summary() -> None:
+    """Spearman matches SciPy and the summary counts wins and losses."""
+    test = SIGNIFICANCE_TESTS["spearman-2-sided"]
+    left = [0.1, 0.4, 0.35, 0.8, 0.9]
+    right = [0.2, 0.3, 0.5, 0.7, 1.0]
+    result = test.run(left, right)
+    from scipy.stats import spearmanr
+
+    expected = spearmanr(left, right)
+    assert result == pytest.approx((expected.statistic, expected.pvalue))
+
+    spec = _specs("wilcoxon-signed-rank-2-sided(fusion, bnsl) as comparison")[
+        0
+    ]
+    rows: List[_Row] = [
+        ({"network": "a"}, {"fusion": 0.9, "bnsl": 0.5}),
+        ({"network": "b"}, {"fusion": 0.4, "bnsl": 0.6}),
+        ({"network": "c"}, {"fusion": 0.7, "bnsl": 0.7}),
+    ]
+    row = _significance_row(spec, rows)
+    assert row["wins"] == 1
+    assert row["losses"] == 1
+    assert row["mean_delta"] == pytest.approx((0.4 - 0.2 + 0.0) / 3)
+
+
+# Test the paired summary empty and one-sample branches.
+def test_paired_summary_empty_and_one_sample() -> None:
+    """Empty samples and one-sample summaries are handled."""
+    assert _paired_summary([], None) == ("", "", "")
+    assert _paired_summary([1.0, -1.0], None) == (1, 1, 0.0)
+
+
+# Test Spearman refuses samples that cannot produce a correlation.
+def test_spearman_requires_enough_values() -> None:
+    """Short or missing samples and constant ranks report no result."""
+    test = SIGNIFICANCE_TESTS["spearman-2-sided"]
+    assert test.run([1.0, 2.0], [1.0, 2.0]) is None
+    assert test.run([1.0, 2.0, 3.0], None) is None
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert test.run([1.0, 1.0, 1.0], [1.0, 2.0, 3.0]) is None
+
+
+# Test the registry exposes the Spearman metadata.
+def test_spearman_registry_metadata() -> None:
+    """The Spearman test carries its name, symbol and arity."""
+    test = SIGNIFICANCE_TESTS["spearman-2-sided"]
+    assert test.title == "Spearman rank correlation, two-sided"
+    assert test.statistic_label == "rho"
+    assert test.arity == 2
 
 
 # Test entries mode cannot compute significance tests.

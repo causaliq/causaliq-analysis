@@ -18,6 +18,65 @@ def test_best_of_formula() -> None:
     assert result == pytest.approx(0.062)
 
 
+# Test comparisons, text literals and lazy conditional expressions.
+def test_comparisons_and_conditional_expressions() -> None:
+    """Python comparisons and conditional expressions are supported."""
+    values = {
+        "bnsl": 0.8,
+        "llm": 0.6,
+        "fusion": 0.9,
+        "axis": "LLM Model",
+        "missing": "",
+    }
+    assert _evaluate_formula("bnsl > llm", values) is True
+    assert _evaluate_formula("bnsl < llm", values) is False
+    assert _evaluate_formula("axis == 'LLM Model'", values) is True
+    assert _evaluate_formula("fusion if bnsl > llm else llm", values) == 0.9
+    assert _evaluate_formula("fusion if bnsl < llm else llm", values) == 0.6
+    assert _evaluate_formula("'n/a'", values) == "n/a"
+    # The unselected branch is not evaluated, so a missing alias there is
+    # harmless.
+    assert (
+        _evaluate_formula("fusion if axis == 'LLM Model' else unknown", values)
+        == 0.9
+    )
+
+
+# Test a conditional expression propagates an empty selected branch.
+def test_conditional_empty_branch() -> None:
+    """An empty selected branch yields an empty cell."""
+    values = {"axis": "other", "missing": "", "fusion": 0.9}
+    assert (
+        _evaluate_formula("fusion if axis == 'LLM Model' else missing", values)
+        == ""
+    )
+
+
+# Test every supported comparison operator and type errors.
+def test_comparison_operators() -> None:
+    """All comparison operators are supported and type errors are false."""
+    values = {"a": 1.0, "b": 2.0, "text": "x"}
+    assert _evaluate_formula("a != b", values) is True
+    assert _evaluate_formula("a <= b", values) is True
+    assert _evaluate_formula("a >= b", values) is False
+    assert _evaluate_formula("b > a", values) is True
+    assert _evaluate_formula("text < a", values) is False
+
+
+# Test unsupported AST nodes and comparison operators are rejected.
+@pytest.mark.parametrize(
+    "formula, message",
+    [
+        ("a and b", "Unsupported element"),
+        ("a in b", "Unsupported comparison operator"),
+    ],
+)
+def test_invalid_comparison_constructs(formula: str, message: str) -> None:
+    """Unsupported comparison constructs are rejected."""
+    with pytest.raises(ValueError, match=message):
+        _validate_formula(formula)
+
+
 # Test the supported operators, literals and functions.
 @pytest.mark.parametrize(
     "formula, expected",
@@ -90,8 +149,6 @@ def test_missing_value_reported() -> None:
     "formula, message",
     [
         ("bnsl -", "Invalid formula"),
-        ("bnsl == llm", "Unsupported element"),
-        ("'a'", "Unsupported literal"),
         ("True", "Unsupported literal"),
         ("power(bnsl, 2)", "Unknown formula function 'power'"),
         ("max(bnsl=1)", "positional"),

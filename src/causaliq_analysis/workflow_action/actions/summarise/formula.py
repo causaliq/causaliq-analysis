@@ -1,19 +1,22 @@
 """Derived-column formulas for the summarise action.
 
-A formula is an arithmetic expression over aliases of the columns that
-precede it, written in Python syntax::
+A formula is an expression over aliases of the columns that precede it,
+written in Python syntax::
 
     "fusion - max(bnsl, llm)"
+    "b_gem if axis == 'LLM Model' else f_llm"
 
 An expression may use the operators ``+``, ``-``, ``*`` and ``/``, unary
-sign, parentheses, numeric literals and the functions ``min``, ``max``,
-``abs`` and ``round``. A column is addressed by the alias it declares with
-``as``, never by its position, so a numeric literal is always a number and
-reordering the columns cannot change a formula's meaning.
+sign, comparisons, conditional expressions, parentheses, numeric and text
+literals, and the functions ``min``, ``max``, ``abs`` and ``round``. A
+column is addressed by the alias it declares with ``as``, never by its
+position, so a numeric literal is always a number and reordering the
+columns cannot change a formula's meaning.
 
 Empty cells propagate as they do in a spreadsheet: arithmetic over a
 missing value yields an empty cell, ``min`` and ``max`` ignore empty
-values, and a division by zero yields an empty cell.
+values, and a division by zero yields an empty cell. Conditional
+expressions are lazy: only the selected branch is evaluated.
 """
 
 import ast
@@ -25,6 +28,14 @@ __all__ = ["FUNCTIONS", "_evaluate_formula", "_validate_formula"]
 
 _BINARY_OPS = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 _UNARY_OPS = (ast.USub, ast.UAdd)
+_COMPARE_OPS = (
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+)
 
 # Functions accepted in a formula, with their minimum and maximum arity
 _FUNCTION_ARITY: Dict[str, Sequence[Optional[int]]] = {
@@ -95,27 +106,69 @@ def _validate_node(node: ast.expr, aliases: Optional[Set[str]]) -> None:
         return _validate_operands(node, aliases)
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, _UNARY_OPS):
         return _validate_node(node.operand, aliases)
+    if isinstance(node, ast.Compare):
+        return _validate_compare(node, aliases)
+    if isinstance(node, ast.IfExp):
+        return _validate_if_expression(node, aliases)
     if isinstance(node, ast.Call):
         return _validate_call(node, aliases)
     raise ValueError(f"Unsupported element in formula: {type(node).__name__}")
 
 
 def _validate_constant(node: ast.Constant) -> None:
-    """Validate a numeric literal.
+    """Validate a numeric or text literal.
 
     Args:
         node: Constant node to validate.
 
     Raises:
-        ValueError: If the literal is not a number.
+        ValueError: If the literal is neither a number nor text.
 
     """
     value = node.value
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         raise ValueError(
             f"Unsupported literal {value!r} in formula: use numbers, "
-            "column aliases and functions only"
+            "text, column aliases, comparisons, conditional expressions "
+            "and functions only"
         )
+
+
+def _validate_compare(node: ast.Compare, aliases: Optional[Set[str]]) -> None:
+    """Validate a Python comparison.
+
+    Args:
+        node: Compare node to validate.
+        aliases: Aliases available to the formula, if known.
+
+    Raises:
+        ValueError: If the comparison uses an unsupported operator.
+
+    """
+    _validate_node(node.left, aliases)
+    for operator, comparator in zip(node.ops, node.comparators):
+        if not isinstance(operator, _COMPARE_OPS):
+            raise ValueError(
+                "Unsupported comparison operator in formula: "
+                f"{type(operator).__name__}"
+            )
+        _validate_node(comparator, aliases)
+
+
+def _validate_if_expression(
+    node: ast.IfExp,
+    aliases: Optional[Set[str]],
+) -> None:
+    """Validate a Python conditional expression.
+
+    Args:
+        node: Conditional-expression node to validate.
+        aliases: Aliases available to the formula, if known.
+
+    """
+    _validate_node(node.test, aliases)
+    _validate_node(node.body, aliases)
+    _validate_node(node.orelse, aliases)
 
 
 def _validate_name(node: ast.Name, aliases: Optional[Set[str]]) -> None:
@@ -259,14 +312,21 @@ def _evaluate_node(node: ast.expr, values: Mapping[str, Any]) -> Any:
 
     """
     if isinstance(node, ast.Constant):
-        assert isinstance(node.value, (int, float))  # Validated
-        return float(node.value)
+        if isinstance(node.value, str):
+            return node.value
+        value = node.value
+        assert isinstance(value, (int, float))
+        return float(value)  # Validated numeric literal
     if isinstance(node, ast.Name):
         return _name_value(node.id, values)
     if isinstance(node, ast.BinOp):
         return _binary_value(node, values)
     if isinstance(node, ast.UnaryOp):
         return _unary_value(node, values)
+    if isinstance(node, ast.Compare):
+        return _compare_value(node, values)
+    if isinstance(node, ast.IfExp):
+        return _if_expression_value(node, values)
     assert isinstance(node, ast.Call)  # Guaranteed by _validate_formula
     return _call_value(node, values)
 
@@ -346,6 +406,72 @@ def _unary_value(node: ast.UnaryOp, values: Mapping[str, Any]) -> Any:
     if value is None:
         return ""
     return -value if isinstance(node.op, ast.USub) else value
+
+
+def _compare_value(node: ast.Compare, values: Mapping[str, Any]) -> bool:
+    """Evaluate a Python comparison, including chained comparisons.
+
+    Args:
+        node: Compare node to evaluate.
+        values: Computed values keyed by column alias.
+
+    Returns:
+        True when every comparison in the chain holds.
+
+    """
+    left = _evaluate_node(node.left, values)
+    for operator, comparator in zip(node.ops, node.comparators):
+        right = _evaluate_node(comparator, values)
+        if not _apply_comparison(operator, left, right):
+            return False
+        left = right
+    return True
+
+
+def _apply_comparison(operator: ast.cmpop, left: Any, right: Any) -> bool:
+    """Apply one comparison operator, treating type errors as false.
+
+    Args:
+        operator: Comparison operator node.
+        left: Left operand.
+        right: Right operand.
+
+    Returns:
+        Result of the comparison, or False when the operands cannot be
+        compared.
+
+    """
+    try:
+        if isinstance(operator, ast.Eq):
+            return bool(left == right)
+        if isinstance(operator, ast.NotEq):
+            return bool(left != right)
+        if isinstance(operator, ast.Lt):
+            return bool(left < right)
+        if isinstance(operator, ast.LtE):
+            return bool(left <= right)
+        if isinstance(operator, ast.Gt):
+            return bool(left > right)
+        return bool(left >= right)
+    except TypeError:
+        return False
+
+
+def _if_expression_value(node: ast.IfExp, values: Mapping[str, Any]) -> Any:
+    """Evaluate a lazy Python conditional expression.
+
+    Only the selected branch is evaluated.
+
+    Args:
+        node: Conditional-expression node.
+        values: Computed values keyed by column alias.
+
+    Returns:
+        Value of the selected branch.
+
+    """
+    branch = node.body if _evaluate_node(node.test, values) else node.orelse
+    return _evaluate_node(branch, values)
 
 
 def _call_value(node: ast.Call, values: Mapping[str, Any]) -> Any:

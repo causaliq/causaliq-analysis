@@ -34,11 +34,18 @@ __all__ = ["_write_significance"]
 # One rendered table row: grouping values and computed column values
 _ROW = Tuple[Dict[str, Any], Dict[str, Any]]
 
-# Value keys of the four significance columns
+# Value keys of the standard significance columns
 _KEYS = ["comparison", "statistic", "p_value", "significance"]
 
-# Number of declared significance columns
-_COLUMNS = 4
+# Value keys of the detailed paired-comparison columns
+_DETAIL_KEYS = [
+    "comparison",
+    "wins",
+    "losses",
+    "mean_delta",
+    "statistic",
+    "p_value",
+]
 
 # Output extensions rendered as a Markdown table
 _MARKDOWN_SUFFIXES = (".md", ".markdown")
@@ -66,6 +73,7 @@ def _write_significance(
             list(rows),
             log_fn,
             _csv_labels(request),
+            _table_keys(request),
         )
         return
     out_file = _output_file(request)
@@ -96,7 +104,7 @@ def _significance_lines(
         Lines of the table, without trailing newlines.
     """
     columns = _columns(request)
-    visible, keys = _visible_table(columns, _KEYS)
+    visible, keys = _visible_table(columns, _table_keys(request))
     if suffix in _MARKDOWN_SUFFIXES:
         table = _markdown_lines(visible, keys, rows, None)
     else:
@@ -118,12 +126,24 @@ def _columns(request: Dict[str, Any]) -> List[TableColumn]:
             count, or every column would be hidden.
     """
     specs: Sequence[SignificanceSpec] = request["significance"]
-    labels = [
-        "Comparison",
-        _statistic_label(specs),
-        "p",
-        "Significance",
-    ]
+    detail = _is_detail(request)
+    labels = (
+        [
+            "Comparison",
+            "Wins",
+            "Losses",
+            "Mean delta",
+            _statistic_label(specs),
+            "p",
+        ]
+        if detail
+        else [
+            "Comparison",
+            _statistic_label(specs),
+            "p",
+            "Significance",
+        ]
+    )
     formats = _declared_formats(request, specs)
     columns = [
         _table_column(label, format_spec, measure=True)
@@ -132,6 +152,16 @@ def _columns(request: Dict[str, Any]) -> List[TableColumn]:
     _require_visible(columns)
     _apply_headers(columns, request.get("headers") or [])
     return columns
+
+
+def _is_detail(request: Dict[str, Any]) -> bool:
+    """Return whether the detailed comparison columns are requested."""
+    return bool(request.get("significance_detail"))
+
+
+def _table_keys(request: Dict[str, Any]) -> List[str]:
+    """Return the value keys of the significance table."""
+    return list(_DETAIL_KEYS if _is_detail(request) else _KEYS)
 
 
 def _declared_formats(
@@ -152,7 +182,9 @@ def _declared_formats(
     """
     declared = request.get("format") or []
     if declared:
-        return _format_specs(_COLUMNS, declared)
+        return _format_specs(len(_table_keys(request)), declared)
+    if _is_detail(request):
+        return ["", "d", "d", "+.3f", _statistic_format(specs), ".4f"]
     return ["", _statistic_format(specs), ".4f", ""]
 
 

@@ -212,7 +212,128 @@ def test_summarise_extreme_and_median_stats(
     assert float(rows[0][spec]) == expected
 
 
-# Test element selection indexes lists, JSON lists, scalars and missing values.
+# Test the sum statistic and text unique values.
+def test_sum_and_text_unique_stats(tmp_path: Any) -> None:
+    """sum adds numeric values and unique reports text metadata."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+
+    entries = [
+        {
+            "matrix_values": {"network": "alarm"},
+            "metadata": {
+                "provenance": {},
+                "result": {"count": 3, "domain": "patient_monitoring"},
+            },
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {"network": "asia"},
+            "metadata": {
+                "provenance": {},
+                "result": {"count": 4, "domain": "patient_monitoring"},
+            },
+            "cache_path": "test.db",
+        },
+    ]
+    output_path = tmp_path / "stats.csv"
+
+    result = provider.run(
+        action="summarise",
+        parameters={
+            "_aggregation_entries": entries,
+            "metric": ["count.sum", "domain.unique"],
+            "output": str(output_path),
+        },
+        mode="run",
+        context=None,
+        logger=mock_logger,
+    )
+
+    assert result[0] == "success"
+    assert result[1]["count.sum"] == 7
+    assert result[1]["domain.unique"] == "patient_monitoring"
+
+
+# Test unique rejects conflicting text values.
+def test_text_unique_rejects_conflict(tmp_path: Any) -> None:
+    """A text unique column rejects two distinct values."""
+    from causaliq_analysis.workflow_action import AnalysisActionProvider
+    from causaliq_analysis.workflow_action.types import ActionExecutionError
+
+    provider = AnalysisActionProvider()
+    mock_logger = MagicMock()
+    mock_logger.is_terminal_logging = False
+    entries = [
+        {
+            "matrix_values": {"network": "alarm"},
+            "metadata": {
+                "provenance": {},
+                "result": {"domain": "patient_monitoring"},
+            },
+            "cache_path": "test.db",
+        },
+        {
+            "matrix_values": {"network": "asia"},
+            "metadata": {
+                "provenance": {},
+                "result": {"domain": "respiratory_diagnosis"},
+            },
+            "cache_path": "test.db",
+        },
+    ]
+
+    with pytest.raises(ActionExecutionError, match="reports a single value"):
+        provider.run(
+            action="summarise",
+            parameters={
+                "_aggregation_entries": entries,
+                "metric": ["domain.unique"],
+                "output": str(tmp_path / "stats.csv"),
+            },
+            mode="run",
+            context=None,
+            logger=mock_logger,
+        )
+
+
+# Test numeric filtering and text-unique edge cases.
+def test_numeric_values_skip_non_numeric() -> None:
+    """Booleans, missing values and text do not enter numeric stats."""
+    from causaliq_analysis.workflow_action.actions.summarise.stats import (
+        _numeric_values,
+        _stat_value,
+    )
+
+    values = [True, None, "", "n/a", 2, 3.0]
+    assert _numeric_values(values) == [2.0, 3.0]
+    assert _stat_value("count", values) == 2
+    assert _stat_value("sum", values) == 5.0
+
+
+# Test integral floats are reported as integers by unique.
+def test_unique_integral_float() -> None:
+    """A unique integral float is returned as an int."""
+    from causaliq_analysis.workflow_action.actions.summarise.stats import (
+        _unique_value,
+    )
+
+    assert _unique_value([2.0], "value") == 2
+
+
+# Test empty unique values are ignored.
+def test_distinct_values_ignore_empty() -> None:
+    """None and empty strings do not create distinct values."""
+    from causaliq_analysis.workflow_action.actions.summarise.stats import (
+        _distinct_values,
+    )
+
+    assert _distinct_values([None, "", "a", "a"]) == ["a"]
+
+
 @pytest.mark.parametrize(
     "value, element, expected",
     [

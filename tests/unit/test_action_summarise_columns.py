@@ -212,6 +212,8 @@ def test_parse_invalid_spec(spec: str, message: str) -> None:
         ("bnsl + 1", True),
         ("-fusion", True),
         ("round(fusion, 2)", True),
+        ("bnsl == llm", True),
+        ("b if axis == 'x' else c", True),
     ],
 )
 def test_formula_detection(spec: str, derived: bool) -> None:

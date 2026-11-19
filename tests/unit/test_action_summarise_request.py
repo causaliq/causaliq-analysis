@@ -4,12 +4,35 @@ import pytest
 
 from causaliq_analysis.workflow_action.actions.summarise.request import (
     _require_tabular_output,
+    _significance_detail,
     _summarise_request,
     _validate_columns,
+    _validate_significance,
 )
 
 
-# Test the accepted output extensions.
+# Test the detailed significance flag and its validation errors.
+def test_significance_detail_flag() -> None:
+    """The detail flag defaults to false and rejects non-booleans."""
+    assert _significance_detail({}) is False
+    assert _significance_detail({"significance_detail": None}) is False
+    assert _significance_detail({"significance_detail": True}) is True
+    with pytest.raises(ValueError, match="must be a boolean"):
+        _significance_detail({"significance_detail": "yes"})
+
+
+# Test detail requires at least one significance specification.
+def test_significance_detail_requires_tests() -> None:
+    """A detailed table without tests is rejected."""
+    with pytest.raises(ValueError, match="requires 'significance'"):
+        _validate_significance(
+            {
+                "metric": ["f1.mean as fused"],
+                "significance_detail": True,
+            }
+        )
+
+
 @pytest.mark.parametrize(
     "output",
     ["summary.csv", "summary.tex", "summary.md", "SUMMARY.MARKDOWN"],

@@ -193,7 +193,7 @@ def test_parse_seed_workflow_invalid():
 def test_supported_stats_constant():
     """SUPPORTED_STATS contains expected statistics."""
     assert SUPPORTED_STATS == frozenset(
-        {"mean", "sd", "count", "min", "max", "median"}
+        {"mean", "sd", "count", "min", "max", "median", "sum"}
     )
 
 

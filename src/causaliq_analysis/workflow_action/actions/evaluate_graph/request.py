@@ -82,6 +82,7 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "entry": entries[0],
         "reference": reference_path,
+        "context": parameters.get("context"),
         "metrics": metrics,
         "threshold": parameters.get("threshold"),
         "present_threshold": parameters.get("present_threshold", 0.0),
@@ -112,6 +113,7 @@ def _parameter_block(
     return {
         "input": parameters.get("input"),
         "reference": request["reference"],
+        "context": request["context"],
         "metric": request["metrics"],
         "threshold": request["threshold"],
         "present_threshold": request["present_threshold"],

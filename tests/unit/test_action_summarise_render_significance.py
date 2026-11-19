@@ -193,3 +193,13 @@ def test_write_significance_failure(tmp_path: Any) -> None:
         match="Failed to write significance table",
     ):
         _write_significance(_request(output=str(tmp_path)), _rows(), None)
+
+
+# Test detailed significance tables use the six-column default format.
+def test_detail_default_formats() -> None:
+    """Detailed comparisons default to six presentation columns."""
+    request = _request(significance_detail=True)
+    formats = render_significance._declared_formats(
+        request, request["significance"]
+    )
+    assert formats == ["", "d", "d", "+.3f", ".1f", ".4f"]

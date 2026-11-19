@@ -120,6 +120,7 @@ def _write_report(
     rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
     log_fn: Optional[Any],
     labels: Optional[List[str]] = None,
+    keys: Optional[List[str]] = None,
 ) -> None:
     """Write the complete report file, replacing any existing content.
 
@@ -129,6 +130,7 @@ def _write_report(
         log_fn: Logging callback for progress reporting.
         labels: Column labels, or None to name the columns after the
             matrix values and metric specifications.
+        keys: Value keys to write, or None to use every key in the rows.
 
     Raises:
         ActionExecutionError: If the CSV file cannot be written.
@@ -138,7 +140,8 @@ def _write_report(
     assert output_path is not None  # Validated by the action validator
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    keys = list(rows[0][0]) + list(rows[0][1])
+    if keys is None:
+        keys = list(rows[0][0]) + list(rows[0][1])
     try:
         _write_rows(out_file, list(labels or keys), keys, rows)
     except Exception as e:

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from causaliq_analysis.workflow_action import helpers
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
-from .stats import Argmax, Values
+from .stats import Argmax, Values, _numeric_values
 
 __all__ = ["_source_index", "_values_from_entries"]
 
@@ -308,12 +308,13 @@ def _accumulate_values(
 
     """
     for field in unique_fields:
-        numbers = _numeric_field_values(flat_meta, field)
-        if not numbers:
+        field_values = _field_values(flat_meta, field)
+        if not field_values:
             continue
         _record_field_values(
-            values, source_index, field, numbers, where_matches
+            values, source_index, field, field_values, where_matches
         )
+        numbers = _numeric_values(field_values)
         if field in argmax_fields and len(numbers) == 1:
             _record_field_argmax(
                 argmax,
@@ -325,40 +326,39 @@ def _accumulate_values(
             )
 
 
-def _numeric_field_values(
+def _field_values(
     flat_meta: Dict[str, Any],
     field: str,
-) -> List[float]:
-    """Return a field's numeric values, flattening lists.
+) -> List[Any]:
+    """Return a field's values, flattening lists.
 
     A scalar field contributes one value per entry; a list-valued field
-    (for example a per-pair agreement list) contributes every numeric
-    element, so the standard statistics pool the values across entries.
+    (for example a per-pair agreement list) contributes every element, so
+    the standard statistics pool the values across entries. Text values are
+    retained so that the ``unique`` statistic can report provenance
+    metadata.
 
     Args:
         flat_meta: Flattened metadata of the entry.
         field: Metric field name.
 
     Returns:
-        Numeric values of the field, empty when it is absent or holds no
-        numbers.
+        Values of the field, empty when it is absent.
 
     """
     value = helpers._get_nested_value(flat_meta, field)
     if isinstance(value, (list, tuple)):
-        return [
-            float(item) for item in value if isinstance(item, (int, float))
-        ]
-    if isinstance(value, (int, float)):
-        return [float(value)]
-    return []
+        return [item for item in value if item is not None and item != ""]
+    if value is None or value == "":
+        return []
+    return [value]
 
 
 def _record_field_values(
     values: Values,
     source_index: int,
     field: str,
-    numbers: List[float],
+    field_values: List[Any],
     where_matches: List[str],
 ) -> None:
     """Append a field's values without a predicate and per predicate.
@@ -367,13 +367,15 @@ def _record_field_values(
         values: Values per source, field and predicate, updated in place.
         source_index: One-based position of the entry's input cache.
         field: Metric field name.
-        numbers: Numeric values contributed by the field.
+        field_values: Values contributed by the field.
         where_matches: Predicates the entry satisfies.
 
     """
-    values.setdefault((source_index, field, None), []).extend(numbers)
+    values.setdefault((source_index, field, None), []).extend(field_values)
     for clause in where_matches:
-        values.setdefault((source_index, field, clause), []).extend(numbers)
+        values.setdefault((source_index, field, clause), []).extend(
+            field_values
+        )
 
 
 def _record_field_argmax(

@@ -68,7 +68,7 @@ _BIN_PATTERN = re.compile(
 )
 
 # Characters that mark a specification as a derived-column expression
-_FORMULA_CHARS = ("+", "-", "*", "/", "(")
+_FORMULA_CHARS = ("+", "-", "*", "/", "(", "=", "<", ">", "!", " if ")
 
 
 @dataclass(frozen=True)
@@ -432,9 +432,10 @@ def _split_where(
 def _is_formula(body: str) -> bool:
     """Return True when a specification is a derived-column expression.
 
-    An entry is a formula when it holds an operator or a function call, so
-    a metric specification (which is a single dotted token, optionally with
-    a source index) is never mistaken for one.
+    An entry is a formula when it holds an arithmetic or comparison
+    operator, a function call or a conditional expression, so a metric
+    specification (which is a single dotted token, optionally with a
+    source index) is never mistaken for one.
 
     Args:
         body: Specification without its alias.

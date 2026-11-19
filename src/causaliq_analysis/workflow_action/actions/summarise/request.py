@@ -28,10 +28,20 @@ _TABLE_EXTENSIONS = (".csv", ".tex", ".md", ".markdown")
 _CACHE_EXTENSION = ".db"
 
 # Presentation parameters that do not apply to a metrics cache
-_CACHE_UNSUPPORTED = ("headers", "format", "footer", "significance", "caption")
+_CACHE_UNSUPPORTED = (
+    "headers",
+    "format",
+    "footer",
+    "significance",
+    "significance_detail",
+    "caption",
+)
 
-# Number of columns in a significance table
+# Number of columns in a standard significance table
 _SIGNIFICANCE_COLUMNS = 4
+
+# Number of columns in a detailed paired-comparison table
+_DETAIL_COLUMNS = 6
 
 
 def _require_tabular_output(parameters: Dict[str, Any]) -> None:
@@ -197,19 +207,46 @@ def _validate_significance(parameters: Dict[str, Any]) -> None:
             rendered.
     """
     raw = _normalise_list(parameters.get("significance"))
+    detail = _significance_detail(parameters)
+    if detail and not raw:
+        raise ValueError("'significance_detail' requires 'significance' tests")
     if not raw:
         return
     specs = _parse_column_specs(_metric_specs(parameters))
     aliases = {spec.alias for spec in specs if spec.alias}
     _parse_significance_specs(raw, aliases)
     _require_significance_input(parameters)
-    _validate_significance_format(parameters.get("format"))
+    _validate_significance_format(parameters.get("format"), detail)
     _validate_significance_headers(
         parameters.get("headers"),
         parameters.get("format"),
+        detail,
     )
     _require_no_significance_footer(parameters.get("footer"))
     _validate_caption(parameters.get("caption"))
+
+
+def _significance_detail(parameters: Dict[str, Any]) -> bool:
+    """Return the validated detailed-comparison flag.
+
+    Args:
+        parameters: Action parameter values.
+
+    Returns:
+        True when the detailed paired-comparison columns are requested.
+
+    Raises:
+        ValueError: If the flag is not a boolean.
+    """
+    value = parameters.get("significance_detail", False)
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ValueError(
+            f"'significance_detail' must be a boolean, got "
+            f"{type(value).__name__}"
+        )
+    return value
 
 
 def _require_significance_input(parameters: Dict[str, Any]) -> None:
@@ -228,20 +265,22 @@ def _require_significance_input(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _validate_significance_format(value: Any) -> None:
+def _validate_significance_format(value: Any, detail: bool = False) -> None:
     """Validate the format specifications of a significance table.
 
     Args:
         value: Declared format specifications, or None.
+        detail: Whether the detailed comparison columns are requested.
 
     Raises:
-        ValueError: If the format count does not match the four
-            significance columns, or a specification is invalid.
+        ValueError: If the format count does not match the significance
+            columns, or a specification is invalid.
     """
+    count = _significance_column_count(detail)
     formats = _normalise_optional_list(value)
-    if formats and len(formats) != _SIGNIFICANCE_COLUMNS:
+    if formats and len(formats) != count:
         raise ValueError(
-            f"'format' must have {_SIGNIFICANCE_COLUMNS} entries "
+            f"'format' must have {count} entries "
             f"(one per significance column), got {len(formats)}"
         )
     _validate_formats(value)
@@ -250,12 +289,14 @@ def _validate_significance_format(value: Any) -> None:
 def _validate_significance_headers(
     headers: Any,
     formats: Any,
+    detail: bool = False,
 ) -> None:
     """Validate the headers of a significance table.
 
     Args:
         headers: Declared column headers, or None.
         formats: Declared format specifications, or None.
+        detail: Whether the detailed comparison columns are requested.
 
     Raises:
         ValueError: If the header count does not match the visible
@@ -264,7 +305,7 @@ def _validate_significance_headers(
     values = _normalise_list(headers)
     if not values:
         return
-    visible = _visible_column_count(_normalise_optional_list(formats))
+    visible = _visible_column_count(_normalise_optional_list(formats), detail)
     if len(values) != visible:
         raise ValueError(
             f"'headers' must have {visible} entries (one per visible "
@@ -272,17 +313,33 @@ def _validate_significance_headers(
         )
 
 
-def _visible_column_count(formats: List[Optional[str]]) -> int:
+def _significance_column_count(detail: bool) -> int:
+    """Return the number of columns in a significance table.
+
+    Args:
+        detail: Whether the detailed comparison columns are requested.
+
+    Returns:
+        The column count.
+    """
+    return _DETAIL_COLUMNS if detail else _SIGNIFICANCE_COLUMNS
+
+
+def _visible_column_count(
+    formats: List[Optional[str]],
+    detail: bool = False,
+) -> int:
     """Return the number of visible significance columns.
 
     Args:
         formats: Declared format specifications, empty when unformatted.
+        detail: Whether the detailed comparison columns are requested.
 
     Returns:
         Number of columns that are not hidden.
     """
     if not formats:
-        return _SIGNIFICANCE_COLUMNS
+        return _significance_column_count(detail)
     return sum(1 for format_spec in formats if format_spec is not None)
 
 
@@ -358,6 +415,7 @@ def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         "metric_specs": metric_specs,
         "parsed_metrics": specs,
         "significance": significance,
+        "significance_detail": _significance_detail(parameters),
         "caption": parameters.get("caption"),
         "unique_fields": _unique_fields(specs),
         "where_clauses": sorted({spec.where for spec in specs if spec.where}),

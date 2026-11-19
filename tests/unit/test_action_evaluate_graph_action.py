@@ -80,6 +80,7 @@ def test_evaluate_graph_records_all_parameters() -> None:
     assert _block(result, "parameters") == {
         "input": None,
         "reference": "ref.graphml",
+        "context": None,
         "metric": ["f1"],
         "threshold": None,
         "present_threshold": 0.0,

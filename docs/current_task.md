@@ -1,17 +1,41 @@
-# Replicating the original pdg-merge charts__
+# Replicating the original pdg-merge charts - continued
 
-- Figure styling: `theme` (Seaborn axes style, merged under the explicit properties), `figure.size`, `figure.layout` (`tight`/`constrained`), `figure.bbox_inches`, `figure.title_fontweight` and `subplot.title_fontweight`.
-- Panel tags: `subplot.tag` and `subplot.tag_fontsize` draw the bold `A`/`B` labels in the axes corners.
-- In-panel legends: `legend.subplots` (a list of subplot names, or `all`) removes the grid legend and rebuilds it inside the named panels; `legend.framealpha` sets its opacity and an empty `legend.title` suppresses the title.
-- Scatter styling: `scatter.markers`, `scatter.size` and `scatter.alpha`, plus `scatter.connect_colour` and `scatter.connect_linewidth`. `scatter.connect_key` pairs the connectors by a row column so networks sharing an x value get one connector each; the column is carried into the long-form data as `row_key`.
-- Bars: `bar.alpha` sets the patch opacity.
-- Fixed a latent duplicate-keyword bug: `sharex`, `sharey` and `legend_out` are now passed to `catplot` directly rather than through `facet_kws` (matplotlib raised when both were given).
-- New modules `plot.style` and `plot.legend` keep `plot.charts` within the module size target.
+### `summarise`
 
+- Added Python-style conditional expressions and comparisons in formulas:
+
+  - `a if condition else b`
+  - `==`, `!=`, `<`, `<=`, `>`, `>=`
+  - string literals
+  - lazy evaluation of the selected branch
+
+- Added `significance_detail: true` for paired Wins / Losses / Mean Δ columns alongside W and p.
+
+- Added the `spearman-2-sided` significance test.
+
+- Added the `sum` statistic and footer support.
+
+- Extended `unique` to preserve and render text values, enabling `domain.unique` and `source_repository.unique`.
+
+- Updated validation, action parameters, metadata and documentation.
+
+- Added unit tests for all new behaviour.
+
+### `evaluate_graph`
+
+- Added an optional `context` JSON parameter.
+
+- Added metrics:
+
+  - `reference_arc_count`
+  - `domain`
+  - `source_repository`
+
+- `domain` and `source_repository` are returned unchanged from the context/provenance, per your instruction.
+
+- Added context reading and unit tests.
 
 # Possible future work out of scope for this task
-
-- the `evaluate_graph` → `analyse_graph` rename and the wider cache consolidation remain separate tasks, as agreed.
 
 - __Per-input-group weights or a "require every input" guard in `merge_graphs`.__ Currently `weights` is a flat list over every graph read from every input cache; a missing subset makes the graph count and weight count disagree. A grouped form (`0.5` per input cache, distributed within the cache) plus a skip-if-input-empty rule would remove the barley guard and make fusion steps more robust. The two-stage subset ensemble design already handles this, so it is a convenience feature.
 

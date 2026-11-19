@@ -10,9 +10,10 @@ metadata, so a new test is added without changing the parser or renderers.
 """
 
 from dataclasses import dataclass
+from statistics import mean
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from scipy.stats import wilcoxon
+from scipy.stats import spearmanr, wilcoxon
 
 __all__ = [
     "SIGNIFICANCE_TESTS",
@@ -20,6 +21,7 @@ __all__ = [
     "SignificanceTest",
     "_default_caption",
     "_paired_values",
+    "_paired_summary",
     "_significance_rows",
     "_significance_stars",
     "_statistic_format",
@@ -119,6 +121,31 @@ def _differences(
     return [first - second for first, second in zip(left, right)]
 
 
+def _spearman_2_sided(
+    left: Sequence[float],
+    right: Optional[Sequence[float]],
+) -> Optional[Tuple[float, float]]:
+    """Return the Spearman rank correlation and two-sided p-value.
+
+    Args:
+        left: First sample.
+        right: Second sample.
+
+    Returns:
+        Tuple of (rho, two-sided p-value), or None when the correlation
+        cannot be computed.
+
+    """
+    if right is None or len(left) < 3 or len(right) < 3:
+        return None
+    result = spearmanr(left, right)
+    statistic = float(result.statistic)
+    p_value = float(result.pvalue)
+    if statistic != statistic or p_value != p_value:  # NaN guard
+        return None
+    return statistic, p_value
+
+
 SIGNIFICANCE_TESTS: Dict[str, SignificanceTest] = {
     "wilcoxon-signed-rank-2-sided": SignificanceTest(
         name="wilcoxon-signed-rank-2-sided",
@@ -127,6 +154,14 @@ SIGNIFICANCE_TESTS: Dict[str, SignificanceTest] = {
         format_spec=".1f",
         arity=2,
         run=_wilcoxon_signed_rank_2_sided,
+    ),
+    "spearman-2-sided": SignificanceTest(
+        name="spearman-2-sided",
+        title="Spearman rank correlation, two-sided",
+        statistic_label="rho",
+        format_spec=".3f",
+        arity=2,
+        run=_spearman_2_sided,
     ),
 }
 
@@ -214,12 +249,44 @@ def _significance_row(
     left, right = _paired_values(spec, rows)
     result = spec.test.run(left, right) if left else None
     statistic, p_value = result if result is not None else (None, None)
+    wins, losses, mean_delta = _paired_summary(left, right)
     return {
         "comparison": spec.label,
+        "wins": wins,
+        "losses": losses,
+        "mean_delta": mean_delta,
         "statistic": statistic,
         "p_value": p_value,
         "significance": _significance_stars(p_value),
     }
+
+
+def _paired_summary(
+    left: Sequence[float],
+    right: Optional[Sequence[float]],
+) -> Tuple[Any, Any, Any]:
+    """Return wins, losses and mean difference of a paired sample.
+
+    A win is a positive difference, a loss a negative difference and a tie
+    is neither. The values are empty when the sample is empty.
+
+    Args:
+        left: First sample.
+        right: Second sample, or None for a one-sample test.
+
+    Returns:
+        Tuple of (wins, losses, mean delta).
+
+    """
+    if not left:
+        return "", "", ""
+    if right is None:
+        differences = list(left)
+    else:
+        differences = [first - second for first, second in zip(left, right)]
+    wins = sum(1 for value in differences if value > 0)
+    losses = sum(1 for value in differences if value < 0)
+    return wins, losses, mean(differences)
 
 
 def _significance_rows(
