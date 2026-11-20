@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
 from .columns import ColumnSpec
-from .formula import _evaluate_formula
+from .formula import _evaluate_formula, _number_value
 
 __all__ = ["_compute_stats", "_stat_value"]
 
@@ -138,18 +138,8 @@ def _numeric_values(values: List[Any]) -> List[float]:
         Numeric values in collection order.
 
     """
-    numbers: List[float] = []
-    for value in values:
-        if isinstance(value, bool) or value is None or value == "":
-            continue
-        if isinstance(value, (int, float)):
-            numbers.append(float(value))
-            continue
-        try:
-            numbers.append(float(value))
-        except (TypeError, ValueError):
-            continue
-    return numbers
+    numbers = [_number_value(value) for value in values]
+    return [number for number in numbers if number is not None]
 
 
 def _bin_value(
@@ -391,6 +381,22 @@ def _stat_value(stat: str, values: List[Any]) -> Any:
     numbers = _numeric_values(values)
     if not numbers:
         return ""
+    return _apply_stat(stat, numbers)
+
+
+def _apply_stat(stat: str, numbers: List[float]) -> Any:
+    """Apply a named statistic to numeric values.
+
+    An unrecognised statistic falls back to the standard deviation.
+
+    Args:
+        stat: Statistic name.
+        numbers: Numeric values for the field.
+
+    Returns:
+        Computed statistic, or an empty string when it is unavailable.
+
+    """
     if stat == "mean":
         return statistics.mean(numbers)
     if stat == "sum":
@@ -401,6 +407,4 @@ def _stat_value(stat: str, values: List[Any]) -> Any:
         return max(numbers)
     if stat == "median":
         return statistics.median(numbers)
-    if len(numbers) >= 2:
-        return statistics.stdev(numbers)
-    return ""
+    return statistics.stdev(numbers) if len(numbers) >= 2 else ""

@@ -312,11 +312,7 @@ def _evaluate_node(node: ast.expr, values: Mapping[str, Any]) -> Any:
 
     """
     if isinstance(node, ast.Constant):
-        if isinstance(node.value, str):
-            return node.value
-        value = node.value
-        assert isinstance(value, (int, float))
-        return float(value)  # Validated numeric literal
+        return _constant_value(node)
     if isinstance(node, ast.Name):
         return _name_value(node.id, values)
     if isinstance(node, ast.BinOp):
@@ -329,6 +325,23 @@ def _evaluate_node(node: ast.expr, values: Mapping[str, Any]) -> Any:
         return _if_expression_value(node, values)
     assert isinstance(node, ast.Call)  # Guaranteed by _validate_formula
     return _call_value(node, values)
+
+
+def _constant_value(node: ast.Constant) -> Any:
+    """Return the value of a numeric or text literal.
+
+    Args:
+        node: Constant node to evaluate.
+
+    Returns:
+        Text literal, or a validated numeric literal as a float.
+
+    """
+    if isinstance(node.value, str):
+        return node.value
+    value = node.value
+    assert isinstance(value, (int, float))
+    return float(value)  # Validated numeric literal
 
 
 def _name_value(name: str, values: Mapping[str, Any]) -> Any:

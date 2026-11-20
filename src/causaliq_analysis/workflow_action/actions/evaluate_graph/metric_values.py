@@ -121,17 +121,26 @@ def _reference_arc_count(reference: Any) -> int:
     if edges is None:
         return 0
     if isinstance(edges, dict):
-        try:
-            from causaliq_core.graph import EdgeType
-
-            return sum(
-                1
-                for edge_type in edges.values()
-                if edge_type == EdgeType.DIRECTED
-            )
-        except Exception:  # pragma: no cover - defensive fallback
-            return len(edges)
+        return _directed_edge_count(edges)
     return len(edges)
+
+
+def _directed_edge_count(edges: Dict[Any, Any]) -> int:
+    """Return the number of directed arcs in an edge-type mapping.
+
+    Args:
+        edges: Mapping of edge pairs to edge types.
+
+    Returns:
+        Number of directed arcs.
+    """
+    try:
+        from causaliq_core.graph import EdgeType
+    except Exception:  # pragma: no cover - defensive fallback
+        return len(edges)
+    return sum(
+        1 for edge_type in edges.values() if edge_type == EdgeType.DIRECTED
+    )
 
 
 def _add_edge_counts(
