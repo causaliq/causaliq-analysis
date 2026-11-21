@@ -42,7 +42,10 @@ dependencies = [
     # (oneOf/parseString/resetCache/enablePackrat), which pyparsing 3.3
     # deprecated and will remove in 4.0; cap below 3.3 meanwhile.
     "pyparsing<3.3",
-    "pandas>=1.3.0",
+    # pandas 3.1 infers integer categories when reading CSVs with
+    # dtype="category", which breaks categorical dataset reads through
+    # causaliq-data; cap below it until that change is handled.
+    "pandas>=1.3.0,<3.1",
     "scipy>=1.7.0",
     "seaborn>=0.13,<0.14",
 ]
@@ -102,9 +105,20 @@ where = ["src"]
 [tool.setuptools.package-data]
 causaliq_analysis = ["py.typed"]
 
+[tool.causaliq]
+distribution = "causaliq-analysis"
+package = "causaliq_analysis"
+python_versions = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+default_python = "3.11"
+dev_extras = ["dev", "test", "docs"]
+testpaths = ["tests/unit", "tests/functional", "tests/integration"]
+fast_testpaths = ["tests/unit", "tests/functional"]
+slow_marker = "slow"
+extra_steps = []
+
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --cov=causaliq_analysis --cov-report=term-missing --cov-report=html  -m 'not slow'"
+addopts = "-ra -q --strict-markers"
 testpaths = [
     "tests",
 ]
