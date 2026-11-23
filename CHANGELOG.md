@@ -129,6 +129,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be specified directly (e.g. `dict.property={'key1': 1, 'key2': 'me'}`).
   The legacy `<name>:<value>` format is no longer accepted and raises a
   clear error directing users to `=`.
+- **Python versions**: Python 3.14 is now supported and tested in CI, and the
+  default development interpreter is Python 3.12.
+- **Plotting stack**: require `matplotlib>=3.10.7,<3.11`. The `pyparsing<3.3`
+  cap was only needed by matplotlib 3.9, and the `ord_hc_f1.svg` replication
+  reference has been re-blessed for the new renderer output.
 
 ### Deprecated
 - Nothing yet
@@ -156,6 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that omit unconnected nodes, which produced misleading "extra edge" counts
   when the learning graph contained nodes absent from the reference. This also
   removes the legacy emulation of the pre-Bayesys-v1.5 precision "bug".
+- Python 3.9 support: `requires-python` is now `>=3.10`, and the development
+  environments, CI matrix and generated scripts cover Python 3.10 to 3.14.
 
 ### Fixed
 - **Cross-platform plot replication test**: `test_plot_exact_replication`
