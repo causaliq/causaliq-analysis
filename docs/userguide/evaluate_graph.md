@@ -1,10 +1,11 @@
 # Evaluating Graphs
 
 The `evaluate_graph` capability structurally evaluates a graph against a
-reference graph. Deterministic graphs (DAG, PDAG, CPDAG) and Probabilistic
+reference graph, or describes a graph's edge agreement when no reference is
+given. Deterministic graphs (DAG, PDAG, CPDAG) and Probabilistic
 Dependency Graphs (PDGs) are supported; the latter are compared by edge
-probability. Note that comparisons between general SDG graphs are not
-supported.
+probability, or by deterministic edge states when a `threshold` is set.
+Note that comparisons between general SDG graphs are not supported.
 
 This is a `map` action (see
 [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/))
@@ -21,21 +22,38 @@ effective parameters and the outcome status (see
 | Parameter   | CLI Flag           | Required | Description |
 |-------------|--------------------|----------|-------------|
 | `input`     | `-i`/`--input`     | Yes      | Learned graph file (CLI) or workflow cache `.db` (action) |
-| `reference` | `-r`/`--reference` | Yes      | Reference graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`, `.dsc`) or workflow cache (`.db`) |
-| `metric`    | `-m`/`--metric`    | Yes      | Metric(s) to compute (repeatable in CLI) |
+| `reference` | `-r`/`--reference` | No       | Reference graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`, `.dsc`) or workflow cache (`.db`). Omit it to describe the graph instead |
+| `context`   | —                  | No       | Network context JSON file supplying `domain` and `source_repository` metrics |
+| `metric`    | `-m`/`--metric`    | Yes\*    | Metric(s) to compute (repeatable in CLI) |
+| `threshold` | —                  | No       | Reduce both graphs to deterministic edge states at this `p_exist` before comparing |
+| `present_threshold` | —          | No       | Description mode: minimum `p_exist` for an existence-agreement value (default 0.0) |
+| `direction_threshold` | —        | No       | Description mode: minimum `p_exist` for a direction-agreement value (default 0.0) |
 | `output`    | `-o`/`--output`    | Workflow | Metrics cache (`.db`) receiving the `metrics` object |
 | `filter`    | —                  | No       | Filter expression for cache entries (workflow only) |
 
-**Supported Metrics:** `f1`, `shd`, `precision`, `recall`, `edge`, `node_count`,
+\* `metric` is required with a reference; without one it defaults to the
+description metrics.
+
+**Comparison metrics:** `f1`, `shd`, `precision`, `recall`, `edge`,
+`node_count`, `reference_arc_count`, `domain`, `source_repository`,
 `equiv.f1`, `equiv.shd`, `equiv.edge`
+
+**Description metrics:** `exist_agree`, `dir_agree`
 
 `node_count` reports the number of nodes in the evaluated graph. A successful
 comparison requires the learned graph and the reference to share the same node
 set, so it is also the reference's node count; it is useful for tables and for
 plots that relate error metrics to network size.
 
+`reference_arc_count` reports the number of directed arcs in the reference
+graph. `domain` and `source_repository` are read from the optional `context`
+JSON file and are reported unchanged; requesting either requires `context`.
+
+
 **Notes:**
 
+- Description mode (no `reference`) is available to the workflow action. The
+  CLI command compares two graph files, so it still requires `-r`.
 - In CLI mode, `input` is a graph file (`.csv`, `.graphml`, `.tetrad`, `.xdsl`,
   `.dsc`) and `output` is a directory where `_meta.json` will be written.
 - IN CLI mode you can request multiple metrics by repeating the -m/00metric option e.g. "-m f1 -m shd"
@@ -46,6 +64,67 @@ plots that relate error metrics to network size.
   entries contain reference graphs with the same key structure as the
   input cache. Each input entry is compared against the reference entry
   with identical matrix variable values.
+
+---
+
+## Edge-level analysis and thresholding
+
+`metric: [edge]` returns the ten low-level edge counts of the comparison.
+For a PDG input the counts are probability-weighted, because every node
+pair contributes the sixteen products of the reference and graph edge
+states. Setting `threshold` reduces both graphs to one deterministic state
+per pair before comparing:
+
+```text
+p_exist < threshold        -> none
+forward > backward        -> forward
+backward > forward        -> backward
+otherwise                 -> undirected
+```
+
+The counts are then integer counts of the thresholded graphs, which is the
+hard-thresholded comparison used by the PDG-merge paper. Derived measures
+belong in the workflow, as formulas over the counts, for example:
+
+```yaml
+metric:
+  - arc_matched as matched
+  - arc_reversed as reversed
+  - edge_not_arc as undirected
+  - arc_missing as missing
+  - >
+    (matched + reversed + undirected) /
+    (matched + reversed + undirected + missing) as edge_recall
+  - "matched / (matched + reversed + undirected) as orientation_accuracy"
+```
+
+`edge_not_arc` counts reference arcs that the thresholded graph proposes as
+undirected; they are detected but not correctly oriented.
+
+## Description mode
+
+Omitting `reference` describes the matched graph. `exist_agree` and
+`dir_agree` are list-valued metrics with one element per node pair:
+
+- `exist_agree` = `max(p_exist, 1 - p_exist)` for pairs above
+  `present_threshold` (default 0.0, exclusive);
+- `dir_agree` = the larger orientation share, with the undirected
+  probability split equally, for pairs above `direction_threshold`. The
+  list is empty for pairs with no edge probability.
+
+```yaml
+  - name: "describe the ensemble edge agreement"
+    uses: "causaliq-analysis"
+    with:
+      action: "evaluate_graph"
+      input: "results/intermediate/ensembles.db"
+      metric: [exist_agree, dir_agree]
+      direction_threshold: 0.10
+      output: "results/intermediate/diversity-metrics.db"
+```
+
+List-valued metrics are intended for `summarise`, which flattens them into
+its value pool and can bin them with the `bin` and `pct` statistics.
 
 ---
 
@@ -319,8 +398,11 @@ the workflow does not supply (as `null`):
 | Key | Value |
 |-----|-------|
 | `input` | Input cache path, or `null` when omitted |
-| `reference` | Reference graph file or cache path |
+| `reference` | Reference graph file or cache path, or `null` in description mode |
 | `metric` | Requested metrics as a list |
+| `threshold` | Comparison threshold, or `null` when the probability vectors are compared directly |
+| `present_threshold` | Description mode existence threshold |
+| `direction_threshold` | Description mode direction threshold |
 | `output` | Output cache path, resolved from the open step cache when the executor removes `output` |
 | `filter` | Filter expression, or `null` when omitted |
 

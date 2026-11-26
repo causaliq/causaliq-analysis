@@ -46,14 +46,38 @@ change what a formula means.
 |------|---------|
 | `<field>.<stat>` | The statistic over every input cache (union) |
 | `<field>.<stat>[<source>]` | The statistic over one input cache |
+| `<field>.<stat>[<source>] where <predicate>` | The statistic over entries matching the predicate |
 | `<field>.argmax.<dimension>[<source>]` | The winning dimension value of one input cache |
 | `<field>.argmax.<dimension>{<element>}[<source>]` | One element of a list-valued winning dimension |
 | `<field>[<source>]` | The single distinct value of a field |
+| `<field>.bin(lo, hi)` | The count of values in a half-open range |
+| `<field>.pct(lo, hi)` | The percentage of values in a half-open range |
+| `<alias>` | A copy of a preceding column |
 | `<formula>` | A derived column |
 
 Any of these forms may declare an alias with a trailing ` as <name>`. An
 entry that holds an operator or a function call is a formula; anything
-else is a metric specification, so the two can never be confused.
+else is a metric specification, so the two can never be confused. A bare
+alias is the exception: it is recognised when it names a preceding column
+and becomes a reference column, which lets a matrix value select which
+computed column becomes the output (`{{panel}} as y`).
+
+A list-valued field contributes every numeric element to the value pool,
+so `mean`, `count`, `bin` and `pct` operate on the pooled values across
+entries. `bin(lo, hi)` counts `lo <= value < hi`; `pct(lo, hi)` divides
+that count by the number of pooled values (an empty pool yields an empty
+cell). `inf` is accepted as a bound for the open-ended top bucket. A
+binned statistic must be its own column because a formula can only
+reference aliases, so `x.bin(0.1, 0.2) / x.count` is rejected while
+`x.bin(0.1, 0.2) as b` followed by `b / x.count` is valid.
+
+A base column may also add a `where <predicate>` clause before its alias in
+the workflow action (`f1.mean[1] where model == 'gemini' as gemini`). The
+predicate is evaluated against the entry's reporting view, the same view
+`filter` uses, so a table can select different entries of one input cache
+for different columns. Values are collected once without a predicate, for
+plain columns, and once per satisfied predicate. A formula cannot carry a
+`where` clause.
 
 A list-valued matrix dimension, such as a declared weight pair
 `fusion_weights: [BNSL, LLM]`, is reported whole by an `argmax` column. A

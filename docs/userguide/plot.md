@@ -3,9 +3,9 @@
 The `plot` capability draws charts using matplotlib and Seaborn from
 scientific results. The input is either a `.csv` file produced by the
 `summarise` action or a metrics workflow cache (`.db`) produced by the
-`evaluate_graph` action. The action writes no workflow cache, only an
-image file such as a `.png` or `.jpg`; a step whose output is not a
-workflow cache runs once per workflow regardless of any matrix
+`summarise` or `evaluate_graph` actions. The action writes no workflow
+cache, only an image file such as a `.png` or `.jpg`; a step whose output
+is not a workflow cache runs once per workflow regardless of any matrix
 definition.
 
 Keeping the `.csv` input is useful for plotting simple ad-hoc data
@@ -128,19 +128,39 @@ to `figure.title=Test Figure`.
 
 Supported property names include:
 
-- Figure: `figure.title`, `figure.title_fontsize`, `figure.dpi`,
-  `figure.per_row`, `figure.background`
+- Theme: `theme` applies a Seaborn axes style such as `whitegrid`; style
+  properties set explicitly still take precedence.
+- Figure: `figure.title`, `figure.title_fontsize`,
+  `figure.title_fontweight`, `figure.size` (a `(width, height)` tuple in
+  inches), `figure.layout` (`tight` or `constrained`), `figure.dpi`,
+  `figure.per_row`, `figure.background`, `figure.bbox_inches`
 - Subplot: `subplot.kind`, `subplot.aspect`, `subplot.title`,
-  `subplot.title_fontsize`, `subplot.axes_fontsize`, `subplot.background`,
+  `subplot.title_fontsize`, `subplot.title_fontweight`, `subplot.tag`
+  (a panel label such as `'A'`, or a mapping of subplot to label),
+  `subplot.tag_fontsize`, `subplot.axes_fontsize`, `subplot.background`,
   `subplot.grid`, `subplot.grid_colour`
 - Axes: `xaxis.label`, `xaxis.range`, `xaxis.scale`, `xaxis.ticks`,
-  `xaxis.ticks_fontsize`, `xaxis.shared`, `yaxis.label`, `yaxis.range`,
-  `yaxis.scale`, `yaxis.ticks`, `yaxis.ticks_fontsize`, `yaxis.shared`
+  `xaxis.ticks_fontsize`, `xaxis.shared`, `xaxis.tick_labels`,
+  `xaxis.ticks_rotation`, `xaxis.ticks_halign`, `yaxis.label`,
+  `yaxis.range`, `yaxis.scale`, `yaxis.ticks`, `yaxis.ticks_fontsize`,
+  `yaxis.shared`, `yaxis.invert`
 - Figure layout: `figure.subplots_top`, `figure.subplots_left`,
   `figure.subplots_right`, `figure.subplots_bottom`,
-  `figure.subplots_hspace`, `figure.subplots_wspace`
+  `figure.subplots_hspace`, `figure.subplots_wspace`; these are ignored
+  when `figure.layout` is set.
 - Legend: `legend.title`, `legend.title_fontsize`, `legend.fontsize`,
   `legend.labels`, `legend.outside`, `legend.key`, `legend.loc`,
-  `legend.ncol`
+  `legend.ncol`, `legend.framealpha`, `legend.subplots` (a list of
+  subplot names, or `all`, draws the legend inside those panels instead
+  of once per figure; it honours `legend.loc`, `legend.ncol`,
+  `legend.fontsize`, `legend.title`, `legend.labels` and
+  `legend.framealpha`)
 - Lines: `line.sizes`, `line.dashes`
+- Bars: `bar.alpha` sets the opacity of the bar patches.
+- Scatter: `scatter.connect=True` draws a connector between the two legend
+  groups at each x value (a paired comparison). `scatter.connect_key`
+  names the column which pairs the rows, so rows sharing an x value stay
+  separate. `scatter.connect_colour` and `scatter.connect_linewidth` style
+  the connector, and `scatter.markers`, `scatter.size` and `scatter.alpha`
+  style the points. Scatter charts never draw a fitted regression line.
 - Other: `palette`, `violin.scale`, `violin.width`

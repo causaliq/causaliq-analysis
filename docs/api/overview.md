@@ -16,6 +16,12 @@ Functions for analysing and comparing causal graphs, including structural
 metrics, Kullback-Leibler divergence calculations, and Bayesys compatibility
 metrics.
 
+### [Edge Analysis](edge_analysis.md)
+
+Functions for thresholding a probabilistic graph to deterministic edge
+states and for summarising within-ensemble existence and direction
+agreement (the `exist_agree` and `dir_agree` description metrics).
+
 ### [Graph](graph.md)
 
 Enumerations for describing changes made to causal graphs during structure

@@ -2,7 +2,7 @@
 
 The `summarise` capability statistically summarises numerical results across experiments into publication-ready metrics such as means, standard deviations etc.
 
-This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/)) and so aggregates results in the `input` cache and produces a single tabular output.
+This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq.org/userguide/action_patterns/)) and so aggregates results in the `input` cache and produces either a single tabular output or a metrics cache.
 
 ## Parameters
 
@@ -10,7 +10,7 @@ This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq
 |-----------|-----------------|----------|-------------|
 | `metric`  | `-m`/`--metric` | Yes      | Columns of the table: metric specifications or derived-column formulas |
 | `input`   | `-i`/`--input`  | Yes      | Files containing raw results (`.json` or `.db` cache) |
-| `output`  | `-o`/`--output` | Yes      | Tabular summary in `.csv`, `.tex` or `.md` format |
+| `output`  | `-o`/`--output` | Yes      | Tabular summary in `.csv`, `.tex` or `.md` format, or a `.db` metrics cache |
 | `headers` | `--header`      | No       | Column headers for the visible columns, in order |
 | `format`  | `--format`      | No       | Python format specifications for `.tex` and `.md` output; `null` hides the column |
 | `footer`  | `--footer`      | No       | Footer row for the visible columns in `.tex` and `.md` output |
@@ -24,11 +24,10 @@ This is an `aggregate` action (see [workflow patterns](https://workflow.causaliq
   `matrix` are all **required**. The matrix controls output dimensionality.
 - `metric` and `input` can be repeated in the CLI for multiple columns and
   inputs, and can use YAML list syntax in actions.
-- `output` can only have a single value, which must be a `.csv`, `.tex` or
-  `.md` file in both the CLI and the action.
-- `headers` and `footer` take one entry per **visible** table column;
-  `format` takes one entry per **declared** column, including hidden ones
-  (see [Hidden columns](#hidden-columns)).
+- `output` may be a `.csv`, `.tex` or `.md` table, or a `.db` workflow cache
+  receiving one `metrics` object per matrix combination (see
+  [Metrics-cache output](#metrics-cache-output)). `headers`, `format`,
+  `footer`, `significance` and `caption` apply only to tables.
 
 ### `metric`
 
@@ -46,6 +45,19 @@ The following statistics are supported:
 - `min` - the smallest value
 - `max` - the largest value
 - `median` - the median value
+- `bin` - the number of values inside a half-open range (see [Binned statistics](#binned-statistics))
+- `pct` - the percentage of values inside a half-open range
+- `unique` - the single distinct value of a field; conflicting values are rejected
+
+A list-valued field, such as the per-pair `exist_agree` list written by
+`evaluate_graph`, contributes every numeric element to the value pool. So
+`exist_agree.count` is the number of pooled pairs, `exist_agree.mean` is the
+mean agreement over all of them, and `exist_agree.pct(0.5, 0.65)` is the
+percentage in that bucket. A scalar field contributes one value per entry.
+
+A specification that is a bare alias, such as `value as copy`, copies the
+earlier column. This is useful when a matrix dimension selects which computed
+column becomes the output, for example `{{panel}} as y`.
 
 A bare `<field>[<source>]` column reports the single distinct value of a
 field, as if by a `unique` statistic: a field holding conflicting values is
@@ -62,6 +74,91 @@ dimension. For example, with a `fusion_weights` matrix variable declared as
 `[BNSL, LLM]`, `f1.argmax.fusion_weights{1}` reports the BNSL weight of the
 best run and `f1.argmax.fusion_weights{2}` reports the LLM weight. An index
 past the end of the list reports an empty cell.
+
+### Binned statistics
+
+A binned statistic names a half-open range in parentheses:
+
+```text
+<field>.bin(lo, hi)   count of values in the bin
+<field>.pct(lo, hi)   percentage of values in the bin (0-100)
+```
+
+The range includes its lower bound and excludes its upper bound
+(`lo <= value < hi`). A value of exactly 0.65 therefore falls in the
+`(0.65, 0.75)` bucket, matching a `>= 0.65` boundary test; use `inf` as the
+upper bound for the top bucket. A percentage over no values is an empty
+cell rather than a division by zero.
+
+```yaml
+metric:
+  - "exist_agree.pct(0.50, 0.65) as contested"
+  - "exist_agree.pct(0.65, 0.75) as low"
+  - "exist_agree.pct(0.95, inf) as consensus"
+```
+
+A binned statistic must be its own column: declare it with an alias and use
+the alias in a later formula. `x.bin(0.1, 0.2) / x.count` is therefore an
+error, while `x.bin(0.1, 0.2) as b` followed by `b / x.count` is valid.
+
+### Metrics-cache output
+
+An `output` ending in `.db` writes one `metrics` object per matrix
+combination instead of a table, and `plot` reads that cache directly. The
+matrix values become the chart columns, so no CSV reshaping is needed:
+
+```yaml
+matrix:
+  network: [asia, alarm]
+  stage: [bnsl, llm, fused]
+  panel: [edge_recall, orientation_accuracy]
+
+steps:
+  - uses: "causaliq-analysis"
+    with:
+      action: "summarise"
+      input: "results/intermediate/edge-metrics.db"
+      output: "results/intermediate/edge-metrics-long.db"
+      metric:
+        - arc_matched.unique as matched
+        - arc_reversed.unique as reversed
+        - edge_not_arc.unique as undirected
+        - arc_missing.unique as missing
+        - >
+          (matched + reversed + undirected) /
+          (matched + reversed + undirected + missing) as edge_recall
+        - "matched / (matched + reversed + undirected) as orientation_accuracy"
+        - "{{panel}} as y"
+```
+
+The cache entry is keyed `{network, stage, panel}` and holds `y` (plus the
+intermediate fields). A plot then names `subplot: panel`, `group: stage`,
+`x: network` and `y: y`. Because the matrix value selects the field, every
+cache entry can carry several computed columns while the chart plots one.
+
+Table presentation options (`headers`, `format`, `footer`, `significance`,
+`caption`) do not apply to a metrics cache and are rejected.
+
+### Selecting entries with `where`
+
+In workflow actions, a base column may add a `where <predicate>` clause
+before its alias. The predicate selects which entries of an input cache
+contribute to that column:
+
+```yaml
+      input:
+        - results/ablation-solo.db
+      metric:
+        - f1.mean[1] where model == 'gemini' as gemini
+        - f1.mean[1] where model == 'claude' as claude
+```
+
+The predicate is evaluated against the entry's reporting view, the same view
+the step-level `filter` uses, so it can name matrix dimensions and metadata
+fields. This lets one variant-keyed cache supply several columns without
+writing one cache per variant. A column without `where` keeps the existing
+behaviour and draws on every matching entry. Only base columns accept
+`where`; a formula with a `where` clause is rejected.
 
 ### Significance tests
 
@@ -285,6 +382,7 @@ The output extension selects the renderer:
 | `.csv` | Raw table | No |
 | `.tex` | LaTeX `tabular` fragment | Yes |
 | `.md`, `.markdown` | Markdown table | Yes |
+| `.db` | Metrics cache, one `metrics` object per matrix combination | Not applicable |
 
 CSV output always holds raw values, because a `plot` step reads the file
 numerically; formatted cells or a footer row would deform the chart. Values
@@ -338,4 +436,36 @@ causaliq-analysis summarise -m f1.mean -m f1.sd -i cache.db -o table.md `
 A CLI summary holds a single row, so `headers`, `format` and `footer` take
 one entry per metric, and a `.tex` or `.md` output renders that row as a
 table. `-o -` still prints the summary to the terminal.
+
+## Conditional expressions and detailed comparisons
+
+Formulas may use Python comparisons and conditional expressions in
+addition to arithmetic:
+
+```yaml
+metric:
+  - "b_gem if axis == 'LLM Model' else f_llm as value"
+```
+
+The selected branch is evaluated lazily. String literals are supported, so
+a missing cell can be rendered as `'---'`.
+
+`significance_detail: true` adds paired wins, losses and the mean
+difference to a significance table:
+
+```yaml
+significance:
+  - wilcoxon-signed-rank-2-sided(fusion, bnsl) as "Fusion vs. BNSL"
+significance_detail: true
+```
+
+The `sum` statistic is supported alongside `mean`, `sd`, `count`, `min`,
+`max` and `median`. The `unique` statistic preserves text values, which
+allows metadata columns such as `domain.unique` and
+`source_repository.unique`.
+
+The registered significance tests are:
+
+- `wilcoxon-signed-rank-2-sided` — paired Wilcoxon statistic and p-value.
+- `spearman-2-sided` — Spearman rank correlation and two-sided p-value.
 
