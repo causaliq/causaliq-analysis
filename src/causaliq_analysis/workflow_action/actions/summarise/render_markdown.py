@@ -6,14 +6,14 @@ Escaping differs from LaTeX because a pipe separates the cells and a
 leading angle bracket would open an HTML tag.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from .present import TableColumn, _format_cell
 
 __all__ = ["_markdown_escape", "_markdown_lines"]
 
 # One rendered table row: dimension values and computed column values
-_ROW = Tuple[Dict[str, Any], Dict[str, Any]]
+_ROW = tuple[dict[str, Any], dict[str, Any]]
 
 _ALIGN_MARKERS = {"left": ":---", "right": "---:", "center": ":---:"}
 
@@ -42,8 +42,8 @@ def _markdown_lines(
     columns: Sequence[TableColumn],
     keys: Sequence[str],
     rows: Sequence[_ROW],
-    footer: Optional[Sequence[str]],
-) -> List[str]:
+    footer: Sequence[str] | None,
+) -> list[str]:
     """Render a table as the lines of a Markdown table.
 
     Args:
@@ -65,7 +65,7 @@ def _markdown_lines(
     return lines
 
 
-def _labels(columns: Sequence[TableColumn]) -> List[str]:
+def _labels(columns: Sequence[TableColumn]) -> list[str]:
     """Return the header texts of the columns.
 
     Args:
@@ -95,8 +95,8 @@ def _alignment_row(columns: Sequence[TableColumn]) -> str:
 def _body_row(
     columns: Sequence[TableColumn],
     keys: Sequence[str],
-    group: Dict[str, Any],
-    results: Dict[str, Any],
+    group: dict[str, Any],
+    results: dict[str, Any],
 ) -> str:
     """Render one body row.
 

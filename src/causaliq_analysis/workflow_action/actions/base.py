@@ -7,7 +7,7 @@ the parent package delegates to these action classes.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import (
     ActionPattern,
@@ -30,9 +30,9 @@ class AnalysisAction(ABC):
 
     action_name: str = ""
     pattern: ActionPattern = ActionPattern.PRODUCE
-    required_parameters: Tuple[str, ...] = ()
+    required_parameters: tuple[str, ...] = ()
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate parameters shared by all analysis actions.
 
         Args:
@@ -56,10 +56,10 @@ class AnalysisAction(ABC):
     @abstractmethod
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Execute the action and return its result.
 

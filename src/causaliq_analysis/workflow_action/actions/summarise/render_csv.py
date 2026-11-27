@@ -2,7 +2,7 @@
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -12,11 +12,11 @@ __all__ = ["_write_csv"]
 
 
 def _write_csv(
-    request: Dict[str, Any],
-    matrix_values: Dict[str, Any],
-    results: Dict[str, Any],
-    metadata: Dict[str, Any],
-    log_fn: Optional[Any],
+    request: dict[str, Any],
+    matrix_values: dict[str, Any],
+    results: dict[str, Any],
+    metadata: dict[str, Any],
+    log_fn: Any | None,
 ) -> None:
     """Append the summary row to the CSV output file.
 
@@ -49,9 +49,9 @@ def _write_csv(
 
 
 def _csv_labels(
-    request: Dict[str, Any],
-    matrix_values: Dict[str, Any],
-) -> List[str]:
+    request: dict[str, Any],
+    matrix_values: dict[str, Any],
+) -> list[str]:
     """Return the CSV column labels, including hidden columns.
 
     Args:
@@ -72,9 +72,9 @@ def _csv_labels(
 
 
 def _csv_row(
-    matrix_values: Dict[str, Any],
-    results: Dict[str, Any],
-) -> Dict[str, Any]:
+    matrix_values: dict[str, Any],
+    results: dict[str, Any],
+) -> dict[str, Any]:
     """Build the CSV row holding matrix values then metrics.
 
     Args:
@@ -85,7 +85,7 @@ def _csv_row(
         Row mapping column names to values.
 
     """
-    row_data: Dict[str, Any] = {}
+    row_data: dict[str, Any] = {}
     for key, value in matrix_values.items():
         row_data[key] = value
     row_data.update(results)
@@ -94,9 +94,9 @@ def _csv_row(
 
 def _append_row(
     out_file: Path,
-    row_data: Dict[str, Any],
+    row_data: dict[str, Any],
     file_exists: bool,
-    labels: List[str],
+    labels: list[str],
 ) -> None:
     """Write a summary row, creating the header when needed.
 
@@ -116,11 +116,11 @@ def _append_row(
 
 
 def _write_report(
-    request: Dict[str, Any],
-    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
-    log_fn: Optional[Any],
-    labels: Optional[List[str]] = None,
-    keys: Optional[List[str]] = None,
+    request: dict[str, Any],
+    rows: list[tuple[dict[str, Any], dict[str, Any]]],
+    log_fn: Any | None,
+    labels: list[str] | None = None,
+    keys: list[str] | None = None,
 ) -> None:
     """Write the complete report file, replacing any existing content.
 
@@ -152,9 +152,9 @@ def _write_report(
 
 def _write_rows(
     out_file: Path,
-    header: List[str],
-    keys: List[str],
-    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+    header: list[str],
+    keys: list[str],
+    rows: list[tuple[dict[str, Any], dict[str, Any]]],
 ) -> None:
     """Write the report header and rows to a file.
 

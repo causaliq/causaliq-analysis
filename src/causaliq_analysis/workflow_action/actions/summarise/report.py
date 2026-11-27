@@ -1,7 +1,7 @@
 """Collecting grouped metric values for report-mode summarisation."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from causaliq_analysis.workflow_action.actions.summarise.collect import (
     _accumulate_values,
@@ -34,17 +34,17 @@ class _ReportValues:
 
     """
 
-    values: List[Values] = field(default_factory=list)
-    argmax: List[Argmax] = field(default_factory=list)
-    counts: List[int] = field(default_factory=list)
-    sources: List[str] = field(default_factory=list)
+    values: list[Values] = field(default_factory=list)
+    argmax: list[Argmax] = field(default_factory=list)
+    counts: list[int] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
 
 
 def _collect_report_values(
-    request: Dict[str, Any],
-    groups: List[Dict[str, Any]],
-    dimensions: List[str],
-    log_fn: Optional[Any],
+    request: dict[str, Any],
+    groups: list[dict[str, Any]],
+    dimensions: list[str],
+    log_fn: Any | None,
 ) -> _ReportValues:
     """Collect values for every group in one pass over the input caches.
 
@@ -86,11 +86,11 @@ def _collect_report_values(
 def _fold_cache(
     cache_path: str,
     source_index: int,
-    request: Dict[str, Any],
-    groups: List[Dict[str, Any]],
-    dimensions: List[str],
+    request: dict[str, Any],
+    groups: list[dict[str, Any]],
+    dimensions: list[str],
     collected: _ReportValues,
-    log_fn: Optional[Any],
+    log_fn: Any | None,
 ) -> None:
     """Append one cache's matching values to the per-group accumulator.
 
@@ -137,11 +137,11 @@ def _fold_cache(
 
 
 def _require_entry_dimensions(
-    entries: List[Dict[str, Any]],
-    dimensions: List[str],
+    entries: list[dict[str, Any]],
+    dimensions: list[str],
     cache_path: str,
     source_index: int,
-    request: Dict[str, Any],
+    request: dict[str, Any],
 ) -> None:
     """Require a source-qualified cache to carry the grouping dimensions.
 
@@ -169,8 +169,8 @@ def _require_entry_dimensions(
 
 
 def _require_entry_matrix(
-    matrix_values: Dict[str, Any],
-    dimensions: List[str],
+    matrix_values: dict[str, Any],
+    dimensions: list[str],
     cache_path: str,
 ) -> None:
     """Require one entry to carry every grouping dimension.
@@ -195,16 +195,16 @@ def _require_entry_matrix(
 
 
 def _fold_groups(
-    matrix_values: Dict[str, Any],
-    flat_meta: Dict[str, Any],
-    groups: List[Dict[str, Any]],
-    dimensions: List[str],
-    fields: List[str],
-    argmax_fields: List[str],
+    matrix_values: dict[str, Any],
+    flat_meta: dict[str, Any],
+    groups: list[dict[str, Any]],
+    dimensions: list[str],
+    fields: list[str],
+    argmax_fields: list[str],
     collected: _ReportValues,
-    log_fn: Optional[Any],
+    log_fn: Any | None,
     source_index: int,
-    where_matches: List[str],
+    where_matches: list[str],
 ) -> None:
     """Append one entry's values to every group it belongs to.
 
@@ -238,7 +238,7 @@ def _fold_groups(
         _log_processed(log_fn, matrix_values)
 
 
-def _report_entries(cache_path: str) -> List[Dict[str, Any]]:
+def _report_entries(cache_path: str) -> list[dict[str, Any]]:
     """Load every entry of one workflow cache.
 
     Args:
@@ -262,7 +262,7 @@ def _report_entries(cache_path: str) -> List[Dict[str, Any]]:
         ) from e
 
 
-def _read_cache_entries(cache_path: str) -> List[Dict[str, Any]]:
+def _read_cache_entries(cache_path: str) -> list[dict[str, Any]]:
     """Read every entry of one cache into entry descriptors.
 
     Args:
@@ -275,7 +275,7 @@ def _read_cache_entries(cache_path: str) -> List[Dict[str, Any]]:
     """
     from causaliq_workflow.cache import WorkflowCache
 
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     with WorkflowCache(cache_path) as cache:
         for info in cache.list_entries():
             entry = cache.get(info["matrix_values"])

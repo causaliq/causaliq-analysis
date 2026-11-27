@@ -1,7 +1,7 @@
 """Collecting metric values from entries and input caches."""
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action import helpers
 from causaliq_analysis.workflow_action.types import ActionExecutionError
@@ -12,11 +12,11 @@ __all__ = ["_source_index", "_values_from_entries"]
 
 
 def _values_from_entries(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     values: Values,
     argmax: Argmax,
-    log_fn: Optional[Any],
-) -> Tuple[int, List[str]]:
+    log_fn: Any | None,
+) -> tuple[int, list[str]]:
     """Collect metric values from pre-scanned cache entries.
 
     Args:
@@ -31,7 +31,7 @@ def _values_from_entries(
     """
     entries = request["aggregation_entries"] or []
     resolved, extra_names = _resolve_filter(request["filter"], entries)
-    sources: List[str] = []
+    sources: list[str] = []
     count = 0
     for entry_dict in entries:
         sources.append(entry_dict.get("cache_path", "unknown"))
@@ -43,13 +43,13 @@ def _values_from_entries(
 
 
 def _collect_entry(
-    entry_dict: Dict[str, Any],
-    request: Dict[str, Any],
+    entry_dict: dict[str, Any],
+    request: dict[str, Any],
     values: Values,
     argmax: Argmax,
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
-    log_fn: Optional[Any],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
+    log_fn: Any | None,
 ) -> bool:
     """Collect one entry's values when it passes the filter.
 
@@ -89,7 +89,7 @@ def _collect_entry(
     return True
 
 
-def _source_index(cache_path: Any, input_files: List[str]) -> int:
+def _source_index(cache_path: Any, input_files: list[str]) -> int:
     """Return the one-based position of a cache in the input list.
 
     Args:
@@ -107,7 +107,7 @@ def _source_index(cache_path: Any, input_files: List[str]) -> int:
     return 0
 
 
-def _entry_metadata(entry_dict: Dict[str, Any]) -> Tuple[Any, Dict[str, Any]]:
+def _entry_metadata(entry_dict: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
     """Return the matrix values and flattened values of an entry.
 
     Metric values live in the entry's typed JSON object; metadata supplies
@@ -130,7 +130,7 @@ def _entry_metadata(entry_dict: Dict[str, Any]) -> Tuple[Any, Dict[str, Any]]:
     )
 
 
-def _object_values(entry_dict: Dict[str, Any]) -> Dict[str, Any]:
+def _object_values(entry_dict: dict[str, Any]) -> dict[str, Any]:
     """Return the values held in an entry's JSON object.
 
     Args:
@@ -143,7 +143,7 @@ def _object_values(entry_dict: Dict[str, Any]) -> Dict[str, Any]:
     entry = entry_dict.get("entry")
     if entry is None:
         return {}
-    values: Dict[str, Any] = {}
+    values: dict[str, Any] = {}
     for name in entry.object_types():
         obj = entry.get_object(name)
         if obj is None or obj.format != "json":
@@ -152,7 +152,7 @@ def _object_values(entry_dict: Dict[str, Any]) -> Dict[str, Any]:
     return values
 
 
-def _parse_json_object(content: Any) -> Dict[str, Any]:
+def _parse_json_object(content: Any) -> dict[str, Any]:
     """Parse a JSON object's content, returning {} for non-mappings."""
     try:
         data = json.loads(content or "{}")
@@ -161,7 +161,7 @@ def _parse_json_object(content: Any) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _log_entry(log_fn: Optional[Any], matrix_values: Any) -> None:
+def _log_entry(log_fn: Any | None, matrix_values: Any) -> None:
     """Log a processed cache entry.
 
     Args:
@@ -173,7 +173,7 @@ def _log_entry(log_fn: Optional[Any], matrix_values: Any) -> None:
         log_fn(f"Processed entry: {matrix_values}")
 
 
-def _log_processed(log_fn: Optional[Any], matrix_values: Any) -> None:
+def _log_processed(log_fn: Any | None, matrix_values: Any) -> None:
     """Log a processed cache entry in cache-scan wording.
 
     Args:
@@ -186,9 +186,9 @@ def _log_processed(log_fn: Optional[Any], matrix_values: Any) -> None:
 
 
 def _resolve_filter(
-    filter_expr: Optional[str],
-    entries: List[Dict[str, Any]],
-) -> Tuple[Optional[str], Dict[str, Any]]:
+    filter_expr: str | None,
+    entries: list[dict[str, Any]],
+) -> tuple[str | None, dict[str, Any]]:
     """Resolve random() calls in a filter expression.
 
     Args:
@@ -213,9 +213,9 @@ def _resolve_filter(
 
 
 def _entry_matches(
-    resolved_filter: Optional[str],
-    flat_meta: Dict[str, Any],
-    extra_names: Dict[str, Any],
+    resolved_filter: str | None,
+    flat_meta: dict[str, Any],
+    extra_names: dict[str, Any],
 ) -> bool:
     """Return whether a cache entry passes the filter expression.
 
@@ -240,9 +240,9 @@ def _entry_matches(
 
 
 def _matching_predicates(
-    clauses: List[str],
-    flat_meta: Dict[str, Any],
-) -> List[str]:
+    clauses: list[str],
+    flat_meta: dict[str, Any],
+) -> list[str]:
     """Return the column predicates an entry satisfies.
 
     Args:
@@ -259,7 +259,7 @@ def _matching_predicates(
     ]
 
 
-def _is_predicate_match(clause: str, flat_meta: Dict[str, Any]) -> bool:
+def _is_predicate_match(clause: str, flat_meta: dict[str, Any]) -> bool:
     """Return whether an entry satisfies a column predicate.
 
     A predicate that cannot be evaluated does not match the entry.
@@ -283,12 +283,12 @@ def _is_predicate_match(clause: str, flat_meta: Dict[str, Any]) -> bool:
 def _accumulate_values(
     values: Values,
     argmax: Argmax,
-    flat_meta: Dict[str, Any],
-    matrix_values: Dict[str, Any],
-    unique_fields: List[str],
-    argmax_fields: List[str],
+    flat_meta: dict[str, Any],
+    matrix_values: dict[str, Any],
+    unique_fields: list[str],
+    argmax_fields: list[str],
     source_index: int,
-    where_matches: List[str],
+    where_matches: list[str],
 ) -> None:
     """Append numeric metric values from one entry.
 
@@ -327,9 +327,9 @@ def _accumulate_values(
 
 
 def _field_values(
-    flat_meta: Dict[str, Any],
+    flat_meta: dict[str, Any],
     field: str,
-) -> List[Any]:
+) -> list[Any]:
     """Return a field's values, flattening lists.
 
     A scalar field contributes one value per entry; a list-valued field
@@ -358,8 +358,8 @@ def _record_field_values(
     values: Values,
     source_index: int,
     field: str,
-    field_values: List[Any],
-    where_matches: List[str],
+    field_values: list[Any],
+    where_matches: list[str],
 ) -> None:
     """Append a field's values without a predicate and per predicate.
 
@@ -383,8 +383,8 @@ def _record_field_argmax(
     source_index: int,
     field: str,
     number: float,
-    matrix_values: Dict[str, Any],
-    where_matches: List[str],
+    matrix_values: dict[str, Any],
+    where_matches: list[str],
 ) -> None:
     """Record an entry as argmax candidate without and per predicate.
 
@@ -415,8 +415,8 @@ def _track_argmax(
     source_index: int,
     field: str,
     value: float,
-    matrix_values: Dict[str, Any],
-    where: Optional[str],
+    matrix_values: dict[str, Any],
+    where: str | None,
 ) -> None:
     """Record the entry holding a field's maximum value.
 

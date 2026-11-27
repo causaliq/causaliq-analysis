@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import (
     ActionExecutionError,
@@ -25,8 +25,8 @@ __all__ = [
 
 
 def _dry_run_result(
-    request: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Return the dry-run result for a summarisation.
 
@@ -52,7 +52,7 @@ def _dry_run_result(
     )
 
 
-def _print_dry_run(request: Dict[str, Any]) -> None:
+def _print_dry_run(request: dict[str, Any]) -> None:
     """Print the dry-run message for the active summarisation mode.
 
     Args:
@@ -66,7 +66,7 @@ def _print_dry_run(request: Dict[str, Any]) -> None:
         print("Would summarise metrics from input files")
 
 
-def _log_fn(logger: Optional[Any]) -> Optional[Any]:
+def _log_fn(logger: Any | None) -> Any | None:
     """Build a logging callback from a workflow logger.
 
     Args:
@@ -82,9 +82,9 @@ def _log_fn(logger: Optional[Any]) -> Optional[Any]:
 
 
 def _summarise(
-    request: Dict[str, Any],
-    context: Optional[Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    context: Any | None,
+    logger: Any | None,
 ) -> ActionResult:
     """Summarise the requested metrics and write the report file.
 
@@ -115,8 +115,8 @@ def _summarise(
 
 
 def _is_cache_request(
-    request: Dict[str, Any],
-    context: Optional[Any],
+    request: dict[str, Any],
+    context: Any | None,
 ) -> bool:
     """Return True when the summary is written to a metrics cache.
 
@@ -137,9 +137,9 @@ def _is_cache_request(
 
 
 def _summarise_cache(
-    request: Dict[str, Any],
-    context: Optional[Any],
-    log_fn: Optional[Any],
+    request: dict[str, Any],
+    context: Any | None,
+    log_fn: Any | None,
 ) -> ActionResult:
     """Summarise the matched entries into a metrics object.
 
@@ -175,11 +175,11 @@ def _summarise_cache(
 
 
 def _cache_metadata(
-    request: Dict[str, Any],
-    context: Optional[Any],
+    request: dict[str, Any],
+    context: Any | None,
     source_count: int,
-    sources: List[str],
-) -> Dict[str, Any]:
+    sources: list[str],
+) -> dict[str, Any]:
     """Build the metadata for a metrics-cache summary entry.
 
     The computed values live in the metrics object rather than the
@@ -195,7 +195,7 @@ def _cache_metadata(
         Action metadata describing the metrics object.
 
     """
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "source_count": source_count,
         "source_caches": sorted(set(sources)),
         "metrics": request["metric_specs"],
@@ -210,7 +210,7 @@ def _cache_metadata(
     return metadata
 
 
-def _metrics_object(results: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _metrics_object(results: dict[str, Any]) -> list[dict[str, Any]]:
     """Build the metrics object written to the output cache.
 
     Args:
@@ -231,9 +231,9 @@ def _metrics_object(results: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _summarise_report(
-    request: Dict[str, Any],
-    context: Optional[Any],
-    log_fn: Optional[Any],
+    request: dict[str, Any],
+    context: Any | None,
+    log_fn: Any | None,
 ) -> ActionResult:
     """Summarise grouped input caches and rewrite the report file.
 
@@ -278,10 +278,10 @@ def _summarise_report(
 
 
 def _significance_result(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     collected: _ReportValues,
-    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
-    log_fn: Optional[Any],
+    rows: list[tuple[dict[str, Any], dict[str, Any]]],
+    log_fn: Any | None,
 ) -> ActionResult:
     """Write a significance table and return its result metadata.
 
@@ -299,7 +299,7 @@ def _significance_result(
     """
     test_rows = _significance_rows(request["significance"], rows)
     _write_significance(request, test_rows, log_fn)
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "source_count": sum(collected.counts),
         "source_caches": sorted(set(collected.sources)),
         "metrics": request["metric_specs"],
@@ -313,8 +313,8 @@ def _significance_result(
 
 
 def _report_metadata(
-    rows: List[Tuple[Dict[str, Any], Dict[str, Any]]],
-) -> Dict[str, Any]:
+    rows: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> dict[str, Any]:
     """Return the result metadata block for a report run.
 
     A single-group report records its statistics directly, preserving the
@@ -335,9 +335,9 @@ def _report_metadata(
 
 
 def _summarise_entries(
-    request: Dict[str, Any],
-    context: Optional[Any],
-    log_fn: Optional[Any],
+    request: dict[str, Any],
+    context: Any | None,
+    log_fn: Any | None,
 ) -> ActionResult:
     """Summarise pre-scanned entries into a single table row.
 
@@ -376,7 +376,7 @@ def _summarise_entries(
     return ("success", metadata, [])
 
 
-def _context_matrix(context: Optional[Any]) -> Dict[str, Any]:
+def _context_matrix(context: Any | None) -> dict[str, Any]:
     """Return the matrix values carried by a workflow context.
 
     Args:
@@ -392,11 +392,11 @@ def _context_matrix(context: Optional[Any]) -> Dict[str, Any]:
 
 
 def _summarise_metadata(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     source_count: int,
-    sources: List[str],
-    results: Dict[str, Any],
-) -> Dict[str, Any]:
+    sources: list[str],
+    results: dict[str, Any],
+) -> dict[str, Any]:
     """Build the result metadata for a summarisation.
 
     Args:
@@ -409,7 +409,7 @@ def _summarise_metadata(
         Action metadata describing the summary.
 
     """
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "source_count": source_count,
         "source_caches": sorted(set(sources)),
         "metrics": request["metric_specs"],

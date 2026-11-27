@@ -6,8 +6,6 @@ adds them to the ``click`` group, so adding a command means adding one
 module plus one entry here.
 """
 
-from typing import Tuple
-
 import click
 
 from causaliq_analysis.cli.commands.best_graph import best_graph_cmd
@@ -22,7 +20,7 @@ from causaliq_analysis.cli.commands.summarise import summarise_cmd
 __all__ = ["COMMANDS", "register_commands"]
 
 # Registry of CLI commands
-COMMANDS: Tuple[click.Command, ...] = (
+COMMANDS: tuple[click.Command, ...] = (
     migrate_trace_cmd,
     merge_graphs_cmd,
     evaluate_graph_cmd,

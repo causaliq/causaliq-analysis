@@ -9,7 +9,7 @@ argument aliases. Arguments must name aliases declared by the metric list.
 """
 
 import re
-from typing import List, Optional, Sequence, Set
+from typing import Sequence, Set
 
 from .significance import (
     SIGNIFICANCE_TESTS,
@@ -32,7 +32,7 @@ _SPEC_PATTERN = re.compile(
 def _parse_significance_specs(
     specs: Sequence[str],
     aliases: Set[str],
-) -> List[SignificanceSpec]:
+) -> list[SignificanceSpec]:
     """Parse and validate every significance specification.
 
     Args:
@@ -113,7 +113,7 @@ def _require_test(name: str, spec: str) -> SignificanceTest:
     return test
 
 
-def _split_arguments(arguments: str, spec: str) -> List[str]:
+def _split_arguments(arguments: str, spec: str) -> list[str]:
     """Return the non-empty argument names of a specification.
 
     Args:
@@ -183,7 +183,7 @@ def _require_aliases(
 
 
 def _spec_label(
-    label: Optional[str],
+    label: str | None,
     arguments: Sequence[str],
 ) -> str:
     """Return the declared label, or one derived from the arguments.

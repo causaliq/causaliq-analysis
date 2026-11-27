@@ -6,7 +6,7 @@ self-contained group so the chart builders and the runner can share it.
 """
 
 import ast
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Union
 
 # Sentinel returned when a property value is not a Python literal.
 _NOT_A_LITERAL = object()
@@ -27,7 +27,7 @@ def _try_literal(value: str) -> Any:
         return _NOT_A_LITERAL
 
 
-def _convert_value(value: Optional[str]) -> Any:
+def _convert_value(value: str | None) -> Any:
     """Convert a string property value to its correct type.
 
     The value is parsed as a Python literal first, so ``22`` becomes an
@@ -73,7 +73,7 @@ def _convert_sequence(value: str, factory: Callable[[Any], Any]) -> Any:
     return factory(_convert_value(v) for v in value[1:-1].split(","))
 
 
-def _convert_mapping(value: str) -> Dict[str, Any]:
+def _convert_mapping(value: str) -> dict[str, Any]:
     """Convert a legacy ``{a,A,b,B}`` value into a key/value dict.
 
     Args:
@@ -105,7 +105,7 @@ def _convert_scalar(value: str) -> Any:
         return value
 
 
-def _split_property(item: str) -> Tuple[str, Optional[str]]:
+def _split_property(item: str) -> tuple[str, str | None]:
     """Split a property string into its name and value parts.
 
     The ``=`` character separates the property name from its value, which
@@ -132,8 +132,8 @@ def _split_property(item: str) -> Tuple[str, Optional[str]]:
 
 
 def parse_properties(
-    properties: Optional[Union[str, List[str]]],
-) -> Dict[str, Any]:
+    properties: Union[str, list[str]] | None,
+) -> dict[str, Any]:
     """Parse chart property strings into a typed dictionary.
 
     Each property is a string of the form ``<name>=<value>`` (e.g.
@@ -150,7 +150,7 @@ def parse_properties(
     Raises:
         ValueError: If a property string is malformed.
     """
-    parsed: Dict[str, Any] = {}
+    parsed: dict[str, Any] = {}
     if properties is None:
         return parsed
     if isinstance(properties, str):

@@ -1,7 +1,6 @@
 # Tests for migrate module - full-circle verification of graph migration.
 
 from io import StringIO
-from typing import List
 
 import pytest
 from causaliq_core.graph import DAG, PDAG
@@ -366,7 +365,7 @@ def test_run_migrate_trace_no_matching_error() -> None:
 
 # Test run_migrate_trace logs messages via callback.
 def test_run_migrate_trace_logs_messages() -> None:
-    log_messages: List[str] = []
+    log_messages: list[str] = []
 
     def log_fn(msg: str) -> None:
         log_messages.append(msg)
@@ -430,7 +429,7 @@ def test_run_migrate_trace_skips_no_result(
 
     monkeypatch.setattr(migrate, "filter_traces", mock_filter_traces)
 
-    log_messages: List[str] = []
+    log_messages: list[str] = []
 
     result = run_migrate_trace(
         partial_id="TABU/STD/asia",
@@ -462,7 +461,7 @@ def test_write_migrate_result_ok(tmp_path: str) -> None:
         skipped=0,
     )
 
-    log_messages: List[str] = []
+    log_messages: list[str] = []
 
     output_files = write_migrate_result(
         result=result,

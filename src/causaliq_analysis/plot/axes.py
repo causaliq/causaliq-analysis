@@ -5,7 +5,7 @@ matplotlib/Seaborn parameters, and the helpers apply them to an axes
 object or annotate a subplot with box/violin statistics.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from matplotlib.ticker import FixedLocator
 from pandas import DataFrame
@@ -70,7 +70,7 @@ VIOLIN_PROPS = {
 }
 
 # Type of the per-subplot info dictionary used for box/violin annotations.
-SubplotInfo = Dict[str, Any]
+SubplotInfo = dict[str, Any]
 
 # Position and default size of the panel tags, in axes coordinates.
 TAG_X = -0.02
@@ -80,8 +80,8 @@ TAG_FONTSIZE = 16
 
 def _set_axes_props(
     axes: Any,
-    properties: Dict[str, Any],
-    subplot: Optional[str] = None,
+    properties: dict[str, Any],
+    subplot: str | None = None,
 ) -> None:
     """Set up the properties of an individual axes object.
 
@@ -103,11 +103,11 @@ def _set_axes_props(
 
 def _apply_axis_params(
     axes: Any,
-    properties: Dict[str, Any],
-    subplot: Optional[str],
+    properties: dict[str, Any],
+    subplot: str | None,
 ) -> None:
     """Apply the properties supported by the axes ``set`` method."""
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
     current = axes.properties()
     for key, param in AXES_PROPS.items():
         if key in properties:
@@ -117,7 +117,7 @@ def _apply_axis_params(
     axes.set(**params)
 
 
-def _axis_param_value(value: Any, subplot: Optional[str], current: Any) -> Any:
+def _axis_param_value(value: Any, subplot: str | None, current: Any) -> Any:
     """Select the value for a subplot, or the current axes value."""
     if not isinstance(value, dict):
         return value
@@ -126,7 +126,7 @@ def _axis_param_value(value: Any, subplot: Optional[str], current: Any) -> Any:
     return current
 
 
-def _apply_tick_labels(axes: Any, properties: Dict[str, Any]) -> None:
+def _apply_tick_labels(axes: Any, properties: dict[str, Any]) -> None:
     """Set custom x-axis tick labels with a fixed locator."""
     if "xaxis.tick_labels" not in properties:
         return
@@ -134,7 +134,7 @@ def _apply_tick_labels(axes: Any, properties: Dict[str, Any]) -> None:
     axes.set_xticklabels(properties["xaxis.tick_labels"])
 
 
-def _apply_tick_rotation(axes: Any, properties: Dict[str, Any]) -> None:
+def _apply_tick_rotation(axes: Any, properties: dict[str, Any]) -> None:
     """Rotate the x-axis tick labels."""
     if "xaxis.ticks_rotation" not in properties:
         return
@@ -142,7 +142,7 @@ def _apply_tick_rotation(axes: Any, properties: Dict[str, Any]) -> None:
         label.set_rotation(properties["xaxis.ticks_rotation"])
 
 
-def _apply_tick_halign(axes: Any, properties: Dict[str, Any]) -> None:
+def _apply_tick_halign(axes: Any, properties: dict[str, Any]) -> None:
     """Set the horizontal alignment of the x-axis tick labels."""
     if "xaxis.ticks_halign" not in properties:
         return
@@ -156,7 +156,7 @@ def _fix_xtick_locator(axes: Any) -> None:
 
 
 def _invert_axis_bars(
-    axes: Any, properties: Dict[str, Any], subplot: Optional[str]
+    axes: Any, properties: dict[str, Any], subplot: str | None
 ) -> None:
     """Invert the y-axis so that negative bars grow upwards."""
     if not _has_invert_range(properties, subplot):
@@ -168,9 +168,7 @@ def _invert_axis_bars(
         )
 
 
-def _has_invert_range(
-    properties: Dict[str, Any], subplot: Optional[str]
-) -> bool:
+def _has_invert_range(properties: dict[str, Any], subplot: str | None) -> bool:
     """Return True when the subplot has an inverted, ranged y-axis."""
     return (
         "yaxis.invert" in properties
@@ -180,7 +178,7 @@ def _has_invert_range(
     )
 
 
-def _apply_bar_alpha(axes: Any, properties: Dict[str, Any]) -> None:
+def _apply_bar_alpha(axes: Any, properties: dict[str, Any]) -> None:
     """Set the opacity of the bar patches."""
     alpha = properties.get("bar.alpha")
     if alpha is None:
@@ -189,7 +187,7 @@ def _apply_bar_alpha(axes: Any, properties: Dict[str, Any]) -> None:
         bar.set_alpha(alpha)
 
 
-def _apply_title_weight(axes: Any, properties: Dict[str, Any]) -> None:
+def _apply_title_weight(axes: Any, properties: dict[str, Any]) -> None:
     """Set the font weight of the subplot title."""
     weight = properties.get("subplot.title_fontweight")
     if not weight:
@@ -198,7 +196,7 @@ def _apply_title_weight(axes: Any, properties: Dict[str, Any]) -> None:
 
 
 def _apply_subplot_tag(
-    axes: Any, properties: Dict[str, Any], subplot: Optional[str]
+    axes: Any, properties: dict[str, Any], subplot: str | None
 ) -> None:
     """Draw a panel tag (e.g. ``A``) in the top-left corner of a subplot.
 
@@ -226,9 +224,7 @@ def _apply_subplot_tag(
     )
 
 
-def _report_boxplot_values(
-    axes: Any, info: Optional[SubplotInfo] = None
-) -> None:
+def _report_boxplot_values(axes: Any, info: SubplotInfo | None = None) -> None:
     """Report and plot the boxplot values - percentiles, whiskers and extremes.
 
     Args:
@@ -256,13 +252,13 @@ def _report_boxplot_values(
 
 def _collect_boxplot_values(
     axes: Any, info: SubplotInfo
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Collect the boxplot statistics and annotate each subplot mean."""
     plot_values = ["p25", "p75", "lo_whisker", "hi_whisker", "p50"]
     lines = axes.get_lines()
     x_labels = axes.get_xticklabels()
 
-    data: List[Dict[str, Any]] = []
+    data: list[dict[str, Any]] = []
     for x_idx in axes.get_xticks():
         x_label = x_labels[x_idx].get_text()
         print("Data for {} is {}".format(x_label, info[x_label]))
@@ -307,7 +303,7 @@ def _add_mean_label(axes: Any, x_idx: Any, mean: Any, size: Any) -> None:
 
 
 def _plot_violin_means(
-    axes: Any, info: SubplotInfo, props: Dict[str, Any]
+    axes: Any, info: SubplotInfo, props: dict[str, Any]
 ) -> None:
     """Display the means on violin plots.
 

@@ -8,7 +8,7 @@ each step stays within the module and method limits.
 
 from datetime import datetime, timezone
 from io import StringIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.validation import validate_filter_expression
 from causaliq_analysis.workflow_action import helpers
@@ -37,7 +37,7 @@ class MergeGraphsAction(AnalysisAction):
     action_name = "merge_graphs"
     pattern = ActionPattern.AGGREGATE
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate merge_graphs parameters before execution.
 
         Args:
@@ -56,10 +56,10 @@ class MergeGraphsAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Execute graph merging to produce a PDG.
 
@@ -93,9 +93,9 @@ class MergeGraphsAction(AnalysisAction):
 
 
 def _execute_merge(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     mode: str,
-    logger: Optional[Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Execute a merge for a validated request.
 
@@ -126,7 +126,7 @@ def _execute_merge(
     return ("success", metadata, _pdg_objects(content))
 
 
-def _require_entries_or_input(parameters: Dict[str, Any]) -> None:
+def _require_entries_or_input(parameters: dict[str, Any]) -> None:
     """Require aggregation entries or input file paths.
 
     Args:
@@ -145,7 +145,7 @@ def _require_entries_or_input(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_valid_filter(parameters: Dict[str, Any]) -> None:
+def _require_valid_filter(parameters: dict[str, Any]) -> None:
     """Validate filter expression syntax when one is provided.
 
     Args:
@@ -158,7 +158,7 @@ def _require_valid_filter(parameters: Dict[str, Any]) -> None:
     validate_filter_expression(parameters.get("filter"))
 
 
-def _require_valid_weights(parameters: Dict[str, Any]) -> None:
+def _require_valid_weights(parameters: dict[str, Any]) -> None:
     """Validate a weight specification when provided as a dict.
 
     Args:
@@ -173,7 +173,7 @@ def _require_valid_weights(parameters: Dict[str, Any]) -> None:
         _validate_weight_spec(weights)
 
 
-def _validate_weight_spec(weights: Dict[str, Any]) -> None:
+def _validate_weight_spec(weights: dict[str, Any]) -> None:
     """Validate a weight specification, reporting invalid ones.
 
     Args:
@@ -191,7 +191,7 @@ def _validate_weight_spec(weights: Dict[str, Any]) -> None:
         raise ValueError(f"Invalid weight specification: {e}")
 
 
-def _require_cache_output(parameters: Dict[str, Any]) -> None:
+def _require_cache_output(parameters: dict[str, Any]) -> None:
     """Validate the output path when one is provided.
 
     Args:
@@ -223,7 +223,7 @@ def _require_db_path(output_path: Any) -> None:
         )
 
 
-def _require_valid_strategy(parameters: Dict[str, Any]) -> None:
+def _require_valid_strategy(parameters: dict[str, Any]) -> None:
     """Validate the merge strategy when one is provided.
 
     Args:
@@ -241,7 +241,7 @@ def _require_valid_strategy(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _merge_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
+def _merge_request(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build the merge request from action parameters.
 
     Args:
@@ -256,7 +256,7 @@ def _merge_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     input_files = (
         [input_raw] if isinstance(input_raw, str) else list(input_raw)
     )
-    request: Dict[str, Any] = {
+    request: dict[str, Any] = {
         "aggregation_entries": parameters.get("_aggregation_entries"),
         "input_files": input_files,
         "weights": parameters.get("weights"),
@@ -268,7 +268,7 @@ def _merge_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return request
 
 
-def _require_input(request: Dict[str, Any]) -> None:
+def _require_input(request: dict[str, Any]) -> None:
     """Require aggregation entries or input file paths.
 
     Args:
@@ -287,8 +287,8 @@ def _require_input(request: Dict[str, Any]) -> None:
 
 
 def _dry_run_result(
-    request: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Return the dry-run result for a merge.
 
@@ -302,7 +302,7 @@ def _dry_run_result(
     """
     if logger and logger.is_terminal_logging:
         _print_dry_run(request)
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "message": "Dry-run mode",
         "aggregation_mode": request["is_aggregation"],
         "num_inputs": _num_inputs(request),
@@ -310,7 +310,7 @@ def _dry_run_result(
     return ("skipped", metadata, [])
 
 
-def _num_inputs(request: Dict[str, Any]) -> int:
+def _num_inputs(request: dict[str, Any]) -> int:
     """Return the number of inputs a merge request carries.
 
     Args:
@@ -325,7 +325,7 @@ def _num_inputs(request: Dict[str, Any]) -> int:
     return len(request["input_files"])
 
 
-def _print_dry_run(request: Dict[str, Any]) -> None:
+def _print_dry_run(request: dict[str, Any]) -> None:
     """Print the dry-run message for the active merge mode.
 
     Args:
@@ -339,7 +339,7 @@ def _print_dry_run(request: Dict[str, Any]) -> None:
         print(f"Would merge from {len(request['input_files'])} input files")
 
 
-def _log_fn(logger: Optional[Any]) -> Optional[Any]:
+def _log_fn(logger: Any | None) -> Any | None:
     """Build a logging callback from a workflow logger.
 
     Args:
@@ -355,9 +355,9 @@ def _log_fn(logger: Optional[Any]) -> Optional[Any]:
 
 
 def _load_graphs(
-    request: Dict[str, Any],
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
+    request: dict[str, Any],
+    log_fn: Any | None,
+) -> tuple[list[Any], list[dict[str, Any]], dict[str, Any]]:
     """Read the graphs to merge from entries or input files.
 
     Args:
@@ -377,9 +377,9 @@ def _load_graphs(
 
 
 def _graphs_from_entries(
-    request: Dict[str, Any],
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
+    request: dict[str, Any],
+    log_fn: Any | None,
+) -> tuple[list[Any], list[dict[str, Any]], dict[str, Any]]:
     """Read the graphs to merge from pre-scanned cache entries.
 
     Args:
@@ -404,9 +404,9 @@ def _graphs_from_entries(
 
 
 def _graphs_from_files(
-    request: Dict[str, Any],
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
+    request: dict[str, Any],
+    log_fn: Any | None,
+) -> tuple[list[Any], list[dict[str, Any]], dict[str, Any]]:
     """Read the graphs to merge from input file paths.
 
     Args:
@@ -420,7 +420,7 @@ def _graphs_from_files(
         ActionExecutionError: If an input file cannot be read.
 
     """
-    graphs: List[Any] = []
+    graphs: list[Any] = []
     cache_entries_read = 0
     for input_path in request["input_files"]:
         if str(input_path).lower().endswith(".db"):
@@ -431,17 +431,17 @@ def _graphs_from_files(
             cache_entries_read += entries
         else:
             graphs.append(_read_graphml_file(input_path, log_fn))
-    source_info: Dict[str, Any] = {}
+    source_info: dict[str, Any] = {}
     if cache_entries_read > 0:
         source_info["cache_entries_read"] = cache_entries_read
     return graphs, [], source_info
 
 
 def _read_cache_graphs(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     input_path: Any,
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], int]:
+    log_fn: Any | None,
+) -> tuple[list[Any], int]:
     """Read the graphs to merge from a workflow cache file.
 
     Args:
@@ -456,7 +456,7 @@ def _read_cache_graphs(
     return helpers._read_graphs_from_cache(input_path, log_fn)
 
 
-def _read_graphml_file(input_path: Any, log_fn: Optional[Any]) -> Any:
+def _read_graphml_file(input_path: Any, log_fn: Any | None) -> Any:
     """Read a single GraphML graph file.
 
     Args:
@@ -481,7 +481,7 @@ def _read_graphml_file(input_path: Any, log_fn: Optional[Any]) -> Any:
         raise ActionExecutionError(f"Failed to read {input_path}: {e}") from e
 
 
-def _require_graphs(graphs: List[Any]) -> None:
+def _require_graphs(graphs: list[Any]) -> None:
     """Require at least one graph to merge.
 
     Args:
@@ -496,10 +496,10 @@ def _require_graphs(graphs: List[Any]) -> None:
 
 
 def _final_weights(
-    request: Dict[str, Any],
-    graph_metadata: List[Dict[str, Any]],
-    log_fn: Optional[Any],
-) -> Tuple[Optional[List[float]], bool]:
+    request: dict[str, Any],
+    graph_metadata: list[dict[str, Any]],
+    log_fn: Any | None,
+) -> tuple[list[float] | None, bool]:
     """Resolve the weights to apply to the merge.
 
     Args:
@@ -524,14 +524,14 @@ def _final_weights(
         )
         return computed, True
     if isinstance(weights, list):
-        explicit: List[float] = weights
+        explicit: list[float] = weights
         return explicit, False
     raise ActionExecutionError(
         f"weights must be a list or dict, got {type(weights).__name__}"
     )
 
 
-def _require_weight_metadata(graph_metadata: List[Dict[str, Any]]) -> None:
+def _require_weight_metadata(graph_metadata: list[dict[str, Any]]) -> None:
     """Require graph metadata for metadata-driven weights.
 
     Args:
@@ -550,10 +550,10 @@ def _require_weight_metadata(graph_metadata: List[Dict[str, Any]]) -> None:
 
 
 def _merge_pdg(
-    request: Dict[str, Any],
-    graphs: List[Any],
-    final_weights: Optional[List[float]],
-    log_fn: Optional[Any],
+    request: dict[str, Any],
+    graphs: list[Any],
+    final_weights: list[float] | None,
+    log_fn: Any | None,
 ) -> str:
     """Merge the graphs into a PDG and serialise it to GraphML.
 
@@ -596,12 +596,12 @@ def _write_pdg(pdg: Any, buffer: StringIO) -> None:
 
 
 def _success_metadata(
-    request: Dict[str, Any],
-    graphs: List[Any],
-    final_weights: Optional[List[float]],
+    request: dict[str, Any],
+    graphs: list[Any],
+    final_weights: list[float] | None,
     weights_applied: bool,
-    source_info: Dict[str, Any],
-) -> Dict[str, Any]:
+    source_info: dict[str, Any],
+) -> dict[str, Any]:
     """Build the success metadata for a merge.
 
     Args:
@@ -615,7 +615,7 @@ def _success_metadata(
         Action metadata describing the merged PDG.
 
     """
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "action": "merge_graphs",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "num_graphs": len(graphs),
@@ -630,9 +630,9 @@ def _success_metadata(
 
 
 def _add_optional_metadata(
-    metadata: Dict[str, Any],
-    request: Dict[str, Any],
-    final_weights: Optional[List[float]],
+    metadata: dict[str, Any],
+    request: dict[str, Any],
+    final_weights: list[float] | None,
     weights_applied: bool,
 ) -> None:
     """Add the optional metadata keys for a merge.
@@ -653,7 +653,7 @@ def _add_optional_metadata(
         metadata["weights"] = final_weights
 
 
-def _pdg_objects(content: str) -> List[Dict[str, Any]]:
+def _pdg_objects(content: str) -> list[dict[str, Any]]:
     """Build the action objects for a merged PDG.
 
     Args:

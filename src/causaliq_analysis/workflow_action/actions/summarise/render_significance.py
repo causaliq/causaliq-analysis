@@ -6,7 +6,7 @@ statistic, its p-value and the significance stars. ``headers`` and
 rename the columns, format the statistic and p-value, or hide a column.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -32,7 +32,7 @@ from .significance import (
 __all__ = ["_write_significance"]
 
 # One rendered table row: grouping values and computed column values
-_ROW = Tuple[Dict[str, Any], Dict[str, Any]]
+_ROW = tuple[dict[str, Any], dict[str, Any]]
 
 # Value keys of the standard significance columns
 _KEYS = ["comparison", "statistic", "p_value", "significance"]
@@ -52,7 +52,7 @@ _MARKDOWN_SUFFIXES = (".md", ".markdown")
 
 
 def _write_significance(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     rows: Sequence[_ROW],
     log_fn: Any,
 ) -> None:
@@ -90,9 +90,9 @@ def _write_significance(
 
 def _significance_lines(
     suffix: str,
-    request: Dict[str, Any],
+    request: dict[str, Any],
     rows: Sequence[_ROW],
-) -> List[str]:
+) -> list[str]:
     """Render the significance table as lines of a presentation format.
 
     Args:
@@ -112,7 +112,7 @@ def _significance_lines(
     return _caption_lines(suffix, request) + table
 
 
-def _columns(request: Dict[str, Any]) -> List[TableColumn]:
+def _columns(request: dict[str, Any]) -> list[TableColumn]:
     """Build the four presentation columns of a significance table.
 
     Args:
@@ -154,20 +154,20 @@ def _columns(request: Dict[str, Any]) -> List[TableColumn]:
     return columns
 
 
-def _is_detail(request: Dict[str, Any]) -> bool:
+def _is_detail(request: dict[str, Any]) -> bool:
     """Return whether the detailed comparison columns are requested."""
     return bool(request.get("significance_detail"))
 
 
-def _table_keys(request: Dict[str, Any]) -> List[str]:
+def _table_keys(request: dict[str, Any]) -> list[str]:
     """Return the value keys of the significance table."""
     return list(_DETAIL_KEYS if _is_detail(request) else _KEYS)
 
 
 def _declared_formats(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     specs: Sequence[SignificanceSpec],
-) -> List[Optional[str]]:
+) -> list[str | None]:
     """Return the format specification of every significance column.
 
     Args:
@@ -188,7 +188,7 @@ def _declared_formats(
     return ["", _statistic_format(specs), ".4f", ""]
 
 
-def _csv_labels(request: Dict[str, Any]) -> List[str]:
+def _csv_labels(request: dict[str, Any]) -> list[str]:
     """Return the CSV labels, including hidden columns.
 
     Args:
@@ -202,8 +202,8 @@ def _csv_labels(request: Dict[str, Any]) -> List[str]:
 
 def _caption_lines(
     suffix: str,
-    request: Dict[str, Any],
-) -> List[str]:
+    request: dict[str, Any],
+) -> list[str]:
     """Return the caption lines of a significance table.
 
     Args:

@@ -4,7 +4,7 @@
 #
 
 from itertools import combinations
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Set, Union
 
 from causaliq_core.graph import (
     BAYESYS_VERSIONS,
@@ -21,7 +21,7 @@ from causaliq_analysis.merge import source_probabilities
 # The first nine are per-edge categories; missing_matched completes the
 # 2x2 confusion matrix and is derived separately, so it is not part of
 # the counter dictionary but is included here as a public metric name.
-EDGE_METRICS: Tuple[str, ...] = (
+EDGE_METRICS: tuple[str, ...] = (
     "arc_matched",
     "arc_reversed",
     "edge_not_arc",
@@ -35,7 +35,7 @@ EDGE_METRICS: Tuple[str, ...] = (
 )
 
 # Edge states whose probabilities are stored for each node pair by a PDG.
-_EDGE_STATES: Tuple[str, ...] = (
+_EDGE_STATES: tuple[str, ...] = (
     "forward",
     "backward",
     "undirected",
@@ -45,7 +45,7 @@ _EDGE_STATES: Tuple[str, ...] = (
 # Map (reference state, graph state) to the low-level metric it feeds. For
 # deterministic graphs (probabilities 0.0/1.0) this reproduces the integer
 # counts obtained by comparing PDAGs directly.
-_STATE_METRICS: Dict[Tuple[str, str], str] = {
+_STATE_METRICS: dict[tuple[str, str], str] = {
     ("forward", "forward"): "arc_matched",
     ("forward", "backward"): "arc_reversed",
     ("forward", "undirected"): "edge_not_arc",
@@ -100,7 +100,7 @@ def _as_number(value: Union[int, float]) -> Union[int, float]:
     return value
 
 
-def _oriented_key(node_a: str, node_b: str, state: str) -> Tuple[str, str]:
+def _oriented_key(node_a: str, node_b: str, state: str) -> tuple[str, str]:
     """Return the edge key implied by a canonical pair and edge state.
 
     Args:
@@ -116,8 +116,8 @@ def _oriented_key(node_a: str, node_b: str, state: str) -> Tuple[str, str]:
 
 def _positive_edge_probs(
     graph: PDAG,
-    nodes: List[str],
-) -> Dict[Tuple[str, str], EdgeProbabilities]:
+    nodes: list[str],
+) -> dict[tuple[str, str], EdgeProbabilities]:
     """Return probabilities for node pairs that may have an edge.
 
     Args:
@@ -177,9 +177,9 @@ def graph_to_pdg(graph: Any) -> PDG:
 def pdg_compare(
     graph: Any,
     reference: Any,
-    bayesys: Optional[str] = None,
+    bayesys: str | None = None,
     identify_edges: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare a PDG with a reference PDG.
 
     Both arguments may be PDGs or deterministic graphs (DAG/PDAG/CPDAG),
@@ -221,7 +221,7 @@ def pdg_compare(
     return result_metrics
 
 
-def _validate_compare_args(reference: Any, bayesys: Optional[str]) -> None:
+def _validate_compare_args(reference: Any, bayesys: str | None) -> None:
     """Validate reference graph and Bayesys arguments for comparison.
 
     Args:
@@ -240,7 +240,7 @@ def _validate_compare_args(reference: Any, bayesys: Optional[str]) -> None:
         raise ValueError("bad bayesys value for compared_to")
 
 
-def _convert_pair(graph: Any, reference: Any) -> Tuple[PDG, PDG]:
+def _convert_pair(graph: Any, reference: Any) -> tuple[PDG, PDG]:
     """Convert both graphs to PDGs and check they share a node set.
 
     Args:
@@ -260,7 +260,7 @@ def _convert_pair(graph: Any, reference: Any) -> Tuple[PDG, PDG]:
     return graph_pdg, reference_pdg
 
 
-def _new_metric_counters() -> Dict[str, Union[int, float]]:
+def _new_metric_counters() -> dict[str, Union[int, float]]:
     """Return zeroed low-level edge metric counters.
 
     Returns:
@@ -270,9 +270,9 @@ def _new_metric_counters() -> Dict[str, Union[int, float]]:
 
 
 def _new_metric_edges(
-    metrics: Dict[str, Union[int, float]],
+    metrics: dict[str, Union[int, float]],
     identify_edges: bool,
-) -> Optional[Dict[str, Set[Any]]]:
+) -> dict[str, Set[Any]] | None:
     """Return per-metric edge sets when edge identification is requested.
 
     Args:
@@ -290,9 +290,9 @@ def _new_metric_edges(
 def _accumulate_pair_metrics(
     reference_pdg: PDG,
     graph_pdg: PDG,
-    nodes: List[str],
-    metrics: Dict[str, Union[int, float]],
-    metric_edges: Optional[Dict[str, Set[Any]]],
+    nodes: list[str],
+    metrics: dict[str, Union[int, float]],
+    metric_edges: dict[str, Set[Any]] | None,
 ) -> None:
     """Accumulate fractional edge metrics over all node pairs.
 
@@ -316,8 +316,8 @@ def _accumulate_pair_states(
     node_b: str,
     ref_probs: EdgeProbabilities,
     graph_probs: EdgeProbabilities,
-    metrics: Dict[str, Union[int, float]],
-    metric_edges: Optional[Dict[str, Set[Any]]],
+    metrics: dict[str, Union[int, float]],
+    metric_edges: dict[str, Set[Any]] | None,
 ) -> None:
     """Accumulate the edge-state products for one node pair.
 
@@ -350,8 +350,8 @@ def _accumulate_graph_states(
     ref_state: str,
     p_ref: float,
     graph_probs: EdgeProbabilities,
-    metrics: Dict[str, Union[int, float]],
-    metric_edges: Optional[Dict[str, Set[Any]]],
+    metrics: dict[str, Union[int, float]],
+    metric_edges: dict[str, Set[Any]] | None,
 ) -> None:
     """Accumulate the graph edge states for one reference edge state.
 
@@ -378,7 +378,7 @@ def _accumulate_graph_states(
 
 
 def _record_metric_edge(
-    metric_edges: Optional[Dict[str, Set[Any]]],
+    metric_edges: dict[str, Set[Any]] | None,
     metric: str,
     node_a: str,
     node_b: str,
@@ -402,7 +402,7 @@ def _record_metric_edge(
 
 
 def _structural_hamming_distance(
-    metrics: Dict[str, Union[int, float]],
+    metrics: dict[str, Union[int, float]],
 ) -> float:
     """Return the structural Hamming distance from edge metrics.
 
@@ -427,8 +427,8 @@ def _structural_hamming_distance(
 
 
 def _error_terms(
-    metrics: Dict[str, Union[int, float]],
-) -> Tuple[float, float]:
+    metrics: dict[str, Union[int, float]],
+) -> tuple[float, float]:
     """Return the false positive and false negative counts.
 
     Reversed arcs and edge/arc mismatches are weighted equally in both
@@ -453,7 +453,7 @@ def _precision_recall_f1(
     tp: float,
     fp: float,
     fn: float,
-) -> Tuple[Optional[float], Optional[float], float]:
+) -> tuple[float | None, float | None, float]:
     """Return precision, recall and F1 from confusion counts.
 
     Args:
@@ -473,9 +473,9 @@ def _precision_recall_f1(
 
 
 def _summary_metrics(
-    metrics: Dict[str, Union[int, float]],
-    nodes: List[str],
-) -> Tuple[Dict[str, Union[int, float, None]], int]:
+    metrics: dict[str, Union[int, float]],
+    nodes: list[str],
+) -> tuple[dict[str, Union[int, float, None]], int]:
     """Finalise edge metrics and derive SHD, precision, recall and F1.
 
     Args:
@@ -499,13 +499,13 @@ def _summary_metrics(
     total = tp + metrics["missing_matched"] + shd
     if abs(total - max_edges) > _SHD_TOL * max(1, max_edges):
         raise RuntimeError("SHD sanity check: {}".format(metrics))
-    result: Dict[str, Union[int, float, None]] = dict(metrics)
+    result: dict[str, Union[int, float, None]] = dict(metrics)
     result.update({"shd": shd, "p": p, "r": r, "f1": f1})
     return result, max_edges
 
 
 def _attach_bayesys(
-    result_metrics: Dict[str, Union[int, float, None]],
+    result_metrics: dict[str, Union[int, float, None]],
     reference_pdg: PDG,
     max_edges: int,
 ) -> None:
@@ -525,9 +525,9 @@ def _attach_bayesys(
 
 
 def _with_edges(
-    result_metrics: Dict[str, Union[int, float, None]],
-    metric_edges: Dict[str, Set[Any]],
-) -> Dict[str, Any]:
+    result_metrics: dict[str, Union[int, float, None]],
+    metric_edges: dict[str, Set[Any]],
+) -> dict[str, Any]:
     """Return the result metrics with the identified edges attached.
 
     Args:
@@ -537,7 +537,7 @@ def _with_edges(
     Returns:
         The metrics dictionary with an added "edges" entry.
     """
-    final_result: Dict[str, Any] = dict(result_metrics)
+    final_result: dict[str, Any] = dict(result_metrics)
     final_result["edges"] = metric_edges
     return final_result
 
@@ -545,9 +545,9 @@ def _with_edges(
 def pdag_compare(
     graph: Any,
     reference: Any,
-    bayesys: Optional[str] = None,
+    bayesys: str | None = None,
     identify_edges: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare a pdag with a reference pdag.
 
     Retained for compatibility; delegates to :func:`pdg_compare`, which
@@ -619,10 +619,10 @@ def kl(dist: Series, ref_dist: Series) -> float:
 
 
 def bayesys_metrics(
-    metrics: Dict[str, Union[int, float, None]],
+    metrics: dict[str, Union[int, float, None]],
     max_edges: int,
     num_ref_edges: float,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute Bayesys-compatible metrics from structural metrics.
 
     If the reference has an edge but the graph has an arc this is counted
@@ -644,10 +644,10 @@ def bayesys_metrics(
 
 
 def _bayesys_confusion(
-    metrics: Dict[str, Union[int, float, None]],
+    metrics: dict[str, Union[int, float, None]],
     max_edges: int,
     num_ref_edges: float,
-) -> Tuple[float, float, float, float, float]:
+) -> tuple[float, float, float, float, float]:
     """Return Bayesys true/false positive/negative counts.
 
     Args:
@@ -681,7 +681,7 @@ def _bayesys_scores(
     fn: float,
     max_edges: int,
     num_ref_edges: float,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute Bayesys precision, recall, F1, SHD, DDM and BSF.
 
     DDM and positive_worth divide by the number of reference edges, which

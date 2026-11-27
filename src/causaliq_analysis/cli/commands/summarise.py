@@ -4,7 +4,7 @@ import csv
 import json
 import statistics
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import click
 
@@ -80,13 +80,13 @@ __all__ = ["summarise_cmd"]
     "metric: blank, a statistic name or literal text.",
 )
 def summarise_cmd(
-    metrics: Tuple[str, ...],
-    input_files: Tuple[str, ...],
+    metrics: tuple[str, ...],
+    input_files: tuple[str, ...],
     output: str,
-    filter_expr: Optional[str],
-    headers: Tuple[str, ...],
-    formats: Tuple[str, ...],
-    footer: Tuple[str, ...],
+    filter_expr: str | None,
+    headers: tuple[str, ...],
+    formats: tuple[str, ...],
+    footer: tuple[str, ...],
 ) -> None:
     """
     Summarise numerical metrics across experiments.
@@ -125,10 +125,10 @@ def summarise_cmd(
 
 
 def _require_table_parameters(
-    parsed_metrics: List[Tuple[str, str]],
-    headers: Tuple[str, ...],
-    formats: Tuple[str, ...],
-    footer: Tuple[str, ...],
+    parsed_metrics: list[tuple[str, str]],
+    headers: tuple[str, ...],
+    formats: tuple[str, ...],
+    footer: tuple[str, ...],
 ) -> None:
     """Validate the column count and format of the table parameters.
 
@@ -178,8 +178,8 @@ def _require_format_spec(format_spec: str) -> None:
 
 
 def _parse_metric_specs(
-    metric_specs: Tuple[str, ...],
-) -> List[Tuple[str, str]]:
+    metric_specs: tuple[str, ...],
+) -> list[tuple[str, str]]:
     """Parse metric specifications into (field, stat) pairs.
 
     Args:
@@ -191,7 +191,7 @@ def _parse_metric_specs(
     Raises:
         click.ClickException: If a specification is invalid.
     """
-    parsed_metrics: List[Tuple[str, str]] = []
+    parsed_metrics: list[tuple[str, str]] = []
     for spec in metric_specs:
         if "." not in spec:
             raise click.ClickException(
@@ -209,10 +209,10 @@ def _parse_metric_specs(
 
 
 def _collect_values(
-    input_files: Tuple[str, ...],
-    unique_fields: List[str],
-    filter_expr: Optional[str],
-) -> Dict[str, List[float]]:
+    input_files: tuple[str, ...],
+    unique_fields: list[str],
+    filter_expr: str | None,
+) -> dict[str, list[float]]:
     """Collect metric values from every input file.
 
     Args:
@@ -223,7 +223,7 @@ def _collect_values(
     Returns:
         Mapping of field name to collected float values.
     """
-    all_values: Dict[str, List[float]] = {field: [] for field in unique_fields}
+    all_values: dict[str, list[float]] = {field: [] for field in unique_fields}
     for input_path in input_files:
         _collect_from_input(input_path, unique_fields, all_values, filter_expr)
     return all_values
@@ -231,9 +231,9 @@ def _collect_values(
 
 def _collect_from_input(
     input_path: str,
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
-    filter_expr: Optional[str],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
+    filter_expr: str | None,
 ) -> None:
     """Collect metric values from a single input path.
 
@@ -260,9 +260,9 @@ def _collect_from_input(
 
 def _collect_from_cache(
     input_path: str,
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
-    filter_expr: Optional[str],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
+    filter_expr: str | None,
 ) -> None:
     """Collect metric values from a workflow cache.
 
@@ -302,10 +302,10 @@ def _collect_from_cache(
 
 
 def _resolve_cache_filter(
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
     cache: Any,
-    filter_expr: Optional[str],
-) -> Tuple[Optional[str], Dict[str, Any]]:
+    filter_expr: str | None,
+) -> tuple[str | None, dict[str, Any]]:
     """Pre-resolve random() calls in a cache filter expression.
 
     Args:
@@ -331,8 +331,8 @@ def _resolve_cache_filter(
 
 def _flatten_cache_metadata(
     cache: Any,
-    entry_info: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    entry_info: dict[str, Any],
+) -> dict[str, Any] | None:
     """Flatten one cache entry's metadata for filter resolution.
 
     Args:
@@ -349,12 +349,12 @@ def _flatten_cache_metadata(
 
 
 def _fold_cache(
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
     cache: Any,
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
 ) -> None:
     """Collect metric values from every cache entry.
 
@@ -378,12 +378,12 @@ def _fold_cache(
 
 
 def _collect_cache_entry(
-    entry_info: Dict[str, Any],
+    entry_info: dict[str, Any],
     cache: Any,
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
 ) -> None:
     """Collect metric values from a single cache entry.
 
@@ -410,9 +410,9 @@ def _collect_cache_entry(
 
 def _collect_from_json(
     input_path: str,
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
-    filter_expr: Optional[str],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
+    filter_expr: str | None,
 ) -> None:
     """Collect metric values from a JSON file.
 
@@ -443,7 +443,7 @@ def _collect_from_json(
         )
 
 
-def _read_json_records(input_path: str) -> List[Any]:
+def _read_json_records(input_path: str) -> list[Any]:
     """Read a JSON file into a list of records.
 
     Args:
@@ -468,9 +468,9 @@ def _read_json_records(input_path: str) -> List[Any]:
 
 
 def _resolve_json_filter(
-    records: List[Any],
-    filter_expr: Optional[str],
-) -> Tuple[Optional[str], Dict[str, Any]]:
+    records: list[Any],
+    filter_expr: str | None,
+) -> tuple[str | None, dict[str, Any]]:
     """Pre-resolve random() calls in a JSON filter expression.
 
     Args:
@@ -489,7 +489,7 @@ def _resolve_json_filter(
     return resolve_random_calls(filter_expr, metadata)
 
 
-def _record_search_data(record: Dict[str, Any]) -> Dict[str, Any]:
+def _record_search_data(record: dict[str, Any]) -> dict[str, Any]:
     """Return the flattened search data for a JSON record.
 
     Args:
@@ -506,10 +506,10 @@ def _record_search_data(record: Dict[str, Any]) -> Dict[str, Any]:
 
 def _collect_record_values(
     record: Any,
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
 ) -> None:
     """Collect metric values from a single JSON record.
 
@@ -531,9 +531,9 @@ def _collect_record_values(
 
 
 def _matches_filter(
-    search_data: Dict[str, Any],
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
+    search_data: dict[str, Any],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
 ) -> bool:
     """Return True when a record satisfies the resolved filter.
 
@@ -558,9 +558,9 @@ def _matches_filter(
 
 
 def _append_values(
-    data: Dict[str, Any],
-    unique_fields: List[str],
-    all_values: Dict[str, List[float]],
+    data: dict[str, Any],
+    unique_fields: list[str],
+    all_values: dict[str, list[float]],
 ) -> None:
     """Append numeric field values from a dict to the collected values.
 
@@ -576,9 +576,9 @@ def _append_values(
 
 
 def _summarise_values(
-    parsed_metrics: List[Tuple[str, str]],
-    all_values: Dict[str, List[float]],
-) -> Dict[str, Any]:
+    parsed_metrics: list[tuple[str, str]],
+    all_values: dict[str, list[float]],
+) -> dict[str, Any]:
     """Compute the requested summary statistics.
 
     Args:
@@ -588,14 +588,14 @@ def _summarise_values(
     Returns:
         Mapping of '<field>.<stat>' to computed value.
     """
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     for field, stat in parsed_metrics:
         column = f"{field}.{stat}"
         results[column] = _summary_stat(stat, all_values[field])
     return results
 
 
-def _summary_stat(stat: str, values: List[float]) -> Any:
+def _summary_stat(stat: str, values: list[float]) -> Any:
     """Compute a single summary statistic.
 
     Args:
@@ -614,7 +614,7 @@ def _summary_stat(stat: str, values: List[float]) -> Any:
     return None
 
 
-def _mean(values: List[float]) -> Optional[float]:
+def _mean(values: list[float]) -> float | None:
     """Return the mean of the values, or None when empty.
 
     Args:
@@ -626,7 +626,7 @@ def _mean(values: List[float]) -> Optional[float]:
     return statistics.mean(values) if values else None
 
 
-def _stdev(values: List[float]) -> Optional[float]:
+def _stdev(values: list[float]) -> float | None:
     """Return the standard deviation, or None when fewer than two.
 
     Args:
@@ -639,11 +639,11 @@ def _stdev(values: List[float]) -> Optional[float]:
 
 
 def _write_summary(
-    results: Dict[str, Any],
+    results: dict[str, Any],
     output: str,
-    headers: Tuple[str, ...],
-    formats: Tuple[str, ...],
-    footer: Tuple[str, ...],
+    headers: tuple[str, ...],
+    formats: tuple[str, ...],
+    footer: tuple[str, ...],
 ) -> None:
     """Write summary results to the terminal or a table file.
 
@@ -664,11 +664,11 @@ def _write_summary(
 
 
 def _write_table(
-    results: Dict[str, Any],
+    results: dict[str, Any],
     output: str,
-    headers: Tuple[str, ...],
-    formats: Tuple[str, ...],
-    footer: Tuple[str, ...],
+    headers: tuple[str, ...],
+    formats: tuple[str, ...],
+    footer: tuple[str, ...],
 ) -> None:
     """Write the summary row as a LaTeX or Markdown table.
 
@@ -706,9 +706,9 @@ def _write_table(
 
 
 def _write_summary_csv(
-    results: Dict[str, Any],
+    results: dict[str, Any],
     output_path: Path,
-    labels: List[str],
+    labels: list[str],
 ) -> None:
     """Write summary results to a CSV file.
 

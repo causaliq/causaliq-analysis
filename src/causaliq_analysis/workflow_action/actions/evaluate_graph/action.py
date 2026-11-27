@@ -1,6 +1,6 @@
 """The evaluate_graph action class and parameter validation."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from causaliq_analysis.workflow_action.actions.base import AnalysisAction
 from causaliq_analysis.workflow_action.types import (
@@ -46,7 +46,7 @@ class EvaluateGraphAction(AnalysisAction):
     action_name = "evaluate_graph"
     pattern = ActionPattern.MAP
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate evaluate_graph parameters before execution.
 
         Args:
@@ -64,10 +64,10 @@ class EvaluateGraphAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Evaluate the matched entry graph against a reference.
 
@@ -97,7 +97,7 @@ class EvaluateGraphAction(AnalysisAction):
         return _evaluate(request, block, logger)
 
 
-def _require_valid_metrics(parameters: Dict[str, Any]) -> None:
+def _require_valid_metrics(parameters: dict[str, Any]) -> None:
     """Validate the requested metric names for the active mode.
 
     Args:
@@ -144,7 +144,7 @@ def _invalid_metric_message(invalid: Any, valid: Any) -> str:
     )
 
 
-def _require_probabilities(parameters: Dict[str, Any]) -> None:
+def _require_probabilities(parameters: dict[str, Any]) -> None:
     """Validate the optional probability parameters.
 
     Args:
@@ -166,7 +166,7 @@ def _require_probabilities(parameters: Dict[str, Any]) -> None:
             )
 
 
-def _require_cache_output(parameters: Dict[str, Any]) -> None:
+def _require_cache_output(parameters: dict[str, Any]) -> None:
     """Validate the output path when one is provided.
 
     Args:
@@ -186,7 +186,7 @@ def _require_cache_output(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_context(parameters: Dict[str, Any]) -> None:
+def _require_context(parameters: dict[str, Any]) -> None:
     """Validate the optional context path.
 
     Args:

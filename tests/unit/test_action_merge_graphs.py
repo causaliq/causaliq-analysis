@@ -1,6 +1,6 @@
 """Unit tests for merge_graphs action with mocked dependencies."""
 
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,7 +27,7 @@ def test_merge_graphs_invalid_weights_type() -> None:
 
     # Create valid aggregation entries to get past input validation
     mock_entry = create_mock_graphml_entry()
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "entry": mock_entry,
             "cache_path": "test.db",
@@ -63,7 +63,7 @@ def test_merge_graphs_dry_run_aggregation_mode(capsys: Any) -> None:
     mock_logger.is_terminal_logging = True
 
     # Mock aggregation entries with _aggregation_entries parameter
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {"entry": MagicMock(), "matrix_values": {"seed": 1}},
         {"entry": MagicMock(), "matrix_values": {"seed": 2}},
     ]
@@ -98,7 +98,7 @@ def test_merge_graphs_no_graphs_found() -> None:
     mock_entry = MagicMock()
     mock_entry.object_types.return_value = []
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "entry": mock_entry,
             "cache_path": "test.db",
@@ -191,7 +191,7 @@ def test_extract_graphs_logs_success(capsys: Any) -> None:
     """Test logging when graph is successfully loaded."""
 
     mock_entry = create_mock_graphml_entry()
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {
             "entry": mock_entry,
             "cache_path": "test.db",
@@ -249,7 +249,7 @@ def test_extract_graphs_from_entries_reads_pdg() -> None:
     mock_entry.object_types.return_value = ["pdg"]
     mock_entry.get_object.return_value = mock_pdg_obj
 
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {
             "entry": mock_entry,
             "cache_path": "test.db",
@@ -670,7 +670,7 @@ def test_merge_graphs_empty_aggregation_entries_error() -> None:
     mock_logger.is_terminal_logging = False
 
     # Empty list of aggregation entries (no matches for matrix values)
-    aggregation_entries: List[Dict[str, Any]] = []
+    aggregation_entries: list[dict[str, Any]] = []
 
     with pytest.raises(Exception) as exc_info:
         provider.run(
@@ -695,7 +695,7 @@ def test_merge_graphs_aggregation_mode_detected_from_empty_list() -> None:
     mock_logger.is_terminal_logging = True
 
     # Empty list is still aggregation mode (vs None for direct mode)
-    aggregation_entries: List[Dict[str, Any]] = []
+    aggregation_entries: list[dict[str, Any]] = []
 
     result = provider.run(
         action="merge_graphs",
@@ -721,7 +721,7 @@ def test_merge_graphs_cpdag_in_metadata() -> None:
     mock_logger.is_terminal_logging = False
 
     mock_entry = create_mock_graphml_entry()
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {
             "entry": mock_entry,
             "cache_path": "test.db",
@@ -757,7 +757,7 @@ def test_merge_graphs_cpdag_reaches_merge(mocker: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {"entry": MagicMock(), "matrix_values": {"seed": 1}},
     ]
     mocker.patch.object(
@@ -922,7 +922,7 @@ def test_merge_graphs_metadata_weights(mocker: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {"entry": MagicMock(), "matrix_values": {"seed": 1}},
     ]
     mocker.patch.object(
@@ -970,7 +970,7 @@ def test_merge_graphs_wraps_value_error(mocker: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {"entry": MagicMock(), "matrix_values": {"seed": 1}},
     ]
     mocker.patch.object(
@@ -1002,7 +1002,7 @@ def test_merge_graphs_wraps_unexpected_error(mocker: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    entries: List[Dict[str, Any]] = [
+    entries: list[dict[str, Any]] = [
         {"entry": MagicMock(), "matrix_values": {"seed": 1}},
     ]
     mocker.patch.object(

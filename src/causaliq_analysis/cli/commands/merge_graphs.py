@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import click
 
@@ -70,10 +70,10 @@ __all__ = ["merge_graphs_cmd"]
     "'max' (most confident source per edge).",
 )
 def merge_graphs_cmd(
-    inputs: Tuple[str, ...],
+    inputs: tuple[str, ...],
     output: str,
-    filter_expr: Optional[str],
-    weights: Optional[str],
+    filter_expr: str | None,
+    weights: str | None,
     cpdag: bool,
     strategy: str,
 ) -> None:
@@ -125,7 +125,7 @@ def merge_graphs_cmd(
     )
 
 
-def _validate_filter(filter_expr: Optional[str]) -> None:
+def _validate_filter(filter_expr: str | None) -> None:
     """Pre-validate the filter expression syntax.
 
     Args:
@@ -146,9 +146,9 @@ def _validate_filter(filter_expr: Optional[str]) -> None:
 
 
 def _read_merge_inputs(
-    inputs: Tuple[str, ...],
-    filter_expr: Optional[str],
-) -> Tuple[List[Any], List[Dict[str, Any]], bool]:
+    inputs: tuple[str, ...],
+    filter_expr: str | None,
+) -> tuple[list[Any], list[dict[str, Any]], bool]:
     """Read graphs and metadata from every merge input.
 
     Args:
@@ -158,8 +158,8 @@ def _read_merge_inputs(
     Returns:
         Tuple of (graphs, per-graph metadata, has cache input).
     """
-    graphs: List[Any] = []
-    graph_metadata: List[Dict[str, Any]] = []
+    graphs: list[Any] = []
+    graph_metadata: list[dict[str, Any]] = []
     has_cache_input = False
 
     for input_path in inputs:
@@ -179,8 +179,8 @@ def _read_merge_inputs(
 
 def _read_graphml_input(
     input_path: str,
-    graphs: List[Any],
-    graph_metadata: List[Dict[str, Any]],
+    graphs: list[Any],
+    graph_metadata: list[dict[str, Any]],
 ) -> None:
     """Read a GraphML input file.
 
@@ -204,9 +204,9 @@ def _read_graphml_input(
 
 def _read_cache_input(
     input_path: str,
-    filter_expr: Optional[str],
-    graphs: List[Any],
-    graph_metadata: List[Dict[str, Any]],
+    filter_expr: str | None,
+    graphs: list[Any],
+    graph_metadata: list[dict[str, Any]],
 ) -> None:
     """Read graphs from a workflow cache input file.
 
@@ -249,9 +249,9 @@ def _read_cache_input(
 def _read_open_cache(
     cache: Any,
     input_path: str,
-    filter_expr: Optional[str],
-    graphs: List[Any],
-    graph_metadata: List[Dict[str, Any]],
+    filter_expr: str | None,
+    graphs: list[Any],
+    graph_metadata: list[dict[str, Any]],
 ) -> None:
     """Read graphs from every entry of an open workflow cache.
 
@@ -284,12 +284,12 @@ def _read_open_cache(
 
 
 def _read_cache_entry(
-    entry_info: Dict[str, Any],
+    entry_info: dict[str, Any],
     cache: Any,
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
-    graphs: List[Any],
-    graph_metadata: List[Dict[str, Any]],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
+    graphs: list[Any],
+    graph_metadata: list[dict[str, Any]],
 ) -> int:
     """Read graphs from a single cache entry.
 
@@ -323,9 +323,9 @@ def _read_cache_entry(
 
 
 def _is_included(
-    meta: Dict[str, Any],
-    resolved_filter: Optional[str],
-    extra_names: Dict[str, Any],
+    meta: dict[str, Any],
+    resolved_filter: str | None,
+    extra_names: dict[str, Any],
 ) -> bool:
     """Return True when a cache entry satisfies the resolved filter.
 
@@ -357,10 +357,10 @@ def _is_included(
 
 def _append_entry_graphs(
     entry: Any,
-    matrix_values: Dict[str, Any],
-    meta: Dict[str, Any],
-    graphs: List[Any],
-    graph_metadata: List[Dict[str, Any]],
+    matrix_values: dict[str, Any],
+    meta: dict[str, Any],
+    graphs: list[Any],
+    graph_metadata: list[dict[str, Any]],
 ) -> int:
     """Append the entry's GraphML object to the merge inputs.
 
@@ -388,7 +388,7 @@ def _append_entry_graphs(
 def _parse_cache_object(
     obj: Any,
     obj_type: str,
-    matrix_values: Dict[str, Any],
+    matrix_values: dict[str, Any],
 ) -> Any:
     """Read one GraphML cache object into a graph.
 
@@ -416,10 +416,10 @@ def _parse_cache_object(
 
 
 def _resolve_cache_filter(
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
     cache: Any,
-    filter_expr: Optional[str],
-) -> Tuple[Optional[str], Dict[str, Any]]:
+    filter_expr: str | None,
+) -> tuple[str | None, dict[str, Any]]:
     """Pre-resolve random() calls in the cache filter expression.
 
     Args:
@@ -444,11 +444,11 @@ def _resolve_cache_filter(
 
 
 def _resolve_weights(
-    weights: Optional[str],
+    weights: str | None,
     has_cache_input: bool,
-    graph_metadata: List[Dict[str, Any]],
+    graph_metadata: list[dict[str, Any]],
     num_graphs: int,
-) -> Optional[List[float]]:
+) -> list[float] | None:
     """Compute normalised graph weights from a weights file.
 
     Args:
@@ -474,9 +474,9 @@ def _resolve_weights(
 
 def _compute_weights(
     weights: str,
-    graph_metadata: List[Dict[str, Any]],
+    graph_metadata: list[dict[str, Any]],
     num_graphs: int,
-) -> List[float]:
+) -> list[float]:
     """Load a weights file and normalise the resulting weights.
 
     Args:
@@ -518,10 +518,10 @@ def _compute_weights(
 
 
 def _normalise_weights(
-    raw_weights: List[float],
+    raw_weights: list[float],
     num_graphs: int,
     weights: str,
-) -> List[float]:
+) -> list[float]:
     """Normalise raw weights so that they sum to 1.0.
 
     Args:
@@ -543,8 +543,8 @@ def _normalise_weights(
 
 
 def _merge_graphs(
-    graphs: List[Any],
-    weights_list: Optional[List[float]],
+    graphs: list[Any],
+    weights_list: list[float] | None,
     cpdag: bool,
     strategy: str,
 ) -> Any:
@@ -580,9 +580,9 @@ def _write_merge_output(
     merged: Any,
     num_graphs: int,
     cpdag: bool,
-    weights: Optional[str],
-    filter_expr: Optional[str],
-    weights_list: Optional[List[float]],
+    weights: str | None,
+    filter_expr: str | None,
+    weights_list: list[float] | None,
 ) -> None:
     """Write the merged PDG and its metadata to the output directory.
 
@@ -635,9 +635,9 @@ def _write_merge_metadata(
     output_dir: Path,
     num_graphs: int,
     cpdag: bool,
-    weights: Optional[str],
-    filter_expr: Optional[str],
-    weights_list: Optional[List[float]],
+    weights: str | None,
+    filter_expr: str | None,
+    weights_list: list[float] | None,
 ) -> None:
     """Write merge metadata to a JSON file.
 
@@ -655,7 +655,7 @@ def _write_merge_metadata(
     meta_path = output_dir / "_meta.json"
 
     # Write metadata
-    meta_data: Dict[str, Any] = {
+    meta_data: dict[str, Any] = {
         "num_graphs": num_graphs,
         "cpdag": cpdag,
         "weights_file": weights if weights else None,

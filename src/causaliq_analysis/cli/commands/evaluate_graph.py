@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Set
 
 import click
 from causaliq_core.graph import DAG, PDAG, PDG, convert
@@ -72,8 +72,8 @@ _EQUIV_METRICS = frozenset({"equiv.f1", "equiv.shd", "equiv.edge"})
 def evaluate_graph_cmd(
     input_graph: str,
     reference: str,
-    metrics_requested: Tuple[str, ...],
-    output: Optional[str],
+    metrics_requested: tuple[str, ...],
+    output: str | None,
     output_format: str,
 ) -> None:
     """
@@ -115,7 +115,7 @@ def evaluate_graph_cmd(
     metrics_to_compute = _validate_metrics(metrics_requested)
     learned_graph, reference_graph = _load_graphs(input_graph, reference)
 
-    metrics_result: Dict[str, Any] = {}
+    metrics_result: dict[str, Any] = {}
     if _needs_direct(metrics_to_compute):
         metrics_result.update(
             _direct_metrics(
@@ -167,7 +167,7 @@ def _to_cpdag(g: Any) -> PDAG:
         raise TypeError(f"Cannot convert {type(g).__name__} to CPDAG")
 
 
-def _validate_metrics(metrics_requested: Tuple[str, ...]) -> Set[str]:
+def _validate_metrics(metrics_requested: tuple[str, ...]) -> Set[str]:
     """Validate requested metric names and return them as a set.
 
     Args:
@@ -188,7 +188,7 @@ def _validate_metrics(metrics_requested: Tuple[str, ...]) -> Set[str]:
     return set(metrics_requested)
 
 
-def _load_graphs(input_graph: str, reference: str) -> Tuple[Any, Any]:
+def _load_graphs(input_graph: str, reference: str) -> tuple[Any, Any]:
     """Read the learned and reference graphs.
 
     Args:
@@ -241,7 +241,7 @@ def _needs_equiv(metrics_to_compute: Set[str]) -> bool:
 def _compare_graphs(
     learned_graph: Any,
     reference_graph: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compare two graphs, choosing the PDG or deterministic path.
 
     Args:
@@ -265,9 +265,9 @@ def _compare_graphs(
 
 
 def _direct_metrics(
-    raw_metrics: Dict[str, Any],
+    raw_metrics: dict[str, Any],
     metrics_to_compute: Set[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Select the requested direct comparison metrics.
 
     Args:
@@ -277,7 +277,7 @@ def _direct_metrics(
     Returns:
         Mapping of requested direct metrics in insertion order.
     """
-    metrics_out: Dict[str, Any] = {}
+    metrics_out: dict[str, Any] = {}
     if "f1" in metrics_to_compute:
         metrics_out["f1"] = raw_metrics.get("f1")
     if "shd" in metrics_to_compute:
@@ -296,7 +296,7 @@ def _equiv_metrics(
     learned_graph: Any,
     reference_graph: Any,
     metrics_to_compute: Set[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute the requested equivalence-class metrics.
 
     Args:
@@ -322,9 +322,9 @@ def _equiv_metrics(
 
 
 def _equiv_metric_subset(
-    equiv_metrics: Dict[str, Any],
+    equiv_metrics: dict[str, Any],
     metrics_to_compute: Set[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Select the requested equivalence-class metrics.
 
     Args:
@@ -334,7 +334,7 @@ def _equiv_metric_subset(
     Returns:
         Mapping of requested equivalence metrics in insertion order.
     """
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     if "equiv.f1" in metrics_to_compute:
         out["equiv.f1"] = equiv_metrics.get("f1")
     if "equiv.shd" in metrics_to_compute:
@@ -346,8 +346,8 @@ def _equiv_metric_subset(
 
 
 def _emit_metrics(
-    metrics_result: Dict[str, Any],
-    output: Optional[str],
+    metrics_result: dict[str, Any],
+    output: str | None,
     output_format: str,
 ) -> None:
     """Write the computed metrics in the requested format.
@@ -363,7 +363,7 @@ def _emit_metrics(
         _write_metrics_json(metrics_result, output)
 
 
-def _print_metrics_table(metrics_result: Dict[str, Any]) -> None:
+def _print_metrics_table(metrics_result: dict[str, Any]) -> None:
     """Print metrics as a formatted table.
 
     Args:
@@ -380,8 +380,8 @@ def _print_metrics_table(metrics_result: Dict[str, Any]) -> None:
 
 
 def _write_metrics_json(
-    metrics_result: Dict[str, Any],
-    output: Optional[str],
+    metrics_result: dict[str, Any],
+    output: str | None,
 ) -> None:
     """Write metrics as JSON either to a file or to stdout.
 

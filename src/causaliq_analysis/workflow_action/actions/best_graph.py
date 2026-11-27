@@ -10,7 +10,7 @@ module and method limits.
 
 from datetime import datetime, timezone
 from io import StringIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.validation import (
     require_param,
@@ -38,7 +38,7 @@ class BestGraphAction(AnalysisAction):
     action_name = "best_graph"
     pattern = ActionPattern.MAP
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate best_graph parameters before execution.
 
         Args:
@@ -56,10 +56,10 @@ class BestGraphAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Execute optimal DAG extraction from a PDG.
 
@@ -89,7 +89,7 @@ class BestGraphAction(AnalysisAction):
         return _success_result(request, result, content)
 
 
-def _require_cache_output(parameters: Dict[str, Any]) -> None:
+def _require_cache_output(parameters: dict[str, Any]) -> None:
     """Validate the output path when one is provided.
 
     Args:
@@ -109,7 +109,7 @@ def _require_cache_output(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_numeric_threshold(parameters: Dict[str, Any]) -> None:
+def _require_numeric_threshold(parameters: dict[str, Any]) -> None:
     """Require a numeric threshold when one is provided.
 
     Args:
@@ -140,7 +140,7 @@ def _parse_threshold(threshold: Any) -> None:
         raise ValueError(f"'threshold' must be a number, got: {threshold}")
 
 
-def _require_valid_filter(parameters: Dict[str, Any]) -> None:
+def _require_valid_filter(parameters: dict[str, Any]) -> None:
     """Validate filter expression syntax when one is provided.
 
     Args:
@@ -153,7 +153,7 @@ def _require_valid_filter(parameters: Dict[str, Any]) -> None:
     validate_filter_expression(parameters.get("filter"))
 
 
-def _best_graph_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
+def _best_graph_request(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build the extraction request from action parameters.
 
     Cache mode reads the PDG from the single matched cache entry passed
@@ -173,7 +173,7 @@ def _best_graph_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
 
     """
     entry = _single_entry(parameters)
-    request: Dict[str, Any] = {
+    request: dict[str, Any] = {
         "input": parameters.get("input"),
         "threshold": float(parameters.get("threshold", 0.0)),
         "entry": entry,
@@ -181,7 +181,7 @@ def _best_graph_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return request
 
 
-def _single_entry(parameters: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _single_entry(parameters: dict[str, Any]) -> dict[str, Any] | None:
     """Return the single matched aggregation entry, or None.
 
     Args:
@@ -203,13 +203,13 @@ def _single_entry(parameters: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "best_graph expects exactly one matching entry per job, "
             f"found {len(entries)}. Add a matrix key to distinguish them."
         )
-    entry: Dict[str, Any] = entries[0]
+    entry: dict[str, Any] = entries[0]
     return entry
 
 
 def _dry_run_result(
-    request: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Return the dry-run result for a best_graph request.
 
@@ -223,7 +223,7 @@ def _dry_run_result(
     """
     if logger and logger.is_terminal_logging:
         _print_dry_run(request)
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "input": request["input"],
         "threshold": request["threshold"],
         "cache_input": request["entry"] is not None,
@@ -231,7 +231,7 @@ def _dry_run_result(
     return ("skipped", metadata, [])
 
 
-def _print_dry_run(request: Dict[str, Any]) -> None:
+def _print_dry_run(request: dict[str, Any]) -> None:
     """Print the dry-run message for the active extraction mode.
 
     Args:
@@ -251,7 +251,7 @@ def _print_dry_run(request: Dict[str, Any]) -> None:
     )
 
 
-def _entry_matrix_values(entry: Dict[str, Any]) -> Dict[str, Any]:
+def _entry_matrix_values(entry: dict[str, Any]) -> dict[str, Any]:
     """Return the matrix values recorded on a workflow cache entry.
 
     Args:
@@ -261,11 +261,11 @@ def _entry_matrix_values(entry: Dict[str, Any]) -> Dict[str, Any]:
         Matrix variable values of the entry.
 
     """
-    matrix_values: Dict[str, Any] = entry.get("matrix_values", {})
+    matrix_values: dict[str, Any] = entry.get("matrix_values", {})
     return matrix_values
 
 
-def _read_request_pdg(request: Dict[str, Any]) -> Tuple[Any, str]:
+def _read_request_pdg(request: dict[str, Any]) -> tuple[Any, str]:
     """Read the PDG for a request from the cache entry or a file.
 
     Args:
@@ -283,7 +283,7 @@ def _read_request_pdg(request: Dict[str, Any]) -> Tuple[Any, str]:
     return _read_pdg_from_file(request["input"])
 
 
-def _read_pdg_from_entry(entry_dict: Dict[str, Any]) -> Tuple[Any, str]:
+def _read_pdg_from_entry(entry_dict: dict[str, Any]) -> tuple[Any, str]:
     """Read the PDG from a workflow cache entry.
 
     Args:
@@ -329,7 +329,7 @@ def _parse_pdg(content: str) -> Any:
     return graphml.read_pdg(StringIO(content))
 
 
-def _read_pdg_from_file(input_path: Any) -> Tuple[Any, str]:
+def _read_pdg_from_file(input_path: Any) -> tuple[Any, str]:
     """Read a PDG from a GraphML file path.
 
     Args:
@@ -354,7 +354,7 @@ def _read_pdg_from_file(input_path: Any) -> Tuple[Any, str]:
         raise ActionExecutionError(f"Failed to read PDG: {e}") from e
 
 
-def _extract_optimal_dag(pdg: Any, threshold: float) -> Tuple[Any, str]:
+def _extract_optimal_dag(pdg: Any, threshold: float) -> tuple[Any, str]:
     """Extract the optimal DAG from a PDG and serialise it to GraphML.
 
     Args:
@@ -382,7 +382,7 @@ def _extract_optimal_dag(pdg: Any, threshold: float) -> Tuple[Any, str]:
 def _log_extraction(
     source_info: str,
     result: Any,
-    logger: Optional[Any],
+    logger: Any | None,
 ) -> None:
     """Report the extraction result when terminal logging is enabled.
 
@@ -402,7 +402,7 @@ def _log_extraction(
 
 
 def _success_result(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     result: Any,
     content: str,
 ) -> ActionResult:
@@ -422,9 +422,9 @@ def _success_result(
 
 
 def _success_metadata(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     result: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build the success metadata for an extraction.
 
     Args:
@@ -436,7 +436,7 @@ def _success_metadata(
 
     """
     input_path = request["input"]
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "action": "best_graph",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "input_source": input_path if input_path else "aggregation",
@@ -451,7 +451,7 @@ def _success_metadata(
     return metadata
 
 
-def _dag_objects(content: str) -> List[Dict[str, Any]]:
+def _dag_objects(content: str) -> list[dict[str, Any]]:
     """Build the DAG object returned to the workflow cache.
 
     Args:

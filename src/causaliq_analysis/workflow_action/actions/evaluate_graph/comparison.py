@@ -1,6 +1,6 @@
 """Structural and equivalence comparisons for evaluate_graph."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -15,8 +15,8 @@ __all__ = [
 def _compute_metrics(
     graph: Any,
     reference: Any,
-    threshold: Optional[float] = None,
-) -> Dict[str, Any]:
+    threshold: float | None = None,
+) -> dict[str, Any]:
     """Compute structural metrics, comparing PDGs probabilistically.
 
     When a threshold is given, both graphs are reduced to deterministic
@@ -55,9 +55,9 @@ def _compute_metrics(
 def _equiv_metrics(
     graph: Any,
     reference: Any,
-    requested: List[str],
-    logger: Optional[Any],
-) -> Dict[str, Any]:
+    requested: list[str],
+    logger: Any | None,
+) -> dict[str, Any]:
     """Compute equivalence-class metrics when they are requested.
 
     Args:
@@ -82,7 +82,7 @@ def _equiv_metrics(
         return {}
 
 
-def _warn_equiv_unavailable(logger: Optional[Any]) -> None:
+def _warn_equiv_unavailable(logger: Any | None) -> None:
     """Warn that equivalence-class metrics are unavailable.
 
     Args:
@@ -99,8 +99,8 @@ def _warn_equiv_unavailable(logger: Optional[Any]) -> None:
 def _compute_equiv(
     graph: Any,
     reference: Any,
-    requested: List[str],
-) -> Dict[str, Any]:
+    requested: list[str],
+) -> dict[str, Any]:
     """Compute equivalence-class metrics for two graphs.
 
     Args:
@@ -117,7 +117,7 @@ def _compute_equiv(
     learned_cpdag = _to_cpdag(graph)
     reference_cpdag = _to_cpdag(reference)
     result = pdag_compare(learned_cpdag, reference_cpdag)
-    equiv: Dict[str, Any] = {
+    equiv: dict[str, Any] = {
         "equiv.f1": result["f1"],
         "equiv.shd": result["shd"],
     }
@@ -126,9 +126,9 @@ def _compute_equiv(
 
 
 def _add_equiv_edge_metrics(
-    equiv: Dict[str, Any],
-    result: Dict[str, Any],
-    requested: List[str],
+    equiv: dict[str, Any],
+    result: dict[str, Any],
+    requested: list[str],
 ) -> None:
     """Add equivalence-class edge counts when requested.
 

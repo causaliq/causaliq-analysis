@@ -7,7 +7,7 @@ on every input cache, which keeps the original union behaviour.
 
 import json
 import statistics
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -17,18 +17,18 @@ from .formula import _evaluate_formula, _number_value
 __all__ = ["_compute_stats", "_stat_value"]
 
 # Collected values per (one-based source index, field, where predicate)
-Values = Dict[Tuple[int, str, Optional[str]], List[Any]]
+Values = dict[tuple[int, str, str | None], list[Any]]
 
 # Winning entry per (one-based source index, field, where predicate): its
 # value and the matrix values of the entry holding it
-Argmax = Dict[Tuple[int, str, Optional[str]], Tuple[float, Dict[str, Any]]]
+Argmax = dict[tuple[int, str, str | None], tuple[float, dict[str, Any]]]
 
 
 def _compute_stats(
-    specs: List[ColumnSpec],
+    specs: list[ColumnSpec],
     values: Values,
     argmax: Argmax,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute the value of every column of a table row.
 
     Columns are computed in table order so that a derived column can use
@@ -44,8 +44,8 @@ def _compute_stats(
         Mapping of column key to computed value.
 
     """
-    results: Dict[str, Any] = {}
-    named: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
+    named: dict[str, Any] = {}
     for spec in specs:
         value = _column_value(spec, values, argmax, named)
         results[spec.key] = value
@@ -58,7 +58,7 @@ def _column_value(
     spec: ColumnSpec,
     values: Values,
     argmax: Argmax,
-    named: Dict[str, Any],
+    named: dict[str, Any],
 ) -> Any:
     """Compute the value of one column.
 
@@ -98,10 +98,10 @@ def _column_value(
 
 def _field_values(
     values: Values,
-    source: Optional[int],
+    source: int | None,
     field: str,
-    where: Optional[str],
-) -> List[Any]:
+    where: str | None,
+) -> list[Any]:
     """Return the values collected for a field and predicate.
 
     Args:
@@ -117,14 +117,14 @@ def _field_values(
     """
     if source is not None:
         return list(values.get((source, field, where), []))
-    collected: List[Any] = []
+    collected: list[Any] = []
     for (_, name, clause), field_values in values.items():
         if name == field and clause == where:
             collected.extend(field_values)
     return collected
 
 
-def _numeric_values(values: List[Any]) -> List[float]:
+def _numeric_values(values: list[Any]) -> list[float]:
     """Return the numeric values of a collected field.
 
     Text values are ignored so that a text-only field does not turn a
@@ -143,8 +143,8 @@ def _numeric_values(values: List[Any]) -> List[float]:
 
 
 def _bin_value(
-    values: List[Any],
-    bounds: Optional[Tuple[float, float]],
+    values: list[Any],
+    bounds: tuple[float, float] | None,
     percentage: bool,
 ) -> Any:
     """Return the count or percentage of values inside a half-open bin.
@@ -174,7 +174,7 @@ def _bin_value(
     return 100.0 * count / len(numbers)
 
 
-def _unique_value(values: List[Any], spec: str) -> Any:
+def _unique_value(values: list[Any], spec: str) -> Any:
     """Return the single raw value of a field.
 
     Args:
@@ -202,7 +202,7 @@ def _unique_value(values: List[Any], spec: str) -> Any:
     return value
 
 
-def _distinct_values(values: List[Any]) -> List[Any]:
+def _distinct_values(values: list[Any]) -> list[Any]:
     """Return distinct values in first-seen order.
 
     Values are compared by equality while retaining their original type, so
@@ -216,7 +216,7 @@ def _distinct_values(values: List[Any]) -> List[Any]:
         Distinct values in collection order.
 
     """
-    distinct: List[Any] = []
+    distinct: list[Any] = []
     for value in values:
         if value is None or value == "":
             continue
@@ -227,11 +227,11 @@ def _distinct_values(values: List[Any]) -> List[Any]:
 
 def _argmax_dimension(
     argmax: Argmax,
-    source: Optional[int],
+    source: int | None,
     field: str,
-    dimension: Optional[str],
-    element: Optional[int] = None,
-    where: Optional[str] = None,
+    dimension: str | None,
+    element: int | None = None,
+    where: str | None = None,
 ) -> Any:
     """Return the dimension value of the entry holding a field's maximum.
 
@@ -280,7 +280,7 @@ def _element_value(value: Any, element: int) -> Any:
     return items[element - 1]
 
 
-def _dimension_items(value: Any) -> List[Any]:
+def _dimension_items(value: Any) -> list[Any]:
     """Return a matrix dimension value as a list of elements.
 
     A missing value has no elements, a list or JSON list string yields its
@@ -299,7 +299,7 @@ def _dimension_items(value: Any) -> List[Any]:
     return parsed if parsed is not None else [value]
 
 
-def _parsed_sequence(value: Any) -> Optional[List[Any]]:
+def _parsed_sequence(value: Any) -> list[Any] | None:
     """Return the elements of a list or list-like string.
 
     Args:
@@ -317,7 +317,7 @@ def _parsed_sequence(value: Any) -> Optional[List[Any]]:
     return None
 
 
-def _parsed_json_list(value: str) -> Optional[List[Any]]:
+def _parsed_json_list(value: str) -> list[Any] | None:
     """Return the elements of a JSON list string.
 
     Args:
@@ -336,10 +336,10 @@ def _parsed_json_list(value: str) -> Optional[List[Any]]:
 
 def _argmax_winner(
     argmax: Argmax,
-    source: Optional[int],
+    source: int | None,
     field: str,
-    where: Optional[str] = None,
-) -> Optional[Tuple[float, Dict[str, Any]]]:
+    where: str | None = None,
+) -> tuple[float, dict[str, Any]] | None:
     """Return the entry holding a field's maximum value.
 
     Args:
@@ -364,7 +364,7 @@ def _argmax_winner(
     return max(winners, key=lambda item: item[0]) if winners else None
 
 
-def _stat_value(stat: str, values: List[Any]) -> Any:
+def _stat_value(stat: str, values: list[Any]) -> Any:
     """Compute a single summary statistic.
 
     Args:
@@ -384,7 +384,7 @@ def _stat_value(stat: str, values: List[Any]) -> Any:
     return _apply_stat(stat, numbers)
 
 
-def _apply_stat(stat: str, numbers: List[float]) -> Any:
+def _apply_stat(stat: str, numbers: list[float]) -> Any:
     """Apply a named statistic to numeric values.
 
     An unrecognised statistic falls back to the standard deviation.

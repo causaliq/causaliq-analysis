@@ -7,7 +7,7 @@ the method patchable) without this module importing ``Trace``.
 """
 
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Union, cast
 
 from causaliq_core.utils import values_same
 from pandas import DataFrame
@@ -65,7 +65,7 @@ def nums_diff(
     )
 
 
-def _sorted_blocked(blocked: List[Any]) -> List[Any]:
+def _sorted_blocked(blocked: list[Any]) -> list[Any]:
     """Order blocked items so adds come first, then deletes and reverses."""
     result = [b for b in blocked if b[0] == GraphAction.ADD.value]
     result.extend([b for b in blocked if b[0] == GraphAction.DEL.value])
@@ -74,8 +74,8 @@ def _sorted_blocked(blocked: List[Any]) -> List[Any]:
 
 
 def blocked_same(
-    entry: Optional[List[Any]],
-    ref: Optional[List[Any]],
+    entry: list[Any] | None,
+    ref: list[Any] | None,
     strict: bool,
     nums_diff_fn: NumDiff,
 ) -> bool:
@@ -102,8 +102,8 @@ def blocked_same(
 
 
 def _blocked_lists_same(
-    entry: List[Any],
-    ref: List[Any],
+    entry: list[Any],
+    ref: list[Any],
     strict: bool,
     nums_diff_fn: NumDiff,
 ) -> bool:
@@ -130,12 +130,12 @@ def _blocked_item_differs(
 
 
 def compare_entry(
-    entry: Dict[str, Any],
-    ref: Dict[str, Any],
+    entry: dict[str, Any],
+    ref: dict[str, Any],
     strict: bool,
     ignore: set,
     nums_diff_fn: NumDiff,
-) -> Optional[DiffType]:
+) -> DiffType | None:
     """Compare an individual entry from trace with reference trace.
 
     Args:
@@ -162,7 +162,7 @@ def compare_entry(
 
 
 def _arcs_and_activity_differ(
-    entry: Dict[str, Any], ref: Dict[str, Any]
+    entry: dict[str, Any], ref: dict[str, Any]
 ) -> bool:
     """Return True when the arc or activity fields differ."""
     arcs_differ = (
@@ -172,8 +172,8 @@ def _arcs_and_activity_differ(
 
 
 def _score_differs(
-    entry: Dict[str, Any],
-    ref: Dict[str, Any],
+    entry: dict[str, Any],
+    ref: dict[str, Any],
     strict: bool,
     nums_diff_fn: NumDiff,
 ) -> bool:
@@ -189,8 +189,8 @@ def _score_differs(
 
 
 def _other_numeric_diff(
-    entry: Dict[str, Any],
-    ref: Dict[str, Any],
+    entry: dict[str, Any],
+    ref: dict[str, Any],
     strict: bool,
     nums_diff_fn: NumDiff,
 ) -> bool:
@@ -207,8 +207,8 @@ def _other_numeric_diff(
 
 
 def _blocked_diff(
-    entry: Dict[str, Any],
-    ref: Dict[str, Any],
+    entry: dict[str, Any],
+    ref: dict[str, Any],
     strict: bool,
     ignore: set,
     nums_diff_fn: NumDiff,
@@ -224,8 +224,8 @@ def _blocked_diff(
 
 
 def _knowledge_diff(
-    entry: Dict[str, Any], ref: Dict[str, Any], ignore: set
-) -> Optional[DiffType]:
+    entry: dict[str, Any], ref: dict[str, Any], ignore: set
+) -> DiffType | None:
     """Return the knowledge-field difference type, if any."""
     if "knowledge" not in ref or "knowledge" not in entry:
         return None
@@ -238,8 +238,8 @@ def _knowledge_diff(
 
 
 def _act_cache_diff(
-    entry: Dict[str, Any], ref: Dict[str, Any]
-) -> Optional[DiffType]:
+    entry: dict[str, Any], ref: dict[str, Any]
+) -> DiffType | None:
     """Return None when the knowledge difference is only act_cache noise."""
     ref_none = ref["knowledge"] is None
     ent_none = entry["knowledge"] is None
@@ -256,10 +256,10 @@ def _act_cache_diff(
 
 def update_diffs(
     iter: int,
-    trace: Optional[Dict[str, Any]],
-    ref: Optional[Dict[str, Any]],
-    diffs: Dict[Any, Any],
-) -> Dict[Any, Any]:
+    trace: dict[str, Any] | None,
+    ref: dict[str, Any] | None,
+    diffs: dict[Any, Any],
+) -> dict[Any, Any]:
     """Update dictionary of differences keyed on activity and arc.
 
     Updates with a difference for a specific iteration.
@@ -287,7 +287,7 @@ def update_diffs(
     return diffs
 
 
-def merge_opposites(activity: str, diffs: Dict[Any, Any]) -> Dict[Any, Any]:
+def merge_opposites(activity: str, diffs: dict[Any, Any]) -> dict[Any, Any]:
     """Merge activities done on opposing arcs.
 
     Extra add A --> B and missing add A <-- B is merged into
@@ -312,7 +312,7 @@ def merge_opposites(activity: str, diffs: Dict[Any, Any]) -> Dict[Any, Any]:
 def _merge_opposite_arc(
     activity: str,
     arc: Any,
-    diffs: Dict[Any, Any],
+    diffs: dict[Any, Any],
     extra: Any,
     missing: Any,
 ) -> None:
@@ -330,7 +330,7 @@ def _merge_opposite_arc(
 
 
 def _summary_head(
-    diffs: Dict[Any, Any],
+    diffs: dict[Any, Any],
     final_score_diff: bool,
     trace_iters: int,
     ref_iters: int,
@@ -348,7 +348,7 @@ def _summary_head(
 
 
 def diffs_summary(
-    diffs: Dict[Any, Any],
+    diffs: dict[Any, Any],
     final_score_diff: bool,
     trace_iters: int,
     ref_iters: int,
@@ -370,7 +370,7 @@ def diffs_summary(
     return summary
 
 
-def _activity_lines(activity: str, diffs: Dict[Any, Any]) -> str:
+def _activity_lines(activity: str, diffs: dict[Any, Any]) -> str:
     """Return the summary lines for one activity, if present."""
     return "".join(
         _activity_line(activity, diff_type, diffs) for diff_type in _DIFF_TYPES
@@ -378,7 +378,7 @@ def _activity_lines(activity: str, diffs: Dict[Any, Any]) -> str:
 
 
 def _activity_line(
-    activity: str, diff_type: str, diffs: Dict[Any, Any]
+    activity: str, diff_type: str, diffs: dict[Any, Any]
 ) -> str:
     """Return one summary line for an activity/diff-type pair, if present."""
     key = (activity, diff_type)
@@ -400,9 +400,9 @@ def _diff_type(iters: Any) -> DiffType:
     return DiffType.SCORE
 
 
-def _reorganise_diffs(_diffs: Dict[Any, Any]) -> Dict[Any, Any]:
+def _reorganise_diffs(_diffs: dict[Any, Any]) -> dict[Any, Any]:
     """Reorganise differences to be keyed by (activity, difference type)."""
-    diffs: Dict[Any, Any] = {}
+    diffs: dict[Any, Any] = {}
     for diff, iters in _diffs.items():
         key = (diff[0], _diff_type(iters).value)
         if key not in diffs:
@@ -418,7 +418,7 @@ def _reorganise_diffs(_diffs: Dict[Any, Any]) -> Dict[Any, Any]:
     return diffs
 
 
-def _merge_all_opposites(diffs: Dict[Any, Any]) -> Dict[Any, Any]:
+def _merge_all_opposites(diffs: dict[Any, Any]) -> dict[Any, Any]:
     """Merge opposing add/delete/reverse activities."""
     for activity in _ACTIVITIES:
         diffs = merge_opposites(activity, diffs)
@@ -434,7 +434,7 @@ def _ignore_features(trace: Any, ref: Any) -> set:
     return {"blocked", "act_cache"}
 
 
-def _comparison_columns(trace_df: DataFrame, ref_df: DataFrame) -> List[str]:
+def _comparison_columns(trace_df: DataFrame, ref_df: DataFrame) -> list[str]:
     """Return the columns to compare across the two traces."""
     return list(
         set(trace_df.columns[trace_df.notnull().any()]).intersection(
@@ -445,7 +445,7 @@ def _comparison_columns(trace_df: DataFrame, ref_df: DataFrame) -> List[str]:
     )
 
 
-def _records(df: DataFrame, compare: List[str]) -> List[Dict[str, Any]]:
+def _records(df: DataFrame, compare: list[str]) -> list[dict[str, Any]]:
     """Return a DataFrame subset as a list of record dictionaries."""
     # DataFrame subset .to_dict() - pandas stubs differ across versions
     # Mypy on Python 3.11 sees df[list] as Series, ignore and cast
@@ -453,12 +453,12 @@ def _records(df: DataFrame, compare: List[str]) -> List[Dict[str, Any]]:
     records = subset.to_dict(  # type: ignore[call-overload,unused-ignore]  # noqa: E501
         orient="records"
     )
-    return cast(List[Dict[str, Any]], records)
+    return cast(list[dict[str, Any]], records)
 
 
 def _comparison_records(
     trace: Any, ref: Any
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Return the (trace, reference) records to compare."""
     ref_df = ref.get()
     trace_df = trace.get()
@@ -467,8 +467,8 @@ def _comparison_records(
 
 
 def _validate_records(
-    trace_records: List[Dict[str, Any]],
-    ref_records: List[Dict[str, Any]],
+    trace_records: list[dict[str, Any]],
+    ref_records: list[dict[str, Any]],
 ) -> None:
     """Raise ValueError unless both traces have the expected shape."""
     if (
@@ -485,15 +485,15 @@ def _validate_records(
 
 
 def _collect_raw_diffs(
-    trace_records: List[Dict[str, Any]],
-    ref_records: List[Dict[str, Any]],
+    trace_records: list[dict[str, Any]],
+    ref_records: list[dict[str, Any]],
     strict: bool,
     ignore: set,
     nums_diff_fn: NumDiff,
-) -> Tuple[Dict[Any, Any], List[int]]:
+) -> tuple[dict[Any, Any], list[int]]:
     """Loop through the entries collecting per-iteration differences."""
-    _diffs: Dict[Any, Any] = {}
-    minor: List[int] = []
+    _diffs: dict[Any, Any] = {}
+    minor: list[int] = []
     for iter in range(0, len(trace_records)):
         if iter >= len(ref_records):
             _diffs = update_diffs(iter, trace_records[iter], None, _diffs)
@@ -519,7 +519,7 @@ def _collect_raw_diffs(
 
 def build_diffs(
     trace: Any, ref: Any, strict: bool, nums_diff_fn: NumDiff
-) -> Optional[Tuple[Dict[Any, Any], List[int], str]]:
+) -> tuple[dict[Any, Any], list[int], str] | None:
     """Find differences of trace from reference trace.
 
     Args:

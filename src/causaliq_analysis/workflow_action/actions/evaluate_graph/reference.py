@@ -1,6 +1,6 @@
 """Resolving the ground-truth reference graph for evaluate_graph."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from causaliq_analysis import graph_io
 from causaliq_analysis.workflow_action import helpers
@@ -15,7 +15,7 @@ __all__ = [
 
 def _resolve_reference_graph(
     reference_path: str,
-    entry: Dict[str, Any],
+    entry: dict[str, Any],
 ) -> Any:
     """Resolve the reference graph from a file or workflow cache.
 
@@ -70,7 +70,7 @@ def _reference_from_file(reference_path: str) -> Any:
 
 def _reference_from_cache(
     reference_path: str,
-    entry: Dict[str, Any],
+    entry: dict[str, Any],
 ) -> Any:
     """Resolve a reference graph from a reference workflow cache.
 
@@ -103,7 +103,7 @@ def _reference_from_cache(
 
 def _reference_cache_entry(
     ref_cache: Any,
-    matrix_values: Dict[str, Any],
+    matrix_values: dict[str, Any],
     reference_path: str,
 ) -> Any:
     """Resolve the reference entry matching the matrix values.
@@ -138,8 +138,8 @@ def _reference_cache_entry(
 
 
 def _require_matching_keys(
-    ref_entries: List[Dict[str, Any]],
-    matrix_values: Dict[str, Any],
+    ref_entries: list[dict[str, Any]],
+    matrix_values: dict[str, Any],
 ) -> None:
     """Require reference cache entries to share the input key structure.
 

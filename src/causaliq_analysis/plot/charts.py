@@ -6,7 +6,7 @@ module-level helpers.
 """
 
 import re
-from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple
+from typing import Any, Iterator, NamedTuple
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -47,20 +47,20 @@ __all__ = [
 class _FigureStyle(NamedTuple):
     """Shared figure style derived from the chart properties."""
 
-    palette: Optional[List[Any]]
-    facet_kws: Dict[str, Any]
-    col_wrap: Optional[int]
+    palette: list[Any] | None
+    facet_kws: dict[str, Any]
+    col_wrap: int | None
     aspect: Any
-    rc_params: Dict[str, Any]
-    sizes: Dict[str, Any]
-    dashes: Dict[str, Any]
+    rc_params: dict[str, Any]
+    sizes: dict[str, Any]
+    dashes: dict[str, Any]
 
 
 def relplot(
     data: DataFrame,
-    props: Dict[str, Any],
+    props: dict[str, Any],
     plot_file: str,
-    info: Optional[Dict[str, SubplotInfo]] = None,
+    info: dict[str, SubplotInfo] | None = None,
 ) -> None:
     """Plot a set of relational charts.
 
@@ -91,7 +91,7 @@ def relplot(
 
 
 def plot_scatter(
-    data: DataFrame, props: Dict[str, Any], plot_file: str
+    data: DataFrame, props: dict[str, Any], plot_file: str
 ) -> None:
     """Plot one or more scatter plots.
 
@@ -140,18 +140,18 @@ def plot_degree_distribution(dist: DataFrame, plot_file: str) -> None:
     g.fig.savefig(plot_file, dpi=600)
 
 
-def _print_properties(props: Dict[str, Any]) -> None:
+def _print_properties(props: dict[str, Any]) -> None:
     """Print the chart properties in sorted order."""
     for p in sorted(props):
         print("{} = {}".format(p, props[p]))
 
 
-def _subplot_kind(props: Dict[str, Any]) -> Optional[str]:
+def _subplot_kind(props: dict[str, Any]) -> str | None:
     """Return the requested subplot kind, if any."""
     return props["subplot.kind"] if "subplot.kind" in props else None
 
 
-def _figure_style(props: Dict[str, Any], data: DataFrame) -> _FigureStyle:
+def _figure_style(props: dict[str, Any], data: DataFrame) -> _FigureStyle:
     """Return the shared figure style derived from the properties."""
     y_vars = _unique_y_vars(data)
     sizes, dashes = _line_style(props, y_vars)
@@ -166,9 +166,9 @@ def _figure_style(props: Dict[str, Any], data: DataFrame) -> _FigureStyle:
     )
 
 
-def _unique_y_vars(data: DataFrame) -> List[Any]:
+def _unique_y_vars(data: DataFrame) -> list[Any]:
     """Return the unique y_var values, printing them when present."""
-    y_vars: List[Any] = []
+    y_vars: list[Any] = []
     if "y_var" in data.columns:
         y_vars = list(data["y_var"].unique())
         print("Unique y_vars are: {}".format(y_vars))
@@ -176,8 +176,8 @@ def _unique_y_vars(data: DataFrame) -> List[Any]:
 
 
 def _line_style(
-    props: Dict[str, Any], y_vars: List[Any]
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    props: dict[str, Any], y_vars: list[Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return the line sizes and dashes, defaulting per y_var."""
     sizes = (
         props["line.sizes"]
@@ -192,7 +192,7 @@ def _line_style(
     return sizes, dashes
 
 
-def _palette(props: Dict[str, Any]) -> Optional[List[Any]]:
+def _palette(props: dict[str, Any]) -> list[Any] | None:
     """Return the RGB palette derived from hex colour properties."""
     if "palette" not in props:
         return None
@@ -202,17 +202,17 @@ def _palette(props: Dict[str, Any]) -> Optional[List[Any]]:
     ]
 
 
-def _facet_params(props: Dict[str, Any]) -> Dict[str, Any]:
+def _facet_params(props: dict[str, Any]) -> dict[str, Any]:
     """Return the facet parameters for the current properties."""
     return {p: props[k] for k, p in FACET_PROPS.items() if k in props}
 
 
-def _col_wrap(props: Dict[str, Any]) -> Optional[int]:
+def _col_wrap(props: dict[str, Any]) -> int | None:
     """Return the number of subplots per row, if configured."""
     return props["figure.per_row"] if "figure.per_row" in props else None
 
 
-def _rc_params(props: Dict[str, Any]) -> Dict[str, Any]:
+def _rc_params(props: dict[str, Any]) -> dict[str, Any]:
     """Return the rcParams derived from the chart properties."""
     params = style_helpers.theme_rc_params(props)
     params.update(
@@ -222,9 +222,9 @@ def _rc_params(props: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_figure(
-    kind: Optional[str],
+    kind: str | None,
     data: DataFrame,
-    props: Dict[str, Any],
+    props: dict[str, Any],
     style: _FigureStyle,
 ) -> Any:
     """Build the seaborn figure grid for the requested kind."""
@@ -307,7 +307,7 @@ def _build_box(data: DataFrame, style: _FigureStyle) -> Any:
 
 
 def _build_violin(
-    props: Dict[str, Any], data: DataFrame, style: _FigureStyle
+    props: dict[str, Any], data: DataFrame, style: _FigureStyle
 ) -> Any:
     """Build a violin catplot grid."""
     kwargs = {
@@ -330,7 +330,7 @@ def _build_violin(
 
 
 def _build_bar(
-    props: Dict[str, Any], data: DataFrame, style: _FigureStyle
+    props: dict[str, Any], data: DataFrame, style: _FigureStyle
 ) -> Any:
     """Build a bar catplot grid."""
     return sns.catplot(
@@ -349,10 +349,10 @@ def _build_bar(
 
 def _build_scatter(
     data: DataFrame,
-    props: Dict[str, Any],
-    palette: Optional[List[Any]],
-    facet_kws: Dict[str, Any],
-    col_wrap: Optional[int],
+    props: dict[str, Any],
+    palette: list[Any] | None,
+    facet_kws: dict[str, Any],
+    col_wrap: int | None,
 ) -> Any:
     """Build a scatter lmplot grid without a fitted regression line."""
     return sns.lmplot(
@@ -373,8 +373,8 @@ def _build_scatter(
 def _connect_scatter(
     g: Any,
     data: DataFrame,
-    props: Optional[Dict[str, Any]] = None,
-    subplots: Optional[List[Tuple[Any, str]]] = None,
+    props: dict[str, Any] | None = None,
+    subplots: list[tuple[Any, str]] | None = None,
 ) -> None:
     """Connect the two hue groups at each x value on every subplot.
 
@@ -393,7 +393,7 @@ def _connect_scatter(
 
 
 def _connect_axes(
-    axes: Any, subset: DataFrame, props: Optional[Dict[str, Any]] = None
+    axes: Any, subset: DataFrame, props: dict[str, Any] | None = None
 ) -> None:
     """Draw one vertical connector per paired group of values.
 
@@ -415,7 +415,7 @@ def _connect_axes(
         )
 
 
-def _connector_pairs(subset: DataFrame) -> Iterator[Tuple[Any, List[Any]]]:
+def _connector_pairs(subset: DataFrame) -> Iterator[tuple[Any, list[Any]]]:
     """Yield the x value and two y values of each paired group.
 
     Rows are grouped by the scatter.connect_key column when it is
@@ -429,10 +429,10 @@ def _connector_pairs(subset: DataFrame) -> Iterator[Tuple[Any, List[Any]]]:
 
 
 def _apply_axes_with_annotations(
-    subplots: List[Tuple[Any, str]],
-    props: Dict[str, Any],
-    kind: Optional[str],
-    info: Optional[Dict[str, SubplotInfo]],
+    subplots: list[tuple[Any, str]],
+    props: dict[str, Any],
+    kind: str | None,
+    info: dict[str, SubplotInfo] | None,
 ) -> None:
     """Apply axes properties and box/violin annotations to each subplot."""
     for axes, subplot in subplots:
@@ -441,14 +441,14 @@ def _apply_axes_with_annotations(
 
 
 def _set_subplot_axes(
-    subplots: List[Tuple[Any, str]], props: Dict[str, Any]
+    subplots: list[tuple[Any, str]], props: dict[str, Any]
 ) -> None:
     """Apply axes properties to every subplot."""
     for axes, subplot in subplots:
         _set_axes_props(axes, props, subplot)
 
 
-def _subplot_axes(g: Any) -> List[Tuple[Any, str]]:
+def _subplot_axes(g: Any) -> list[tuple[Any, str]]:
     """Return each axes with its subplot name, before retitling."""
     return [(axes, _subplot_name(axes)) for axes in g.axes.flat]
 
@@ -461,10 +461,10 @@ def _subplot_name(axes: Any) -> str:
 
 def _annotate_axes(
     axes: Any,
-    props: Dict[str, Any],
-    kind: Optional[str],
+    props: dict[str, Any],
+    kind: str | None,
     subplot: str,
-    info: Optional[Dict[str, SubplotInfo]],
+    info: dict[str, SubplotInfo] | None,
 ) -> None:
     """Add the box/violin annotations for one subplot."""
     if kind == "box":

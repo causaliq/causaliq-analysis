@@ -11,7 +11,7 @@ and fallback stubs in ``types.py`` and shared helper functions in
 ``helpers.py``.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 # Check if workflow is available at runtime
 WORKFLOW_AVAILABLE = False
@@ -494,7 +494,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
     }
 
     # Valid parameters per action (for unknown parameter validation)
-    action_parameters: Dict[str, set] = {
+    action_parameters: dict[str, set] = {
         "migrate_trace": {
             "traces",
             "series",
@@ -559,7 +559,7 @@ class AnalysisActionProvider(CausalIQActionProvider):
     }
 
     def validate_parameters(
-        self, action: str, parameters: Dict[str, Any]
+        self, action: str, parameters: dict[str, Any]
     ) -> None:
         """Validate action and parameters before execution.
 
@@ -597,10 +597,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
     def run(
         self,
         action: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str = "dry-run",
-        context: Optional[WorkflowContext] = None,
-        logger: Optional[WorkflowLogger] = None,
+        context: WorkflowContext | None = None,
+        logger: WorkflowLogger | None = None,
     ) -> ActionResult:
         """Execute analysis action with action-specific dry-run handling.
 
@@ -629,10 +629,10 @@ class AnalysisActionProvider(CausalIQActionProvider):
     def _execute(
         self,
         action: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[WorkflowContext],
-        logger: Optional[WorkflowLogger],
+        context: WorkflowContext | None,
+        logger: WorkflowLogger | None,
     ) -> ActionResult:
         """Execute the analysis action via its registered action class.
 

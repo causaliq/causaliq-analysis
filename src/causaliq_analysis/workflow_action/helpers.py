@@ -11,7 +11,7 @@ belong in the action modules that need them (or in a dedicated sub-package)
 rather than here.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.graph_io import is_pdg_graphml
 from causaliq_analysis.workflow_action.types import ActionExecutionError
@@ -20,7 +20,7 @@ from causaliq_analysis.workflow_action.types import ActionExecutionError
 _VALID_GRAPH_TYPES = ("dag", "pdag", "cpdag", "pdg")
 
 
-def _log(log_fn: Optional[Any], message: str) -> None:
+def _log(log_fn: Any | None, message: str) -> None:
     """Log a message when a logging function is provided.
 
     Args:
@@ -34,7 +34,7 @@ def _log(log_fn: Optional[Any], message: str) -> None:
 def _extract_graph_from_entry(
     entry: Any,
     source_label: str,
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
     """Extract an evaluable graph from a cache entry.
 
     Locates a GraphML object of type 'dag', 'pdag', 'cpdag' or 'pdg'
@@ -81,7 +81,7 @@ def _read_graph_object(
     obj: Any,
     obj_type: str,
     source_label: str,
-) -> Optional[Tuple[Any, str]]:
+) -> tuple[Any, str] | None:
     """Read one GraphML object into an evaluable graph.
 
     Args:
@@ -114,7 +114,7 @@ def _read_graph_object(
         ) from e
 
 
-def _get_nested_value(data: Dict[str, Any], field: str) -> Any:
+def _get_nested_value(data: dict[str, Any], field: str) -> Any:
     """Get value from dict using dotted path notation.
 
     Args:
@@ -140,9 +140,9 @@ def _get_nested_value(data: Dict[str, Any], field: str) -> Any:
 
 
 def _extract_graphs_from_entries(
-    entries: List[Dict[str, Any]],
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], List[Dict[str, Any]], Dict[str, Any]]:
+    entries: list[dict[str, Any]],
+    log_fn: Any | None,
+) -> tuple[list[Any], list[dict[str, Any]], dict[str, Any]]:
     """Extract graphs from aggregation entries.
 
     Reads the graphml object from pre-scanned cache entries provided
@@ -181,9 +181,9 @@ def _extract_graphs_from_entries(
 
 
 def _load_entry_graphs(
-    entry_dict: Dict[str, Any],
-    log_fn: Optional[Any],
-) -> Optional[Tuple[List[Any], Dict[str, Any]]]:
+    entry_dict: dict[str, Any],
+    log_fn: Any | None,
+) -> tuple[list[Any], dict[str, Any]] | None:
     """Load graphs and metadata for one aggregation entry.
 
     Args:
@@ -211,10 +211,10 @@ def _load_entry_graphs(
 
 def _load_graphs_from_entry(
     entry: Any,
-    matrix_values: Dict[str, Any],
-    log_fn: Optional[Any],
+    matrix_values: dict[str, Any],
+    log_fn: Any | None,
     location: str,
-) -> List[Any]:
+) -> list[Any]:
     """Load the GraphML object from one cache entry.
 
     Args:
@@ -229,7 +229,7 @@ def _load_graphs_from_entry(
     Raises:
         ActionExecutionError: If an object cannot be parsed.
     """
-    graphs: List[Any] = []
+    graphs: list[Any] = []
     for obj_type in entry.object_types():
         obj = entry.get_object(obj_type)
         if obj is None or obj.format != "graphml":
@@ -272,9 +272,9 @@ def _parse_cache_object(obj: Any, obj_type: str, source_label: str) -> Any:
 
 
 def _flatten_entry_metadata(
-    matrix_values: Dict[str, Any],
-    metadata: Dict[str, Any],
-) -> Dict[str, Any]:
+    matrix_values: dict[str, Any],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
     """Flatten entry metadata for filter/weight evaluation.
 
     Delegates to the shared reporting view so workflow aggregation,
@@ -293,10 +293,10 @@ def _flatten_entry_metadata(
 
 
 def _compute_weights_from_metadata(
-    graph_metadata: List[Dict[str, Any]],
-    weight_spec: Dict[str, Dict[str, float]],
-    log_fn: Optional[Any],
-) -> List[float]:
+    graph_metadata: list[dict[str, Any]],
+    weight_spec: dict[str, dict[str, float]],
+    log_fn: Any | None,
+) -> list[float]:
     """Compute normalised weights from graph metadata.
 
     Uses the weight specification to compute a weight for each graph
@@ -331,9 +331,9 @@ def _compute_weights_from_metadata(
 
 
 def _normalise_weights(
-    raw_weights: List[float],
-    log_fn: Optional[Any],
-) -> List[float]:
+    raw_weights: list[float],
+    log_fn: Any | None,
+) -> list[float]:
     """Normalise raw weights so that they sum to 1.0.
 
     Args:
@@ -363,8 +363,8 @@ def _normalise_weights(
 
 def _read_graphs_from_cache(
     cache_path: str,
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], int]:
+    log_fn: Any | None,
+) -> tuple[list[Any], int]:
     """Read graphs from a WorkflowCache database.
 
     Finds the graphml object in every cache entry.
@@ -396,8 +396,8 @@ def _read_graphs_from_cache(
 
 def _read_graphs_from_open_cache(
     cache: Any,
-    log_fn: Optional[Any],
-) -> Tuple[List[Any], int]:
+    log_fn: Any | None,
+) -> tuple[list[Any], int]:
     """Read graphs from every entry of an open workflow cache.
 
     Args:
@@ -410,7 +410,7 @@ def _read_graphs_from_open_cache(
     entries = cache.list_entries()
     _log(log_fn, f"Found {len(entries)} entries in cache")
 
-    graphs: List[Any] = []
+    graphs: list[Any] = []
     entries_with_graphs = 0
     for entry_info in entries:
         matrix_values = entry_info.get("matrix_values", {})

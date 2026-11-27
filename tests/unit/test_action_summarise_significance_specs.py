@@ -1,6 +1,6 @@
 """Unit tests for summarise significance specifications."""
 
-from typing import List, Set
+from typing import Set
 
 import pytest
 
@@ -159,7 +159,7 @@ def test_mixed_tests_rejected() -> None:
 # Test a mixed-test caption falls back to the generic title.
 def test_default_caption_mixed_tests() -> None:
     """A table of mixed tests uses the generic caption."""
-    specs: List[SignificanceSpec] = [
+    specs: list[SignificanceSpec] = [
         _fake_spec("first", "a"),
         _fake_spec("second", "b"),
     ]
@@ -169,7 +169,7 @@ def test_default_caption_mixed_tests() -> None:
 # Test a mixed-test statistic label falls back to a generic label.
 def test_statistic_label_mixed_tests() -> None:
     """A table of mixed tests uses a generic statistic header."""
-    specs: List[SignificanceSpec] = [
+    specs: list[SignificanceSpec] = [
         _fake_spec("first", "a"),
         _fake_spec("second", "b"),
     ]
@@ -179,7 +179,7 @@ def test_statistic_label_mixed_tests() -> None:
 # Test a mixed-test statistic format falls back to a generic format.
 def test_statistic_format_mixed_tests() -> None:
     """A table of mixed tests uses a generic statistic format."""
-    specs: List[SignificanceSpec] = [
+    specs: list[SignificanceSpec] = [
         _fake_spec("first", "a"),
         _fake_spec("second", "b"),
     ]

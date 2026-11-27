@@ -1,6 +1,6 @@
 """Parsing and validating summarise action parameters."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .columns import (
     ColumnSpec,
@@ -44,7 +44,7 @@ _SIGNIFICANCE_COLUMNS = 4
 _DETAIL_COLUMNS = 6
 
 
-def _require_tabular_output(parameters: Dict[str, Any]) -> None:
+def _require_tabular_output(parameters: dict[str, Any]) -> None:
     """Require a table or metrics-cache output path.
 
     A missing path is valid at execution time because the workflow
@@ -74,7 +74,7 @@ def _require_tabular_output(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_cache_options(parameters: Dict[str, Any]) -> None:
+def _require_cache_options(parameters: dict[str, Any]) -> None:
     """Reject table presentation options on a metrics-cache output.
 
     Args:
@@ -92,7 +92,7 @@ def _require_cache_options(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _validate_columns(parameters: Dict[str, Any]) -> None:
+def _validate_columns(parameters: dict[str, Any]) -> None:
     """Validate the metric, headers, format and footer parameters.
 
     Args:
@@ -133,8 +133,8 @@ def _validate_formats(value: Any) -> None:
 
 
 def _require_sources(
-    specs: List[ColumnSpec],
-    input_files: List[str],
+    specs: list[ColumnSpec],
+    input_files: list[str],
 ) -> None:
     """Require every source index to name a declared input file.
 
@@ -195,7 +195,7 @@ def _is_format_spec(format_spec: str, value: Any) -> bool:
     return True
 
 
-def _validate_significance(parameters: Dict[str, Any]) -> None:
+def _validate_significance(parameters: dict[str, Any]) -> None:
     """Validate the significance parameter and its presentation columns.
 
     Args:
@@ -226,7 +226,7 @@ def _validate_significance(parameters: Dict[str, Any]) -> None:
     _validate_caption(parameters.get("caption"))
 
 
-def _significance_detail(parameters: Dict[str, Any]) -> bool:
+def _significance_detail(parameters: dict[str, Any]) -> bool:
     """Return the validated detailed-comparison flag.
 
     Args:
@@ -249,7 +249,7 @@ def _significance_detail(parameters: Dict[str, Any]) -> bool:
     return value
 
 
-def _require_significance_input(parameters: Dict[str, Any]) -> None:
+def _require_significance_input(parameters: dict[str, Any]) -> None:
     """Require input caches for a significance table.
 
     Args:
@@ -326,7 +326,7 @@ def _significance_column_count(detail: bool) -> int:
 
 
 def _visible_column_count(
-    formats: List[Optional[str]],
+    formats: list[str | None],
     detail: bool = False,
 ) -> int:
     """Return the number of visible significance columns.
@@ -374,9 +374,9 @@ def _validate_caption(value: Any) -> None:
 
 
 def _significance_request(
-    parameters: Dict[str, Any],
-    specs: List[ColumnSpec],
-) -> List[SignificanceSpec]:
+    parameters: dict[str, Any],
+    specs: list[ColumnSpec],
+) -> list[SignificanceSpec]:
     """Return the parsed significance specifications.
 
     Args:
@@ -393,7 +393,7 @@ def _significance_request(
     return _parse_significance_specs(raw, aliases)
 
 
-def _summarise_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
+def _summarise_request(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build the summarisation request from action parameters.
 
     Args:
@@ -452,7 +452,7 @@ def _is_cache_output(output: Any) -> bool:
     )
 
 
-def _input_files(parameters: Dict[str, Any]) -> List[str]:
+def _input_files(parameters: dict[str, Any]) -> list[str]:
     """Return the input cache paths as a list.
 
     Args:
@@ -466,7 +466,7 @@ def _input_files(parameters: Dict[str, Any]) -> List[str]:
     return [input_raw] if isinstance(input_raw, str) else list(input_raw)
 
 
-def _metric_specs(parameters: Dict[str, Any]) -> List[str]:
+def _metric_specs(parameters: dict[str, Any]) -> list[str]:
     """Return the metric specifications as a non-empty list.
 
     Args:

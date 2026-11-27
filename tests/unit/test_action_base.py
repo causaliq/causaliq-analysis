@@ -1,6 +1,6 @@
 """Unit tests for the analysis action base contract."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pytest
 
@@ -20,10 +20,10 @@ class _StubAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Return a minimal successful result."""
         return ("success", {"action": self.action_name}, [])

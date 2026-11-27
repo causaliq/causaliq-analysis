@@ -6,7 +6,7 @@ threshold, and its within-ensemble agreement can be summarised for
 description (no reference graph) workflows.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from causaliq_core.graph import PDG, EdgeProbabilities
 
@@ -62,7 +62,7 @@ def pdg_edge_agreement(
     graph: Any,
     present_threshold: float = 0.0,
     direction_threshold: float = 0.0,
-) -> Dict[str, List[float]]:
+) -> dict[str, list[float]]:
     """Return per-pair existence and direction agreement measures.
 
     Existence agreement of a node pair is ``max(p_exist, 1 - p_exist)``
@@ -84,8 +84,8 @@ def pdg_edge_agreement(
     _require_probability(present_threshold, "present_threshold")
     _require_probability(direction_threshold, "direction_threshold")
     pdg = graph_to_pdg(graph)
-    exist: List[float] = []
-    direction: List[float] = []
+    exist: list[float] = []
+    direction: list[float] = []
     for node_a, node_b in pdg.node_pairs():
         probs = pdg.get_probabilities(node_a, node_b)
         p_exist = probs.p_exist

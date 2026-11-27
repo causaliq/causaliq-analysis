@@ -6,7 +6,7 @@ classes. ``ACTION_CLASSES`` maps workflow action names to their classes so
 the provider can validate and execute them without knowing their details.
 """
 
-from typing import Dict, Type
+from typing import Type
 
 from causaliq_analysis.workflow_action.actions.base import AnalysisAction
 from causaliq_analysis.workflow_action.actions.best_graph import (
@@ -37,7 +37,7 @@ __all__ = [
 ]
 
 # Registry mapping action names to action classes
-ACTION_CLASSES: Dict[str, Type[AnalysisAction]] = {
+ACTION_CLASSES: dict[str, Type[AnalysisAction]] = {
     "best_graph": BestGraphAction,
     "evaluate_graph": EvaluateGraphAction,
     "merge_graphs": MergeGraphsAction,

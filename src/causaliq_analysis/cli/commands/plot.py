@@ -1,7 +1,5 @@
 """The ``plot`` command."""
 
-from typing import Tuple
-
 import click
 
 __all__ = ["plot_cmd"]
@@ -71,7 +69,7 @@ def plot_cmd(
     group: str,
     x: str,
     y: str,
-    properties: Tuple[str, ...],
+    properties: tuple[str, ...],
 ) -> None:
     """
     Plot charts from a summarise CSV output.

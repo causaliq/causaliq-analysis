@@ -7,7 +7,7 @@ property logging and dispatch to module-level helpers.
 
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Union
 
 from pandas import DataFrame, read_csv, to_numeric
 
@@ -29,9 +29,9 @@ def run_plot(
     group: str = "",
     x: str = "",
     y: str = "",
-    properties: Optional[Union[str, List[str]]] = None,
-    log_fn: Optional[Callable[[str], None]] = None,
-) -> Dict[str, Any]:
+    properties: Union[str, list[str]] | None = None,
+    log_fn: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
     """Generate a chart from summarise output or a metrics cache.
 
     The input is either a ``summarise`` CSV (one row per subplot, x value
@@ -59,7 +59,7 @@ def run_plot(
     """
     _validate_kind(kind)
     _log_start(log_fn, kind, input_path, output)
-    props: Dict[str, Any] = parse_properties(properties)
+    props: dict[str, Any] = parse_properties(properties)
     key = _connect_key(props)
     frame = _load_frame(input_path)
     columns = (subplot, group, x, y) + ((key,) if key else ())
@@ -89,7 +89,7 @@ def _validate_kind(kind: str) -> None:
 
 
 def _log_start(
-    log_fn: Optional[Callable[[str], None]],
+    log_fn: Callable[[str], None] | None,
     kind: str,
     input_path: str,
     output: str,
@@ -129,7 +129,7 @@ def _read_metrics_frame(cache_path: str) -> DataFrame:
     return DataFrame(rows)
 
 
-def _metrics_rows(cache_path: str) -> List[Dict[str, Any]]:
+def _metrics_rows(cache_path: str) -> list[dict[str, Any]]:
     """Build the flat metric rows held by a metrics workflow cache."""
     from causaliq_workflow.cache import WorkflowCache
 
@@ -137,11 +137,11 @@ def _metrics_rows(cache_path: str) -> List[Dict[str, Any]]:
         return _read_cache_rows(cache)
 
 
-def _read_cache_rows(cache: Any) -> List[Dict[str, Any]]:
+def _read_cache_rows(cache: Any) -> list[dict[str, Any]]:
     """Read the metric rows from an open workflow cache."""
     from causaliq_workflow.cache.reporting import build_entry_view
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for entry_info in cache.list_entries():
         matrix_values = entry_info.get("matrix_values", {})
         entry = cache.get(matrix_values)
@@ -152,7 +152,7 @@ def _read_cache_rows(cache: Any) -> List[Dict[str, Any]]:
     return rows
 
 
-def _entry_metrics(entry: Any) -> Optional[Dict[str, Any]]:
+def _entry_metrics(entry: Any) -> dict[str, Any] | None:
     """Return the metric values of a cache entry, or None.
 
     Entries with no ``metrics`` object, or with the empty placeholder
@@ -169,7 +169,7 @@ def _entry_metrics(entry: Any) -> Optional[Dict[str, Any]]:
     return parsed
 
 
-def _require_columns(frame: DataFrame, columns: Tuple[str, ...]) -> None:
+def _require_columns(frame: DataFrame, columns: tuple[str, ...]) -> None:
     """Raise ValueError when required columns are missing."""
     missing = [c for c in columns if c not in frame.columns]
     if missing:
@@ -178,7 +178,7 @@ def _require_columns(frame: DataFrame, columns: Tuple[str, ...]) -> None:
         )
 
 
-def _connect_key(props: Dict[str, Any]) -> str:
+def _connect_key(props: dict[str, Any]) -> str:
     """Return the column which pairs the scatter connectors."""
     return props.get("scatter.connect_key") or ""
 
@@ -206,7 +206,7 @@ def _build_long_form(
 
 
 def _log_properties(
-    log_fn: Optional[Callable[[str], None]], props: Dict[str, Any]
+    log_fn: Callable[[str], None] | None, props: dict[str, Any]
 ) -> None:
     """Log the parsed properties in sorted order when requested."""
     if log_fn:
@@ -220,7 +220,7 @@ def _ensure_output_dir(output: str) -> None:
 
 
 def _dispatch(
-    kind: str, data: DataFrame, props: Dict[str, Any], output: str
+    kind: str, data: DataFrame, props: dict[str, Any], output: str
 ) -> None:
     """Dispatch to the scatter or relational chart builder."""
     if kind == "scatter":

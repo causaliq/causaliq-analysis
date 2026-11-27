@@ -7,7 +7,7 @@ action is stateless, so validation and execution delegate to module-level
 helpers and each step stays within the module and method limits.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from causaliq_analysis.plot import run_plot
 from causaliq_analysis.workflow_action.actions.base import AnalysisAction
@@ -38,7 +38,7 @@ class PlotAction(AnalysisAction):
     action_name = "plot"
     pattern = ActionPattern.AGGREGATE
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate plot parameters before execution.
 
         Args:
@@ -57,10 +57,10 @@ class PlotAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Execute chart generation from a summarise CSV output.
 
@@ -92,7 +92,7 @@ class PlotAction(AnalysisAction):
             raise ActionExecutionError(f"Plot failed: {e}") from e
 
 
-def _require_input(parameters: Dict[str, Any]) -> None:
+def _require_input(parameters: dict[str, Any]) -> None:
     """Require a CSV or metrics-cache input path.
 
     Args:
@@ -114,7 +114,7 @@ def _require_input(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_image_output(parameters: Dict[str, Any]) -> None:
+def _require_image_output(parameters: dict[str, Any]) -> None:
     """Require an image output path.
 
     Args:
@@ -136,7 +136,7 @@ def _require_image_output(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_column_parameters(parameters: Dict[str, Any]) -> None:
+def _require_column_parameters(parameters: dict[str, Any]) -> None:
     """Require the subplot, group, x and y column names.
 
     Args:
@@ -154,7 +154,7 @@ def _require_column_parameters(parameters: Dict[str, Any]) -> None:
             )
 
 
-def _require_known_kind(parameters: Dict[str, Any]) -> None:
+def _require_known_kind(parameters: dict[str, Any]) -> None:
     """Require a supported plot type.
 
     Args:
@@ -174,7 +174,7 @@ def _require_known_kind(parameters: Dict[str, Any]) -> None:
         )
 
 
-def _require_parseable_properties(parameters: Dict[str, Any]) -> None:
+def _require_parseable_properties(parameters: dict[str, Any]) -> None:
     """Require parseable plot property strings.
 
     Args:
@@ -207,7 +207,7 @@ def _parse_properties(properties: Any) -> None:
         raise ValueError(f"Invalid plot properties: {e}")
 
 
-def _plot_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
+def _plot_request(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build the run_plot keyword arguments from action parameters.
 
     Args:
@@ -234,7 +234,7 @@ def _plot_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return request
 
 
-def _require_string_request(request: Dict[str, Any]) -> None:
+def _require_string_request(request: dict[str, Any]) -> None:
     """Assert that every required request value is a string.
 
     Args:
@@ -254,8 +254,8 @@ def _require_string_request(request: Dict[str, Any]) -> None:
 
 
 def _dry_run_result(
-    request: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Return the dry-run result for a plot request.
 
@@ -284,7 +284,7 @@ def _dry_run_result(
     )
 
 
-def _log_fn(logger: Optional[Any]) -> Optional[Any]:
+def _log_fn(logger: Any | None) -> Any | None:
     """Return the logging callback for a plot run.
 
     Args:

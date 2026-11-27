@@ -1,6 +1,6 @@
 """Building evaluate_graph requests and action metadata."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import (
     ActionExecutionError,
@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-def _requested_metrics(parameters: Dict[str, Any]) -> Optional[List[str]]:
+def _requested_metrics(parameters: dict[str, Any]) -> list[str] | None:
     """Return the requested metrics as a list.
 
     Args:
@@ -33,7 +33,7 @@ def _requested_metrics(parameters: Dict[str, Any]) -> Optional[List[str]]:
     return [metric] if isinstance(metric, str) else metric
 
 
-def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
+def _evaluate_request(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build the evaluation request from action parameters.
 
     A missing reference selects description mode: the matched graph is
@@ -91,10 +91,10 @@ def _evaluate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _parameter_block(
-    parameters: Dict[str, Any],
-    request: Dict[str, Any],
-    context: Optional[Any],
-) -> Dict[str, Any]:
+    parameters: dict[str, Any],
+    request: dict[str, Any],
+    context: Any | None,
+) -> dict[str, Any]:
     """Build the effective-parameters block for the action metadata.
 
     Every user-facing parameter is recorded, including those the workflow
@@ -124,9 +124,9 @@ def _parameter_block(
 
 
 def _resolved_output(
-    parameters: Dict[str, Any],
-    context: Optional[Any],
-) -> Optional[str]:
+    parameters: dict[str, Any],
+    context: Any | None,
+) -> str | None:
     """Return the effective output path for the action metadata.
 
     The workflow executor removes 'output' before invoking an action that
@@ -149,10 +149,10 @@ def _resolved_output(
 
 
 def _action_metadata(
-    parameters_block: Dict[str, Any],
+    parameters_block: dict[str, Any],
     status: str,
-    error: Optional[str] = None,
-) -> Dict[str, Any]:
+    error: str | None = None,
+) -> dict[str, Any]:
     """Build action metadata with explicit parameter and result blocks.
 
     Args:
@@ -164,16 +164,16 @@ def _action_metadata(
         Action metadata holding the parameters and result blocks.
 
     """
-    result: Dict[str, Any] = {"status": status}
+    result: dict[str, Any] = {"status": status}
     if error is not None:
         result["error"] = error
     return {"parameters": parameters_block, "result": result}
 
 
 def _dry_run_result(
-    request: Dict[str, Any],
-    parameters_block: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    parameters_block: dict[str, Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Return the dry-run result for an evaluation.
 

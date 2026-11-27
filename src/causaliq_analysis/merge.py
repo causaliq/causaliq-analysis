@@ -5,7 +5,7 @@ This module provides functions for merging multiple graphs (DAG, PDAG, PDG)
 into a single PDG with weighted edge probabilities.
 """
 
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterator, Union
 
 from causaliq_core.graph import (
     DAG,
@@ -20,8 +20,8 @@ VALID_STRATEGIES = frozenset({"average", "noisy_or", "max"})
 
 
 def merge_graphs(
-    graphs: List[Union[DAG, PDAG, PDG]],
-    weights: Optional[List[float]] = None,
+    graphs: list[Union[DAG, PDAG, PDG]],
+    weights: list[float] | None = None,
     cpdag: bool = False,
     strategy: str = "average",
 ) -> PDG:
@@ -96,7 +96,7 @@ def _validate_graphs(graphs: Any) -> None:
             )
 
 
-def _to_cpdags(graphs: List[Any]) -> List[Any]:
+def _to_cpdags(graphs: list[Any]) -> list[Any]:
     """Return a copy of the list with DAGs converted to CPDAGs.
 
     Args:
@@ -109,9 +109,9 @@ def _to_cpdags(graphs: List[Any]) -> List[Any]:
 
 
 def _normalise_weights(
-    weights: Optional[List[float]],
+    weights: list[float] | None,
     count: int,
-) -> List[float]:
+) -> list[float]:
     """Validate and normalise merge weights.
 
     Args:
@@ -142,7 +142,7 @@ def _normalise_weights(
     return weights
 
 
-def _validate_weight_values(weights: List[float]) -> None:
+def _validate_weight_values(weights: list[float]) -> None:
     """Validate that every weight is numeric and non-negative.
 
     Args:
@@ -159,7 +159,7 @@ def _validate_weight_values(weights: List[float]) -> None:
             raise ValueError(f"weight at index {i} must be non-negative")
 
 
-def _validate_same_nodes(graphs: List[Any]) -> List[str]:
+def _validate_same_nodes(graphs: list[Any]) -> list[str]:
     """Return the shared sorted nodes, validating they are identical.
 
     Args:
@@ -199,9 +199,9 @@ def _validate_strategy(strategy: str) -> None:
 
 
 def _average_merge(
-    graphs: List[Union[DAG, PDAG, PDG]],
-    weights: List[float],
-    nodes: List[str],
+    graphs: list[Union[DAG, PDAG, PDG]],
+    weights: list[float],
+    nodes: list[str],
 ) -> PDG:
     """Merge graphs by averaging their weighted probability vectors.
 
@@ -223,8 +223,8 @@ def _average_merge(
 
 
 def _empty_accumulator(
-    nodes: List[str],
-) -> Dict[Tuple[str, str], Dict[str, float]]:
+    nodes: list[str],
+) -> dict[tuple[str, str], dict[str, float]]:
     """Return a zeroed probability accumulator for each node pair.
 
     Args:
@@ -233,7 +233,7 @@ def _empty_accumulator(
     Returns:
         Mapping of each node pair to zeroed edge-state probabilities.
     """
-    accum: Dict[Tuple[str, str], Dict[str, float]] = {}
+    accum: dict[tuple[str, str], dict[str, float]] = {}
     for i, node_a in enumerate(nodes):
         for node_b in nodes[i + 1 :]:
             accum[(node_a, node_b)] = {
@@ -246,8 +246,8 @@ def _empty_accumulator(
 
 
 def _build_pdg(
-    nodes: List[str],
-    accum: Dict[Tuple[str, str], Dict[str, float]],
+    nodes: list[str],
+    accum: dict[tuple[str, str], dict[str, float]],
 ) -> PDG:
     """Build a PDG from accumulated edge-state probabilities.
 
@@ -258,7 +258,7 @@ def _build_pdg(
     Returns:
         PDG containing edges with non-zero existence probability.
     """
-    edges: Dict[Tuple[str, str], EdgeProbabilities] = {}
+    edges: dict[tuple[str, str], EdgeProbabilities] = {}
     for (node_a, node_b), probs in accum.items():
         if probs["none"] < 1.0 - 1e-9:
             edges[(node_a, node_b)] = EdgeProbabilities(
@@ -272,7 +272,7 @@ def _build_pdg(
 
 def _accumulate_pdg(
     pdg: PDG,
-    accum: Dict[Tuple[str, str], Dict[str, float]],
+    accum: dict[tuple[str, str], dict[str, float]],
     weight: float,
 ) -> None:
     """Accumulate weighted probabilities from a PDG.
@@ -314,7 +314,7 @@ def _edge_state(graph: Union[DAG, PDAG], node_a: str, node_b: str) -> str:
 
 def _accumulate_sdg(
     graph: Union[DAG, PDAG],
-    accum: Dict[Tuple[str, str], Dict[str, float]],
+    accum: dict[tuple[str, str], dict[str, float]],
     weight: float,
 ) -> None:
     """Accumulate weighted probabilities from a DAG or PDAG.
@@ -370,8 +370,8 @@ def source_probabilities(
 
 
 def _combine_noisy_or(
-    source_probs: List[EdgeProbabilities],
-    weights: List[float],
+    source_probs: list[EdgeProbabilities],
+    weights: list[float],
 ) -> EdgeProbabilities:
     """Combine edge probabilities using noisy-OR.
 
@@ -398,8 +398,8 @@ def _combine_noisy_or(
 
 
 def _noisy_or_none(
-    source_probs: List[EdgeProbabilities],
-    weights: List[float],
+    source_probs: list[EdgeProbabilities],
+    weights: list[float],
 ) -> float:
     """Return the noisy-OR probability that no source supports the edge.
 
@@ -420,8 +420,8 @@ def _noisy_or_none(
 
 
 def _noisy_or_orientation(
-    source_probs: List[EdgeProbabilities],
-    weights: List[float],
+    source_probs: list[EdgeProbabilities],
+    weights: list[float],
     p_exist: float,
     p_none: float,
 ) -> EdgeProbabilities:
@@ -457,9 +457,9 @@ def _noisy_or_orientation(
 
 
 def _noisy_or_sums(
-    source_probs: List[EdgeProbabilities],
-    weights: List[float],
-) -> Tuple[float, float, float, float]:
+    source_probs: list[EdgeProbabilities],
+    weights: list[float],
+) -> tuple[float, float, float, float]:
     """Return weighted orientation sums over contributing sources.
 
     Args:
@@ -486,8 +486,8 @@ def _noisy_or_sums(
 
 
 def _combine_max(
-    source_probs: List[EdgeProbabilities],
-    weights: List[float],
+    source_probs: list[EdgeProbabilities],
+    weights: list[float],
 ) -> EdgeProbabilities:
     """Combine by selecting the most confident source.
 
@@ -516,9 +516,9 @@ def _combine_max(
 
 
 def _merge_per_source(
-    graphs: List[Union[DAG, PDAG, PDG]],
-    weights: List[float],
-    nodes: List[str],
+    graphs: list[Union[DAG, PDAG, PDG]],
+    weights: list[float],
+    nodes: list[str],
     strategy: str,
 ) -> PDG:
     """Merge graphs using per-source combination strategy.
@@ -536,7 +536,7 @@ def _merge_per_source(
         Merged PDG.
     """
     combine = _combine_noisy_or if strategy == "noisy_or" else _combine_max
-    edges: Dict[Tuple[str, str], EdgeProbabilities] = {}
+    edges: dict[tuple[str, str], EdgeProbabilities] = {}
     for node_a, node_b in _iter_node_pairs(nodes):
         src_probs = [source_probabilities(g, node_a, node_b) for g in graphs]
         combined = combine(src_probs, weights)
@@ -545,7 +545,7 @@ def _merge_per_source(
     return PDG(nodes, edges)
 
 
-def _iter_node_pairs(nodes: List[str]) -> Iterator[Tuple[str, str]]:
+def _iter_node_pairs(nodes: list[str]) -> Iterator[tuple[str, str]]:
     """Yield each unordered node pair once, in canonical order.
 
     Args:

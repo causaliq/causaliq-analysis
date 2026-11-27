@@ -1,7 +1,7 @@
 """Unit tests for binned statistics and metrics-cache summarise output."""
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,7 +14,7 @@ def _logger() -> MagicMock:
     return logger
 
 
-def _entry(values: Dict[str, Any]) -> Dict[str, Any]:
+def _entry(values: dict[str, Any]) -> dict[str, Any]:
     """Return an aggregation entry holding metric values in its result."""
     return {
         "matrix_values": {"seed": 1},
@@ -24,8 +24,8 @@ def _entry(values: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _run(
-    entries: List[Dict[str, Any]],
-    metric: List[str],
+    entries: list[dict[str, Any]],
+    metric: list[str],
     output: Any,
     **extra: Any,
 ) -> Any:

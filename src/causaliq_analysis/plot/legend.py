@@ -4,7 +4,7 @@ The helpers draw the chart legend once per figure, or inside selected
 subplots, and apply the legend location, title, labels and frame opacity.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
@@ -16,7 +16,7 @@ SUBPLOT_PROP = "legend.subplots"
 ALL_SUBPLOTS = "all"
 
 # Pairs of axes and subplot name.
-Subplot = Tuple[Any, str]
+Subplot = tuple[Any, str]
 
 
 __all__ = [
@@ -32,7 +32,7 @@ __all__ = [
 
 
 def apply_legend(
-    g: Any, subplots: Sequence[Subplot], props: Dict[str, Any]
+    g: Any, subplots: Sequence[Subplot], props: dict[str, Any]
 ) -> None:
     """Apply the chart legend.
 
@@ -52,7 +52,7 @@ def apply_legend(
 
 
 def apply_scatter_legend(
-    g: Any, subplots: Sequence[Subplot], props: Dict[str, Any]
+    g: Any, subplots: Sequence[Subplot], props: dict[str, Any]
 ) -> None:
     """Apply the legend of a scatter chart.
 
@@ -70,7 +70,7 @@ def apply_scatter_legend(
 
 
 def apply_subplot_legends(
-    g: Any, props: Dict[str, Any], subplots: Sequence[Subplot]
+    g: Any, props: dict[str, Any], subplots: Sequence[Subplot]
 ) -> bool:
     """Draw the chart legend inside the configured subplots.
 
@@ -99,8 +99,8 @@ def apply_subplot_legends(
 
 
 def _legend_targets(
-    props: Dict[str, Any], subplots: Sequence[Subplot]
-) -> List[Any]:
+    props: dict[str, Any], subplots: Sequence[Subplot]
+) -> list[Any]:
     """Return the axes which should carry an in-panel legend."""
     wanted = props.get(SUBPLOT_PROP)
     if not wanted:
@@ -112,7 +112,7 @@ def _legend_targets(
     return [axes for axes, name in subplots if name in wanted]
 
 
-def _take_legend(g: Any) -> Optional[Tuple[List[Any], List[str]]]:
+def _take_legend(g: Any) -> tuple[list[Any], list[str]] | None:
     """Remove the grid legend and return its handles and labels."""
     legend = getattr(g, "_legend", None)
     if legend is None:
@@ -138,9 +138,9 @@ def _axes_legend(g: Any) -> Any:
 
 def _add_axes_legend(
     axes: Any,
-    handles: List[Any],
-    labels: List[str],
-    props: Dict[str, Any],
+    handles: list[Any],
+    labels: list[str],
+    props: dict[str, Any],
 ) -> Any:
     """Add one legend to an axes using the configured properties."""
     legend = axes.legend(handles, labels, **_legend_kwargs(props))
@@ -148,9 +148,9 @@ def _add_axes_legend(
     return legend
 
 
-def _legend_kwargs(props: Dict[str, Any]) -> Dict[str, Any]:
+def _legend_kwargs(props: dict[str, Any]) -> dict[str, Any]:
     """Return the matplotlib legend keyword arguments."""
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     if "legend.loc" in props:
         kwargs["loc"] = props["legend.loc"]
     if "legend.ncol" in props:
@@ -166,7 +166,7 @@ def _legend_kwargs(props: Dict[str, Any]) -> Dict[str, Any]:
     return kwargs
 
 
-def move_legend(legend: Any, props: Dict[str, Any]) -> None:
+def move_legend(legend: Any, props: dict[str, Any]) -> None:
     """Move an existing legend to the configured location.
 
     The legend object is kept so its title and labels survive the move;
@@ -187,7 +187,7 @@ def move_legend(legend: Any, props: Dict[str, Any]) -> None:
 
 
 def set_legend_title(
-    legend: Any, props: Dict[str, Any], size: Optional[int] = None
+    legend: Any, props: dict[str, Any], size: int | None = None
 ) -> None:
     """Set the legend title, optionally at a fixed font size.
 
@@ -204,7 +204,7 @@ def set_legend_title(
         legend.set_title(title, {"size": size})
 
 
-def set_legend_labels(legend: Any, props: Dict[str, Any]) -> None:
+def set_legend_labels(legend: Any, props: dict[str, Any]) -> None:
     """Apply the legend.labels mapping to the legend entries."""
     if legend is None or "legend.labels" not in props:
         return
@@ -214,7 +214,7 @@ def set_legend_labels(legend: Any, props: Dict[str, Any]) -> None:
             label.set_text(props["legend.labels"][metric])
 
 
-def _build_manual_legend(props: Dict[str, Any]) -> Any:
+def _build_manual_legend(props: dict[str, Any]) -> Any:
     """Build a legend from the legend.key property."""
     loc = props["legend.loc"] if "legend.loc" in props else None
     ncol = props["legend.ncol"] if "legend.ncol" in props else 1

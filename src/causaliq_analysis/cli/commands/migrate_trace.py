@@ -1,6 +1,6 @@
 """The ``migrate-trace`` command."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import click
 
@@ -72,9 +72,9 @@ def migrate_trace_cmd(
     network: str,
     series: str,
     root_dir: str,
-    sample_size: Optional[str],
+    sample_size: str | None,
     seed: str,
-    output: Optional[str],
+    output: str | None,
 ) -> None:
     """
     Migrate legacy Trace pickle files to GraphML format.
@@ -96,10 +96,10 @@ def _migrate_request(
     network: str,
     series: str,
     root_dir: str,
-    sample_size: Optional[str],
+    sample_size: str | None,
     seed: str,
-    output: Optional[str],
-) -> Dict[str, Any]:
+    output: str | None,
+) -> dict[str, Any]:
     """Build the migration request from the command options.
 
     Args:
@@ -137,7 +137,7 @@ def _migrate_request(
     }
 
 
-def _run_migrate(request: Dict[str, Any]) -> None:
+def _run_migrate(request: dict[str, Any]) -> None:
     """Run migration and write the results to disk.
 
     Args:

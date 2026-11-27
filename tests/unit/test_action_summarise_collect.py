@@ -1,6 +1,6 @@
 """Unit tests for summarise value collection and filters."""
 
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,7 +22,7 @@ def test_summarise_reads_values_from_json_object(tmp_path: Any) -> None:
     entry = CacheEntry()
     entry.add_object("metrics", "json", '{"f1": 0.5}', "evaluate_graph")
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {},
@@ -71,7 +71,7 @@ def test_summarise_ignores_non_mapping_object(tmp_path: Any) -> None:
     not_json = CacheEntry()
     not_json.add_object("dag", "graphml", "<graphml/>", "learn_graph")
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {"matrix_values": {"seed": 1}, "metadata": {}, "entry": invalid},
         {"matrix_values": {"seed": 2}, "metadata": {}, "entry": non_mapping},
         {"matrix_values": {"seed": 3}, "metadata": {}, "entry": not_json},
@@ -105,7 +105,7 @@ def test_summarise_with_filter(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1, "status": "completed"},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -155,7 +155,7 @@ def test_summarise_with_random_filter_aggregation(
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": str(i)},
             "metadata": {
@@ -195,7 +195,7 @@ def test_summarise_skips_non_numeric(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -288,7 +288,7 @@ def test_summarise_filter_exception_aggregation(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -570,7 +570,7 @@ def test_summarise_where_predicate_selects_entries(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1, "status": "completed"},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -624,7 +624,7 @@ def test_summarise_where_predicate_error_is_ignored(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1, "status": "completed"},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -666,7 +666,7 @@ def test_summarise_where_argmax_tracks_predicate(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {
                 "seed": 1,

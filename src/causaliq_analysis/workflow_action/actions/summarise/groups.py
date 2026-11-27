@@ -2,7 +2,7 @@
 
 import itertools
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -13,8 +13,8 @@ _SIZE_PATTERN = re.compile(r"^\d+[kKmMgGtT]?$")
 
 
 def _report_groups(
-    context: Optional[Any],
-) -> Tuple[List[Dict[str, Any]], List[str]]:
+    context: Any | None,
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Return the group keys and grouping dimensions for a report run.
 
     An explicit workflow matrix defines the groups. Without one, the job's
@@ -37,7 +37,7 @@ def _report_groups(
     return [{}], []
 
 
-def _expand_groups(matrix: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
+def _expand_groups(matrix: dict[str, list[Any]]) -> list[dict[str, Any]]:
     """Expand a workflow matrix into one group per combination.
 
     Args:
@@ -62,7 +62,7 @@ def _expand_groups(matrix: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
     ]
 
 
-def _dimension_values(dimension: str, values: Any) -> List[Any]:
+def _dimension_values(dimension: str, values: Any) -> list[Any]:
     """Return a matrix dimension's values as a list.
 
     Args:
@@ -87,9 +87,9 @@ def _dimension_values(dimension: str, values: Any) -> List[Any]:
 
 
 def _group_matches(
-    entry_values: Dict[str, Any],
-    group_values: Dict[str, Any],
-    dimensions: List[str],
+    entry_values: dict[str, Any],
+    group_values: dict[str, Any],
+    dimensions: list[str],
 ) -> bool:
     """Return True when an entry belongs to a group.
 

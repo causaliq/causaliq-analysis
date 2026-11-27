@@ -1,6 +1,6 @@
 """Unit tests for the plot workflow action."""
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -20,7 +20,7 @@ def _make_logger() -> _StubLogger:
     return _StubLogger()
 
 
-def _valid_parameters() -> Dict[str, Any]:
+def _valid_parameters() -> dict[str, Any]:
     """Return valid plot action parameters."""
     return {
         "input": "results.csv",

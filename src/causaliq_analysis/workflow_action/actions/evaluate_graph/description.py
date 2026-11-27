@@ -1,6 +1,6 @@
 """Describing a PDG without a reference graph."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from causaliq_analysis.edge_analysis import pdg_edge_agreement
 from causaliq_analysis.workflow_action.types import ActionResult
@@ -12,9 +12,9 @@ __all__ = ["_describe"]
 
 
 def _describe(
-    request: Dict[str, Any],
-    parameters_block: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    parameters_block: dict[str, Any],
+    logger: Any | None,
     graph: Any,
 ) -> ActionResult:
     """Describe a graph's edge agreement without a reference.
@@ -46,8 +46,8 @@ def _describe(
 
 
 def _log_description(
-    logger: Optional[Any],
-    values: Dict[str, list],
+    logger: Any | None,
+    values: dict[str, list],
 ) -> None:
     """Report the number of values collected for each metric.
 

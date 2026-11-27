@@ -12,7 +12,7 @@ the model so that CSV output can still name and write every column.
 """
 
 from dataclasses import dataclass, replace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from .columns import ColumnSpec, _default_labels
 
@@ -49,8 +49,8 @@ class TableColumn:
 def _table_columns(
     dimensions: Sequence[str],
     specs: Sequence[ColumnSpec],
-    request: Dict[str, Any],
-) -> List[TableColumn]:
+    request: dict[str, Any],
+) -> list[TableColumn]:
     """Build the presentation columns of a table.
 
     A null format specification hides the column from the rendered table.
@@ -91,7 +91,7 @@ def _table_columns(
 
 def _table_column(
     label: str,
-    format_spec: Optional[str],
+    format_spec: str | None,
     measure: bool,
 ) -> TableColumn:
     """Build one presentation column.
@@ -128,7 +128,7 @@ def _require_visible(columns: Sequence[TableColumn]) -> None:
 
 
 def _apply_headers(
-    columns: List[TableColumn],
+    columns: list[TableColumn],
     headers: Sequence[str],
 ) -> None:
     """Label the visible columns with the declared headers.
@@ -159,7 +159,7 @@ def _apply_headers(
 def _visible_table(
     columns: Sequence[TableColumn],
     keys: Sequence[str],
-) -> Tuple[List[TableColumn], List[str]]:
+) -> tuple[list[TableColumn], list[str]]:
     """Return the table columns and keys with hidden columns removed.
 
     Args:
@@ -181,8 +181,8 @@ def _visible_table(
 
 def _format_specs(
     count: int,
-    declared: Sequence[Optional[str]],
-) -> List[Optional[str]]:
+    declared: Sequence[str | None],
+) -> list[str | None]:
     """Return one format specification per table column.
 
     Args:

@@ -1,6 +1,6 @@
 """Unit tests for summarise dry runs, metadata and logging."""
 
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +15,7 @@ def test_summarise_dry_run_skips(capsys: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = True
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {"matrix_values": {"seed": 1}, "metadata": {}},
         {"matrix_values": {"seed": 2}, "metadata": {}},
     ]
@@ -79,7 +79,7 @@ def test_summarise_logs_progress(tmp_path: Any, capsys: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = True
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -115,7 +115,7 @@ def test_summarise_metadata_complete(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},
@@ -186,7 +186,7 @@ def test_summarise_wraps_generic_exception(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},

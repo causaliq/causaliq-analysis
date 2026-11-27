@@ -7,14 +7,14 @@ text is escaped, because a table header commonly holds characters that
 are LaTeX markup (``_``, ``%``, ``>``).
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from .present import TableColumn, _format_cell
 
 __all__ = ["_latex_escape", "_latex_lines"]
 
 # One rendered table row: dimension values and computed column values
-_ROW = Tuple[Dict[str, Any], Dict[str, Any]]
+_ROW = tuple[dict[str, Any], dict[str, Any]]
 
 _ALIGN_CODES = {"left": "l", "right": "r", "center": "c"}
 
@@ -51,8 +51,8 @@ def _latex_lines(
     columns: Sequence[TableColumn],
     keys: Sequence[str],
     rows: Sequence[_ROW],
-    footer: Optional[Sequence[str]],
-) -> List[str]:
+    footer: Sequence[str] | None,
+) -> list[str]:
     """Render a table as the lines of a LaTeX ``tabular`` fragment.
 
     Args:
@@ -93,7 +93,7 @@ def _latex_begin(columns: Sequence[TableColumn]) -> str:
     return f"\\begin{{tabular}}{{{alignment}}}"
 
 
-def _labels(columns: Sequence[TableColumn]) -> List[str]:
+def _labels(columns: Sequence[TableColumn]) -> list[str]:
     """Return the header texts of the columns.
 
     Args:
@@ -109,8 +109,8 @@ def _labels(columns: Sequence[TableColumn]) -> List[str]:
 def _body_row(
     columns: Sequence[TableColumn],
     keys: Sequence[str],
-    group: Dict[str, Any],
-    results: Dict[str, Any],
+    group: dict[str, Any],
+    results: dict[str, Any],
 ) -> str:
     """Render one body row.
 

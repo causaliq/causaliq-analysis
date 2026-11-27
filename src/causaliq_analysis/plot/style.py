@@ -5,7 +5,7 @@ weights and save options read from the chart properties. They live outside
 ``plot.charts`` so each module stays within the code size limits.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import seaborn as sns
 
@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 
-def theme_rc_params(props: Dict[str, Any]) -> Dict[str, Any]:
+def theme_rc_params(props: dict[str, Any]) -> dict[str, Any]:
     """Return the rc parameters of the requested Seaborn axes style.
 
     Args:
@@ -51,7 +51,7 @@ def theme_rc_params(props: Dict[str, Any]) -> Dict[str, Any]:
     return dict(sns.axes_style(style))
 
 
-def apply_figure_size(g: Any, props: Dict[str, Any]) -> None:
+def apply_figure_size(g: Any, props: dict[str, Any]) -> None:
     """Set an exact figure size in inches.
 
     Args:
@@ -65,7 +65,7 @@ def apply_figure_size(g: Any, props: Dict[str, Any]) -> None:
     g.fig.set_size_inches(width, height)
 
 
-def apply_layout(g: Any, props: Dict[str, Any]) -> bool:
+def apply_layout(g: Any, props: dict[str, Any]) -> bool:
     """Apply the requested figure layout engine.
 
     Args:
@@ -82,7 +82,7 @@ def apply_layout(g: Any, props: Dict[str, Any]) -> bool:
     return True
 
 
-def apply_layout_or_adjust(g: Any, props: Dict[str, Any]) -> None:
+def apply_layout_or_adjust(g: Any, props: dict[str, Any]) -> None:
     """Apply the layout engine, or the subplot adjustments when absent.
 
     Args:
@@ -98,8 +98,8 @@ def apply_layout_or_adjust(g: Any, props: Dict[str, Any]) -> None:
 
 
 def catplot_kwargs(
-    props: Dict[str, Any], facet_kws: Dict[str, Any]
-) -> Dict[str, Any]:
+    props: dict[str, Any], facet_kws: dict[str, Any]
+) -> dict[str, Any]:
     """Return the explicit catplot parameters and facet keywords.
 
     ``sharex``, ``sharey`` and ``legend_out`` are explicit catplot
@@ -126,7 +126,7 @@ def catplot_kwargs(
     }
 
 
-def scatter_markers(props: Dict[str, Any]) -> Any:
+def scatter_markers(props: dict[str, Any]) -> Any:
     """Return the marker of each hue group, or a single marker."""
     markers = props.get("scatter.markers")
     if not markers:
@@ -134,9 +134,9 @@ def scatter_markers(props: Dict[str, Any]) -> Any:
     return markers[0] if len(markers) == 1 else markers
 
 
-def scatter_kws(props: Dict[str, Any]) -> Dict[str, Any]:
+def scatter_kws(props: dict[str, Any]) -> dict[str, Any]:
     """Return the scatter keyword arguments from the properties."""
-    kws: Dict[str, Any] = {}
+    kws: dict[str, Any] = {}
     if "scatter.size" in props:
         kws["s"] = props["scatter.size"]
     if "scatter.alpha" in props:
@@ -144,7 +144,7 @@ def scatter_kws(props: Dict[str, Any]) -> Dict[str, Any]:
     return kws
 
 
-def apply_figure_title(g: Any, props: Dict[str, Any]) -> None:
+def apply_figure_title(g: Any, props: dict[str, Any]) -> None:
     """Set the figure super-title when requested.
 
     Args:
@@ -163,7 +163,7 @@ def apply_figure_title(g: Any, props: Dict[str, Any]) -> None:
 
 
 def save_figure(
-    g: Any, props: Dict[str, Any], plot_file: str, default_dpi: int
+    g: Any, props: dict[str, Any], plot_file: str, default_dpi: int
 ) -> None:
     """Save the figure to a file at the configured dpi.
 
@@ -175,7 +175,7 @@ def save_figure(
         default_dpi: resolution used when ``figure.dpi`` is not set.
     """
     dpi = props.get("figure.dpi", default_dpi)
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     bbox = props.get("figure.bbox_inches")
     if bbox:
         kwargs["bbox_inches"] = bbox

@@ -1,7 +1,7 @@
 """Metric values and metrics objects for evaluate_graph."""
 
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -14,12 +14,12 @@ __all__ = [
 
 
 def _metric_values(
-    request: Dict[str, Any],
-    metrics: Dict[str, Any],
-    equiv_metrics: Dict[str, Any],
+    request: dict[str, Any],
+    metrics: dict[str, Any],
+    equiv_metrics: dict[str, Any],
     graph: Any,
     reference: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return the requested metric values for the metrics object.
 
     Args:
@@ -41,13 +41,13 @@ def _metric_values(
 
 
 def _all_metrics(
-    metrics: Dict[str, Any],
-    equiv_metrics: Dict[str, Any],
-    wanted: List[str],
+    metrics: dict[str, Any],
+    equiv_metrics: dict[str, Any],
+    wanted: list[str],
     graph: Any,
     reference: Any,
-    request: Dict[str, Any],
-) -> Dict[str, Any]:
+    request: dict[str, Any],
+) -> dict[str, Any]:
     """Build the complete metric mapping for an evaluation.
 
     Args:
@@ -62,7 +62,7 @@ def _all_metrics(
         Mapping of every standard, reference and equivalence metric name.
 
     """
-    all_metrics: Dict[str, Any] = {
+    all_metrics: dict[str, Any] = {
         "precision": metrics["p"],
         "recall": metrics["r"],
         "f1": metrics["f1"],
@@ -80,9 +80,9 @@ def _all_metrics(
 
 
 def _add_context_metrics(
-    all_metrics: Dict[str, Any],
-    wanted: List[str],
-    request: Dict[str, Any],
+    all_metrics: dict[str, Any],
+    wanted: list[str],
+    request: dict[str, Any],
 ) -> None:
     """Add context provenance metrics when they are requested.
 
@@ -125,7 +125,7 @@ def _reference_arc_count(reference: Any) -> int:
     return len(edges)
 
 
-def _directed_edge_count(edges: Dict[Any, Any]) -> int:
+def _directed_edge_count(edges: dict[Any, Any]) -> int:
     """Return the number of directed arcs in an edge-type mapping.
 
     Args:
@@ -144,8 +144,8 @@ def _directed_edge_count(edges: Dict[Any, Any]) -> int:
 
 
 def _add_edge_counts(
-    all_metrics: Dict[str, Any],
-    metrics: Dict[str, Any],
+    all_metrics: dict[str, Any],
+    metrics: dict[str, Any],
 ) -> None:
     """Add the low-level edge counts to a metric mapping.
 
@@ -160,7 +160,7 @@ def _add_edge_counts(
         all_metrics[name] = metrics[name]
 
 
-def _wanted_metrics(requested: List[str]) -> List[str]:
+def _wanted_metrics(requested: list[str]) -> list[str]:
     """Expand metric group requests into individual metric names.
 
     'edge' and 'equiv.edge' are group requests which expand to the
@@ -183,7 +183,7 @@ def _wanted_metrics(requested: List[str]) -> List[str]:
     return list(wanted)
 
 
-def _metrics_objects(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _metrics_objects(values: dict[str, Any]) -> list[dict[str, Any]]:
     """Build the metrics object written to the output cache.
 
     Args:

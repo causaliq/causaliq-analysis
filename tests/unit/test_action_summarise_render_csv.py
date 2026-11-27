@@ -1,6 +1,6 @@
 """Unit tests for summarise CSV rendering."""
 
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,7 +15,7 @@ def test_summarise_csv_write_error(tmp_path: Any) -> None:
     mock_logger = MagicMock()
     mock_logger.is_terminal_logging = False
 
-    aggregation_entries: List[Dict[str, Any]] = [
+    aggregation_entries: list[dict[str, Any]] = [
         {
             "matrix_values": {"seed": 1},
             "metadata": {"provenance": {}, "result": {"f1": 0.8}},

@@ -3,7 +3,7 @@
 import csv
 import json
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 from scipy.stats import wilcoxon
@@ -30,7 +30,7 @@ _SIGNIFICANCE = [
 ]
 
 
-def _write_cache(path: Any, values: List[float]) -> str:
+def _write_cache(path: Any, values: list[float]) -> str:
     """Write a cache holding one F1 value per network.
 
     Args:
@@ -60,7 +60,7 @@ def _write_cache(path: Any, values: List[float]) -> str:
     return str(path)
 
 
-def _inputs(tmp_path: Any) -> List[str]:
+def _inputs(tmp_path: Any) -> list[str]:
     """Build the three input caches of the worked example."""
     return [
         _write_cache(tmp_path / "bnsl.db", _BNSL),
@@ -80,14 +80,14 @@ def _context() -> Any:
 
 def _run(
     tmp_path: Any,
-    significance: List[str],
+    significance: list[str],
     output_name: str = "significance.md",
     **extra: Any,
 ) -> Any:
     """Run the summarise action with significance tests."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    parameters: Dict[str, Any] = {
+    parameters: dict[str, Any] = {
         "metric": _METRIC,
         "significance": significance,
         "input": _inputs(tmp_path),

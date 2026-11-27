@@ -11,7 +11,7 @@ metadata, so a new test is added without changing the parser or renderers.
 
 from dataclasses import dataclass
 from statistics import mean
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Sequence
 
 from scipy.stats import spearmanr, wilcoxon
 
@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 # One table row: grouping values and computed column values
-_Row = Tuple[Dict[str, Any], Dict[str, Any]]
+_Row = tuple[dict[str, Any], dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -52,8 +52,8 @@ class SignificanceTest:
     format_spec: str
     arity: int
     run: Callable[
-        [Sequence[float], Optional[Sequence[float]]],
-        Optional[Tuple[float, float]],
+        [Sequence[float], Sequence[float] | None],
+        tuple[float, float] | None,
     ]
 
 
@@ -73,14 +73,14 @@ class SignificanceSpec:
     text: str
     test: SignificanceTest
     left: str
-    right: Optional[str]
+    right: str | None
     label: str
 
 
 def _wilcoxon_signed_rank_2_sided(
     left: Sequence[float],
-    right: Optional[Sequence[float]],
-) -> Optional[Tuple[float, float]]:
+    right: Sequence[float] | None,
+) -> tuple[float, float] | None:
     """Return the Wilcoxon signed-rank statistic and two-sided p-value.
 
     A two-sample call is the paired test: the differences are the values
@@ -105,8 +105,8 @@ def _wilcoxon_signed_rank_2_sided(
 
 def _differences(
     left: Sequence[float],
-    right: Optional[Sequence[float]],
-) -> List[float]:
+    right: Sequence[float] | None,
+) -> list[float]:
     """Return paired differences, or the sample itself for one sample.
 
     Args:
@@ -123,8 +123,8 @@ def _differences(
 
 def _spearman_2_sided(
     left: Sequence[float],
-    right: Optional[Sequence[float]],
-) -> Optional[Tuple[float, float]]:
+    right: Sequence[float] | None,
+) -> tuple[float, float] | None:
     """Return the Spearman rank correlation and two-sided p-value.
 
     Args:
@@ -146,7 +146,7 @@ def _spearman_2_sided(
     return statistic, p_value
 
 
-SIGNIFICANCE_TESTS: Dict[str, SignificanceTest] = {
+SIGNIFICANCE_TESTS: dict[str, SignificanceTest] = {
     "wilcoxon-signed-rank-2-sided": SignificanceTest(
         name="wilcoxon-signed-rank-2-sided",
         title="Wilcoxon signed-rank, two-sided",
@@ -169,7 +169,7 @@ SIGNIFICANCE_TESTS: Dict[str, SignificanceTest] = {
 def _paired_values(
     spec: SignificanceSpec,
     rows: Sequence[_Row],
-) -> Tuple[List[float], Optional[List[float]]]:
+) -> tuple[list[float], list[float] | None]:
     """Return the two samples of a test, paired by table row.
 
     Args:
@@ -180,8 +180,8 @@ def _paired_values(
         Tuple of the left sample and the right sample; the right sample is
         None for a one-sample test.
     """
-    left: List[float] = []
-    right: List[float] = []
+    left: list[float] = []
+    right: list[float] = []
     for group, results in rows:
         pair = _row_pair(spec, {**group, **results})
         if pair is None:
@@ -194,8 +194,8 @@ def _paired_values(
 
 def _row_pair(
     spec: SignificanceSpec,
-    values: Dict[str, Any],
-) -> Optional[Tuple[float, float]]:
+    values: dict[str, Any],
+) -> tuple[float, float] | None:
     """Return the paired values of one table row.
 
     Args:
@@ -216,7 +216,7 @@ def _row_pair(
     return first, second
 
 
-def _numeric_value(value: Any) -> Optional[float]:
+def _numeric_value(value: Any) -> float | None:
     """Return a numeric cell value, or None for a missing cell.
 
     Args:
@@ -235,7 +235,7 @@ def _numeric_value(value: Any) -> Optional[float]:
 def _significance_row(
     spec: SignificanceSpec,
     rows: Sequence[_Row],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute one significance result row.
 
     Args:
@@ -263,8 +263,8 @@ def _significance_row(
 
 def _paired_summary(
     left: Sequence[float],
-    right: Optional[Sequence[float]],
-) -> Tuple[Any, Any, Any]:
+    right: Sequence[float] | None,
+) -> tuple[Any, Any, Any]:
     """Return wins, losses and mean difference of a paired sample.
 
     A win is a positive difference, a loss a negative difference and a tie
@@ -292,7 +292,7 @@ def _paired_summary(
 def _significance_rows(
     specs: Sequence[SignificanceSpec],
     rows: Sequence[_Row],
-) -> List[_Row]:
+) -> list[_Row]:
     """Compute one significance result row per declared test.
 
     Args:
@@ -305,7 +305,7 @@ def _significance_rows(
     return [({}, _significance_row(spec, rows)) for spec in specs]
 
 
-def _significance_stars(p_value: Optional[float]) -> str:
+def _significance_stars(p_value: float | None) -> str:
     """Return the significance stars for a p-value.
 
     Args:

@@ -5,7 +5,7 @@ the method stays thin; the ``Trace`` class is passed in as ``trace_cls`` so
 this module does not import it (keeping the package import graph acyclic).
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from causaliq_core.graph import DAG, extend_pdag
 from causaliq_data import NumPy
@@ -17,12 +17,12 @@ __all__ = ["update_scores"]
 def update_scores(
     trace_cls: Any,
     series: str,
-    networks: List[str],
+    networks: list[str],
     score: str,
     root_dir: str,
     save: bool = False,
     test: bool = False,
-) -> Dict[Tuple[str, str], Tuple[Optional[float], float]]:
+) -> dict[tuple[str, str], tuple[float | None, float]]:
     """Update score in all traces of a series (see Trace.update_scores).
 
     Args:
@@ -44,7 +44,7 @@ def update_scores(
     """
     _validate_update_scores_args(series, networks, score, root_dir)
     params = {"base": "e", "unistate_ok": True}
-    scores: Dict[Tuple[str, str], Tuple[Optional[float], float]] = {}
+    scores: dict[tuple[str, str], tuple[float | None, float]] = {}
     for network in networks:
         _update_network_scores(
             trace_cls,
@@ -61,7 +61,7 @@ def update_scores(
 
 
 def _validate_update_scores_args(
-    series: str, networks: List[str], score: str, root_dir: str
+    series: str, networks: list[str], score: str, root_dir: str
 ) -> None:
     """Validate the arguments of Trace.update_scores()."""
     if (
@@ -75,7 +75,7 @@ def _validate_update_scores_args(
 
 def _read_network_data(
     root_dir: str, network: str, test: bool
-) -> Tuple[Any, str]:
+) -> tuple[Any, str]:
     """Read the dataset for a network, returning it and the score suffix."""
     dstype = "continuous" if network.endswith("_c") else "categorical"
     gauss = "" if dstype == "categorical" else "-g"
@@ -94,11 +94,11 @@ def _initial_scores(
     N_data: int,
     score: str,
     gauss: str,
-    params: Dict[str, Any],
-) -> Dict[int, float]:
+    params: dict[str, Any],
+) -> dict[int, float]:
     """Score the initial graph at each sample size."""
     initial = DAG(list(data.get_order()), [])
-    initial_score: Dict[int, float] = {}
+    initial_score: dict[int, float] = {}
     for N in Ns:
         if N > N_data:
             continue
@@ -124,7 +124,7 @@ def _learnt_score(
     data: Any,
     score: str,
     gauss: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     trace_id: str,
 ) -> Any:
     """Score the learnt graph, returning NaN when the PDAG cannot extend."""
@@ -147,7 +147,7 @@ def _record_score(
     learnt_score: float,
     initial_score: float,
     test: bool,
-    scores: Dict[Tuple[str, str], Tuple[Optional[float], float]],
+    scores: dict[tuple[str, str], tuple[float | None, float]],
 ) -> None:
     """Record a traced score, printing the before/after value."""
     if score == "loglik":
@@ -179,14 +179,14 @@ def _update_trace_score(
     trace_id: str,
     score: str,
     gauss: str,
-    params: Dict[str, Any],
-    initial_score: Dict[int, float],
+    params: dict[str, Any],
+    initial_score: dict[int, float],
     test: bool,
     save: bool,
     root_dir: str,
     data: Any,
     N_data: int,
-    scores: Dict[Tuple[str, str], Tuple[Optional[float], float]],
+    scores: dict[tuple[str, str], tuple[float | None, float]],
 ) -> None:
     """Update and optionally save the score of a single trace."""
     if (
@@ -223,8 +223,8 @@ def _update_network_scores(
     root_dir: str,
     save: bool,
     test: bool,
-    params: Dict[str, Any],
-    scores: Dict[Tuple[str, str], Tuple[Optional[float], float]],
+    params: dict[str, Any],
+    scores: dict[tuple[str, str], tuple[float | None, float]],
 ) -> None:
     """Update the scores of all traces for one network."""
     print("\nReading {} traces for {} ...".format(series, network))
@@ -236,7 +236,7 @@ def _update_network_scores(
     print(Ns)
     data, gauss = _read_network_data(root_dir, network, test)
     N_data = data.N
-    initial_score: Dict[int, float] = {}
+    initial_score: dict[int, float] = {}
     if score != "loglik":
         initial_score = _initial_scores(data, Ns, N_data, score, gauss, params)
     for trace_id, trace in traces.items():

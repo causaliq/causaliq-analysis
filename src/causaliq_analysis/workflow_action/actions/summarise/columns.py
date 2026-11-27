@@ -26,7 +26,7 @@ so a formula never refers to a column position.
 
 import re
 from dataclasses import dataclass
-from typing import Any, FrozenSet, List, Optional, Sequence, Set, Tuple
+from typing import Any, FrozenSet, Sequence, Set
 
 from causaliq_analysis.validation import (
     SUPPORTED_STATS,
@@ -95,15 +95,15 @@ class ColumnSpec:
     """
 
     text: str
-    source: Optional[int] = None
-    field: Optional[str] = None
-    stat: Optional[str] = None
-    dimension: Optional[str] = None
-    element: Optional[int] = None
-    where: Optional[str] = None
-    formula: Optional[str] = None
-    alias: Optional[str] = None
-    bounds: Optional[Tuple[float, float]] = None
+    source: int | None = None
+    field: str | None = None
+    stat: str | None = None
+    dimension: str | None = None
+    element: int | None = None
+    where: str | None = None
+    formula: str | None = None
+    alias: str | None = None
+    bounds: tuple[float, float] | None = None
 
     @property
     def is_derived(self) -> bool:
@@ -120,7 +120,7 @@ class ColumnSpec:
         return self.text
 
 
-def _parse_column_specs(specs: Sequence[str]) -> List[ColumnSpec]:
+def _parse_column_specs(specs: Sequence[str]) -> list[ColumnSpec]:
     """Parse metric specifications into column specifications.
 
     Specifications are parsed in table order so that a formula is
@@ -137,7 +137,7 @@ def _parse_column_specs(specs: Sequence[str]) -> List[ColumnSpec]:
             repeated, or a formula references an unavailable alias.
 
     """
-    parsed: List[ColumnSpec] = []
+    parsed: list[ColumnSpec] = []
     aliases: Set[str] = set()
     keys: Set[str] = set()
     for spec in specs:
@@ -179,7 +179,7 @@ def _require_unique_key(column: ColumnSpec, keys: Set[str]) -> None:
 def _alias_reference(
     spec: str,
     aliases: Set[str],
-) -> Optional[ColumnSpec]:
+) -> ColumnSpec | None:
     """Return a column copying an earlier column when the spec is its alias.
 
     A specification that is a bare alias copies that column's value. It is
@@ -246,8 +246,8 @@ def _reject_inline_binned(body: str, spec: str) -> None:
 
 def _formula_column(
     body: str,
-    alias: Optional[str],
-    where: Optional[str],
+    alias: str | None,
+    where: str | None,
     spec: str,
 ) -> ColumnSpec:
     """Build the column specification for a derived-column formula.
@@ -276,8 +276,8 @@ def _formula_column(
 
 def _base_column(
     body: str,
-    alias: Optional[str],
-    where: Optional[str],
+    alias: str | None,
+    where: str | None,
 ) -> ColumnSpec:
     """Build the column specification for a base statistic.
 
@@ -310,7 +310,7 @@ def _base_column(
 
 def _parse_binned(
     body: str,
-) -> Optional[Tuple[str, str, Tuple[float, float]]]:
+) -> tuple[str, str, tuple[float, float]] | None:
     """Parse a ``<field>.<stat>(lo, hi)`` specification.
 
     Args:
@@ -367,9 +367,9 @@ def _bound_value(text: str, spec: str) -> float:
 
 def _binned_column(
     body: str,
-    alias: Optional[str],
-    where: Optional[str],
-    binned: Tuple[str, str, Tuple[float, float]],
+    alias: str | None,
+    where: str | None,
+    binned: tuple[str, str, tuple[float, float]],
 ) -> ColumnSpec:
     """Build the column specification for a binned statistic.
 
@@ -399,7 +399,7 @@ def _binned_column(
 def _split_where(
     spec: str,
     full: str,
-) -> Tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """Split a trailing ``where <predicate>`` from a specification.
 
     The predicate selects the cache entries a base column draws on. It is
@@ -447,7 +447,7 @@ def _is_formula(body: str) -> bool:
     return any(character in body for character in _FORMULA_CHARS)
 
 
-def _split_alias(spec: str) -> Tuple[str, Optional[str]]:
+def _split_alias(spec: str) -> tuple[str, str | None]:
     """Split a trailing ``as <alias>`` from a specification.
 
     Args:
@@ -463,7 +463,7 @@ def _split_alias(spec: str) -> Tuple[str, Optional[str]]:
     return match.group("body"), match.group("alias")
 
 
-def _split_source(spec: str) -> Tuple[str, Optional[int]]:
+def _split_source(spec: str) -> tuple[str, int | None]:
     """Split a trailing ``[n]`` source index from a specification.
 
     Args:
@@ -491,7 +491,7 @@ def _split_source(spec: str) -> Tuple[str, Optional[int]]:
 def _split_element(
     spec: str,
     full: str,
-) -> Tuple[str, Optional[int]]:
+) -> tuple[str, int | None]:
     """Split a trailing ``{n}`` element index from a specification.
 
     The element index selects one element of a list-valued matrix
@@ -522,10 +522,10 @@ def _split_element(
 
 
 def _require_argmax_element(
-    element: Optional[int],
+    element: int | None,
     stat: str,
     spec: str,
-    dimension: Optional[str],
+    dimension: str | None,
 ) -> None:
     """Require an element selector to belong to a clean ``argmax`` column.
 
@@ -554,7 +554,7 @@ def _require_argmax_element(
         )
 
 
-def _has_bracket(dimension: Optional[str]) -> bool:
+def _has_bracket(dimension: str | None) -> bool:
     """Return True when a dimension name still holds a bracket character.
 
     Args:
@@ -573,7 +573,7 @@ def _split_stat(
     body: str,
     spec: str,
     has_source: bool,
-) -> Tuple[str, str, Optional[str]]:
+) -> tuple[str, str, str | None]:
     """Split a field, statistic and argmax dimension from a specification.
 
     Args:
@@ -600,7 +600,7 @@ def _split_stat(
 def _split_plain_stat(
     body: str,
     spec: str,
-) -> Tuple[str, str, Optional[str]]:
+) -> tuple[str, str, str | None]:
     """Split a ``<field>.<stat>`` specification.
 
     Args:
@@ -633,7 +633,7 @@ def _split_plain_stat(
     return field, stat, None
 
 
-def _unique_fields(specs: Sequence[ColumnSpec]) -> List[str]:
+def _unique_fields(specs: Sequence[ColumnSpec]) -> list[str]:
     """Return the metric fields referenced by the base columns.
 
     Args:
@@ -646,7 +646,7 @@ def _unique_fields(specs: Sequence[ColumnSpec]) -> List[str]:
     return list(dict.fromkeys(spec.field for spec in specs if spec.field))
 
 
-def _normalise_list(value: Any) -> List[str]:
+def _normalise_list(value: Any) -> list[str]:
     """Normalise a list-valued parameter to a list of strings.
 
     Args:
@@ -668,7 +668,7 @@ def _normalise_list(value: Any) -> List[str]:
     raise ValueError(f"expected a string or list, got {type(value).__name__}")
 
 
-def _normalise_optional_list(value: Any) -> List[Optional[str]]:
+def _normalise_optional_list(value: Any) -> list[str | None]:
     """Normalise a list-valued parameter, preserving null entries.
 
     A null entry is retained for parameters in which it carries meaning,
@@ -697,7 +697,7 @@ def _normalise_optional_list(value: Any) -> List[Optional[str]]:
 def _default_labels(
     dimensions: Sequence[str],
     specs: Sequence[ColumnSpec],
-) -> List[str]:
+) -> list[str]:
     """Return the default labels of every declared column.
 
     Args:

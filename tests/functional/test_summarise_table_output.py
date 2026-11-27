@@ -3,14 +3,14 @@
 import csv
 import json
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
 from causaliq_analysis.cli import cli
 
 
-def _write_cache(path: Any, rows: Dict[str, Dict[str, Any]]) -> str:
+def _write_cache(path: Any, rows: dict[str, dict[str, Any]]) -> str:
     """Write a workflow cache holding result metrics per network.
 
     Args:
@@ -31,7 +31,7 @@ def _write_cache(path: Any, rows: Dict[str, Dict[str, Any]]) -> str:
     return str(path)
 
 
-def _context(networks: List[str]) -> Any:
+def _context(networks: list[str]) -> Any:
     """Build a workflow context grouping by network."""
     return SimpleNamespace(
         matrix={"network": networks},
@@ -41,8 +41,8 @@ def _context(networks: List[str]) -> Any:
 
 
 def _run_action(
-    cache_paths: List[str],
-    metric: List[str],
+    cache_paths: list[str],
+    metric: list[str],
     output: Any,
     context: Any,
     **extra: Any,
@@ -50,7 +50,7 @@ def _run_action(
     """Run the summarise action and return its result."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    parameters: Dict[str, Any] = {
+    parameters: dict[str, Any] = {
         "metric": metric,
         "input": cache_paths,
         "output": str(output),
@@ -65,7 +65,7 @@ def _run_action(
     )
 
 
-def _fusion_inputs(tmp_path: Any) -> List[str]:
+def _fusion_inputs(tmp_path: Any) -> list[str]:
     """Build the three input caches of the worked example."""
     bnsl = _write_cache(
         tmp_path / "bnsl.db",

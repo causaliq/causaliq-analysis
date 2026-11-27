@@ -10,7 +10,7 @@ the CSV output.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Sequence
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -28,7 +28,7 @@ __all__ = [
 ]
 
 # One rendered table row: dimension values and computed column values
-_ROW = Tuple[Dict[str, Any], Dict[str, Any]]
+_ROW = tuple[dict[str, Any], dict[str, Any]]
 
 # Output extensions rendered as a Markdown table
 _MARKDOWN_SUFFIXES = (".md", ".markdown")
@@ -48,7 +48,7 @@ def _is_csv_output(output: Any) -> bool:
 
 
 def _write_summary(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     rows: Sequence[_ROW],
     log_fn: Any,
 ) -> None:
@@ -70,9 +70,9 @@ def _write_summary(
 
 
 def _labels_for(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     rows: Sequence[_ROW],
-) -> List[str]:
+) -> list[str]:
     """Return the column labels of a table.
 
     Args:
@@ -90,9 +90,9 @@ def _labels_for(
 
 
 def _write_single_table(
-    request: Dict[str, Any],
-    group: Dict[str, Any],
-    results: Dict[str, Any],
+    request: dict[str, Any],
+    group: dict[str, Any],
+    results: dict[str, Any],
     log_fn: Any,
 ) -> None:
     """Write a one-row table in a presentation format.
@@ -111,7 +111,7 @@ def _write_single_table(
 
 
 def _write_presentation(
-    request: Dict[str, Any],
+    request: dict[str, Any],
     rows: Sequence[_ROW],
     log_fn: Any,
 ) -> None:
@@ -136,7 +136,7 @@ def _write_presentation(
         log_fn(f"Summary written to {out_file}")
 
 
-def _output_file(request: Dict[str, Any]) -> Path:
+def _output_file(request: dict[str, Any]) -> Path:
     """Return the output file, creating its parent directory.
 
     Args:
@@ -155,9 +155,9 @@ def _output_file(request: Dict[str, Any]) -> Path:
 
 def _render_table(
     suffix: str,
-    request: Dict[str, Any],
+    request: dict[str, Any],
     rows: Sequence[_ROW],
-) -> List[str]:
+) -> list[str]:
     """Render a table as the lines of a presentation format.
 
     Args:

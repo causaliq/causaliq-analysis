@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable
 
 from causaliq_core.graph import DAG, PDAG, dag_to_pdag
 from causaliq_core.graph.io import graphml
@@ -41,7 +41,7 @@ _METADATA_FIELDS = [
 # consistency across the CausalIQ ecosystem.
 # Note: HTshotOnTarget was misspelt in the original source (Constantinou 2018).
 # Note: DIA_HadDiahorrea was misspelt in the original source.
-_VARIABLE_NAME_CORRECTIONS: Dict[str, str] = {
+_VARIABLE_NAME_CORRECTIONS: dict[str, str] = {
     "HTshotOnTarget": "HTshotsOnTarget",
     "DIA_HadDiahorrea": "DIA_HadDiarrhoea",
 }
@@ -49,7 +49,7 @@ _VARIABLE_NAME_CORRECTIONS: Dict[str, str] = {
 
 def _apply_name_corrections(
     graph: Any,
-    corrections: Dict[str, str] = _VARIABLE_NAME_CORRECTIONS,
+    corrections: dict[str, str] = _VARIABLE_NAME_CORRECTIONS,
 ) -> Any:
     """Apply variable name corrections to a graph.
 
@@ -107,7 +107,7 @@ def _json_serialise(obj: Any) -> Any:
     return str(obj)
 
 
-def get_trace_metadata(trace: Trace) -> Dict[str, Any]:
+def get_trace_metadata(trace: Trace) -> dict[str, Any]:
     """Extract key metadata from a Trace object.
 
     Extracts the important metadata fields from a Trace's context,
@@ -139,7 +139,7 @@ def get_trace_metadata(trace: Trace) -> Dict[str, Any]:
     """
     if not isinstance(trace, Trace):
         raise TypeError("get_trace_metadata() requires a Trace object")
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     for field in _METADATA_FIELDS:
         if field in trace.context:
             result[field] = _metadata_value(field, trace.context[field])
@@ -267,7 +267,7 @@ def _get_network_name(trace: Trace) -> str:
     return "G"
 
 
-def trace_to_graphml(trace: Trace, graph_id: Optional[str] = None) -> str:
+def trace_to_graphml(trace: Trace, graph_id: str | None = None) -> str:
     """Convert the result graph from a Trace to GraphML string.
 
     Converts the learnt graph from a Trace to GraphML format, suitable
@@ -313,8 +313,8 @@ def trace_to_graphml(trace: Trace, graph_id: Optional[str] = None) -> str:
 
 
 def migrate_traces(
-    traces: Dict[str, Trace],
-) -> List[Tuple[str, str, Dict[str, Any]]]:
+    traces: dict[str, Trace],
+) -> list[tuple[str, str, dict[str, Any]]]:
     """Migrate multiple traces to GraphML format with metadata.
 
     Processes a dictionary of traces (as returned by Trace.read) and
@@ -341,7 +341,7 @@ def migrate_traces(
     if not isinstance(traces, dict):
         raise TypeError("migrate_traces() requires a dictionary of traces")
 
-    results: List[Tuple[str, str, Dict[str, Any]]] = []
+    results: list[tuple[str, str, dict[str, Any]]] = []
 
     for trace_id, trace in traces.items():
         if not isinstance(trace, Trace):
@@ -374,7 +374,7 @@ class MigratedGraph:
 
     trace_id: str
     graphml: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -386,7 +386,7 @@ class MigrateTraceResult:
         skipped: Number of traces skipped (no result graph).
     """
 
-    graphs: List[MigratedGraph]
+    graphs: list[MigratedGraph]
     skipped: int = 0
 
     @property
@@ -396,10 +396,10 @@ class MigrateTraceResult:
 
 
 def filter_traces(
-    traces: Dict[str, Trace],
-    sample_size: Optional[int] = None,
-    seed: Optional[Tuple[int, ...]] = None,
-) -> Dict[str, Trace]:
+    traces: dict[str, Trace],
+    sample_size: int | None = None,
+    seed: tuple[int, ...] | None = None,
+) -> dict[str, Trace]:
     """Filter traces by sample size and seed.
 
     Args:
@@ -410,7 +410,7 @@ def filter_traces(
     Returns:
         Filtered dictionary of traces.
     """
-    filtered: Dict[str, Trace] = {}
+    filtered: dict[str, Trace] = {}
     for trace_id, trace in traces.items():
         if not _matches_sample_size(trace, sample_size):
             continue
@@ -420,7 +420,7 @@ def filter_traces(
     return filtered
 
 
-def _matches_sample_size(trace: Trace, sample_size: Optional[int]) -> bool:
+def _matches_sample_size(trace: Trace, sample_size: int | None) -> bool:
     """Return True when a trace satisfies the sample-size filter.
 
     Args:
@@ -435,7 +435,7 @@ def _matches_sample_size(trace: Trace, sample_size: Optional[int]) -> bool:
     return trace.context.get("N") == sample_size
 
 
-def _matches_seed(trace_id: str, seed: Optional[Tuple[int, ...]]) -> bool:
+def _matches_seed(trace_id: str, seed: tuple[int, ...] | None) -> bool:
     """Return True when a trace id contains an accepted seed.
 
     Args:
@@ -450,7 +450,7 @@ def _matches_seed(trace_id: str, seed: Optional[Tuple[int, ...]]) -> bool:
     return any(_matches_seed_part(part, seed) for part in trace_id.split("_"))
 
 
-def _matches_seed_part(part: str, seed: Tuple[int, ...]) -> bool:
+def _matches_seed_part(part: str, seed: tuple[int, ...]) -> bool:
     """Return True when a trace id part parses to an accepted seed.
 
     Args:
@@ -469,9 +469,9 @@ def _matches_seed_part(part: str, seed: Tuple[int, ...]) -> bool:
 def run_migrate_trace(
     partial_id: str,
     root_dir: str,
-    sample_size: Optional[int] = None,
-    seed: Optional[Tuple[int, ...]] = None,
-    log_fn: Optional[Callable[[str], None]] = None,
+    sample_size: int | None = None,
+    seed: tuple[int, ...] | None = None,
+    log_fn: Callable[[str], None] | None = None,
 ) -> MigrateTraceResult:
     """Core migration logic shared by CLI and workflow action.
 
@@ -526,7 +526,7 @@ def _no_log(message: str) -> None:
 
 
 def _make_logger(
-    log_fn: Optional[Callable[[str], None]],
+    log_fn: Callable[[str], None] | None,
 ) -> Callable[[str], None]:
     """Return a logging callable that is a no-op when none is supplied.
 
@@ -542,7 +542,7 @@ def _make_logger(
 
 
 def _build_migrate_result(
-    filtered_traces: Dict[str, Trace],
+    filtered_traces: dict[str, Trace],
     log_fn: Callable[[str], None],
 ) -> MigrateTraceResult:
     """Generate migrated graphs for each filtered trace.
@@ -554,7 +554,7 @@ def _build_migrate_result(
     Returns:
         Migration result with the generated graphs.
     """
-    graphs: List[MigratedGraph] = []
+    graphs: list[MigratedGraph] = []
     skipped = 0
     for trace_id, trace in filtered_traces.items():
         migrated = _migrate_single_trace(trace_id, trace, log_fn)
@@ -570,7 +570,7 @@ def _migrate_single_trace(
     trace_id: str,
     trace: Trace,
     log_fn: Callable[[str], None],
-) -> Optional[MigratedGraph]:
+) -> MigratedGraph | None:
     """Generate the migrated graph for one trace, or None to skip it.
 
     Args:
@@ -597,8 +597,8 @@ def _migrate_single_trace(
 def write_migrate_result(
     result: MigrateTraceResult,
     output_dir: str,
-    log_fn: Optional[Callable[[str], None]] = None,
-) -> List[str]:
+    log_fn: Callable[[str], None] | None = None,
+) -> list[str]:
     """Write migration result to files in output directory.
 
     Used by CLI to write GraphML and metadata files to disk.
@@ -621,7 +621,7 @@ def write_migrate_result(
     _log = _make_logger(log_fn)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    output_files: List[str] = []
+    output_files: list[str] = []
     for graph in result.graphs:
         graphml_file = _write_graph_files(graph, output_path)
         output_files.append(str(graphml_file))

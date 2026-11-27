@@ -5,7 +5,7 @@ This module contains shared validation functions used across CLI and
 workflow_action modules to avoid code duplication.
 """
 
-from typing import Any, FrozenSet, List, Optional, Tuple, TypeVar, Union
+from typing import Any, FrozenSet, TypeVar, Union
 
 import click
 
@@ -20,8 +20,8 @@ SUPPORTED_STATS: FrozenSet[str] = frozenset(
 def single_value_callback(
     ctx: click.Context,
     param: click.Option,
-    value: Tuple[T, ...],
-) -> Optional[T]:
+    value: tuple[T, ...],
+) -> T | None:
     """Click callback to enforce single-value options.
 
     Use with ``multiple=True`` options to raise an error if the option
@@ -139,7 +139,7 @@ def _parse_plain_size(size_str: str) -> int:
         raise ValueError(f"Invalid sample size format: {size_str}")
 
 
-def parse_seed_cli(seed_str: str) -> Tuple[int, ...]:
+def parse_seed_cli(seed_str: str) -> tuple[int, ...]:
     """Parse seed string to tuple of integers (CLI format).
 
     CLI format supports single values and hyphen-delimited ranges.
@@ -187,7 +187,7 @@ def _reject_comma(seed_str: str, hint: str) -> None:
         raise ValueError(f"Invalid seed format '{seed_str}': {hint}")
 
 
-def _parse_seed_expression(seed_str: str) -> Tuple[int, ...]:
+def _parse_seed_expression(seed_str: str) -> tuple[int, ...]:
     """Parse a seed string into a tuple of ints, supporting ranges.
 
     Args:
@@ -204,7 +204,7 @@ def _parse_seed_expression(seed_str: str) -> Tuple[int, ...]:
     return (int(seed_str),)
 
 
-def _parse_seed_range(seed_str: str) -> Tuple[int, ...]:
+def _parse_seed_range(seed_str: str) -> tuple[int, ...]:
     """Parse a start-end seed range into an inclusive tuple.
 
     Args:
@@ -225,7 +225,7 @@ def _parse_seed_range(seed_str: str) -> Tuple[int, ...]:
     return tuple(range(start, end + 1))
 
 
-def parse_seed_workflow(seed_input: Any) -> Tuple[int, ...]:
+def parse_seed_workflow(seed_input: Any) -> tuple[int, ...]:
     """Parse seed from various input formats (workflow format).
 
     Workflow format supports:
@@ -263,7 +263,7 @@ def parse_seed_workflow(seed_input: Any) -> Tuple[int, ...]:
     raise ValueError(f"Invalid seed type: {type(seed_input)}")
 
 
-def _parse_seed_string(seed_str: str) -> Tuple[int, ...]:
+def _parse_seed_string(seed_str: str) -> tuple[int, ...]:
     """Parse a workflow seed string into a tuple of ints.
 
     Args:
@@ -291,7 +291,7 @@ def _parse_seed_string(seed_str: str) -> Tuple[int, ...]:
         raise
 
 
-def validate_filter_expression(filter_expr: Optional[str]) -> None:
+def validate_filter_expression(filter_expr: str | None) -> None:
     """Validate filter expression syntax.
 
     Checks that the filter expression has valid Python syntax without
@@ -320,9 +320,9 @@ def validate_filter_expression(filter_expr: Optional[str]) -> None:
 
 
 def validate_metric_specs(
-    metric_specs: Union[str, List[str]],
-    supported_stats: Optional[FrozenSet[str]] = None,
-) -> List[Tuple[str, str]]:
+    metric_specs: Union[str, list[str]],
+    supported_stats: FrozenSet[str] | None = None,
+) -> list[tuple[str, str]]:
     """Validate and parse metric specifications.
 
     Each metric spec must be in the format '<field>.<stat>' where stat
@@ -349,7 +349,7 @@ def validate_metric_specs(
     return [_parse_metric_spec(spec, supported_stats) for spec in specs]
 
 
-def _normalise_metric_specs(metric_specs: Union[str, List[str]]) -> List[str]:
+def _normalise_metric_specs(metric_specs: Union[str, list[str]]) -> list[str]:
     """Normalise metric specifications to a non-empty list of strings.
 
     Args:
@@ -379,7 +379,7 @@ def _normalise_metric_specs(metric_specs: Union[str, List[str]]) -> List[str]:
 def _parse_metric_spec(
     spec: str,
     supported_stats: FrozenSet[str],
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Validate and parse one '<field>.<stat>' metric specification.
 
     Args:
@@ -438,7 +438,7 @@ def require_param(
 
 def require_one_of(
     parameters: dict,
-    param_names: List[str],
+    param_names: list[str],
     action_name: str,
 ) -> str:
     """Require at least one of the specified parameters.

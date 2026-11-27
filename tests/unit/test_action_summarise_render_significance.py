@@ -1,7 +1,7 @@
 """Unit tests for rendering significance tables."""
 
 import csv
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pytest
 
@@ -16,11 +16,11 @@ _significance_lines = render_significance._significance_lines
 _write_significance = render_significance._write_significance
 _parse_significance_specs = significance_specs._parse_significance_specs
 
-_Row = Tuple[Dict[str, Any], Dict[str, Any]]
+_Row = tuple[dict[str, Any], dict[str, Any]]
 _ALIASES = {"bnsl", "fusion", "llm"}
 
 
-def _request(**overrides: Any) -> Dict[str, Any]:
+def _request(**overrides: Any) -> dict[str, Any]:
     """Build a significance request over three comparisons."""
     specs = _parse_significance_specs(
         [
@@ -30,7 +30,7 @@ def _request(**overrides: Any) -> Dict[str, Any]:
         ],
         _ALIASES,
     )
-    request: Dict[str, Any] = {
+    request: dict[str, Any] = {
         "significance": specs,
         "headers": [],
         "format": [],
@@ -41,7 +41,7 @@ def _request(**overrides: Any) -> Dict[str, Any]:
     return request
 
 
-def _rows() -> List[_Row]:
+def _rows() -> list[_Row]:
     """Build three significance result rows."""
     return [
         (
@@ -175,7 +175,7 @@ def test_csv_keeps_hidden_column(tmp_path: Any) -> None:
 # Test the writer reports the file it wrote.
 def test_write_significance_logs(tmp_path: Any) -> None:
     """A successful write reports the output path."""
-    messages: List[str] = []
+    messages: list[str] = []
     output = tmp_path / "significance.md"
     _write_significance(
         _request(output=str(output)),

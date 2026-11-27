@@ -1,14 +1,14 @@
 """Reference context values for evaluate_graph."""
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
 __all__ = ["_context_values"]
 
 
-def _context_values(context_path: Optional[str]) -> Dict[str, Any]:
+def _context_values(context_path: str | None) -> dict[str, Any]:
     """Read the provenance values of a network context JSON file.
 
     Args:

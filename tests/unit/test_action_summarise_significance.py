@@ -1,7 +1,7 @@
 """Unit tests for the summarise significance engine."""
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pytest
 from scipy.stats import wilcoxon
@@ -23,10 +23,10 @@ from causaliq_analysis.workflow_action.actions.summarise.significance import (
     _statistic_label,
 )
 
-_Row = Tuple[Dict[str, Any], Dict[str, Any]]
+_Row = tuple[dict[str, Any], dict[str, Any]]
 
 
-def _specs(*specs: str) -> List[SignificanceSpec]:
+def _specs(*specs: str) -> list[SignificanceSpec]:
     """Parse significance specifications over a small alias set."""
     return significance_specs._parse_significance_specs(
         list(specs),
@@ -97,7 +97,7 @@ def test_wilcoxon_drops_zero_differences() -> None:
     ],
 )
 def test_significance_stars(
-    p_value: Optional[float],
+    p_value: float | None,
     expected: str,
 ) -> None:
     """Stars follow the conventional p-value thresholds."""
@@ -116,7 +116,7 @@ def test_significance_stars(
         (0.5, 0.5),
     ],
 )
-def test_numeric_value(value: Any, expected: Optional[float]) -> None:
+def test_numeric_value(value: Any, expected: float | None) -> None:
     """Only numbers survive the cell conversion."""
     assert _numeric_value(value) == expected
 
@@ -125,7 +125,7 @@ def test_numeric_value(value: Any, expected: Optional[float]) -> None:
 def test_paired_values_skips_missing_rows() -> None:
     """A row missing one sample contributes no pair."""
     spec = _specs("wilcoxon-signed-rank-2-sided(fusion, bnsl)")[0]
-    rows: List[_Row] = [
+    rows: list[_Row] = [
         ({"network": "alarm"}, {"fusion": 0.9, "bnsl": 0.5}),
         ({"network": "asia"}, {"fusion": 0.8}),
         ({"network": "sports"}, {"fusion": 0.7, "bnsl": 0.4}),
@@ -147,7 +147,7 @@ def test_paired_values_one_sample() -> None:
         right=None,
         label="fusion vs 0",
     )
-    rows: List[_Row] = [
+    rows: list[_Row] = [
         ({"network": "alarm"}, {"fusion": 0.9, "bnsl": 0.5}),
         ({"network": "asia"}, {"fusion": 0.8, "bnsl": 0.6}),
     ]
@@ -162,7 +162,7 @@ def test_significance_row() -> None:
     spec = _specs(
         "wilcoxon-signed-rank-2-sided(fusion, bnsl) as Fusion vs BNSL"
     )[0]
-    rows: List[_Row] = [
+    rows: list[_Row] = [
         ({"network": "alarm"}, {"fusion": 0.9, "bnsl": 0.5}),
         ({"network": "asia"}, {"fusion": 0.8, "bnsl": 0.6}),
         ({"network": "sports"}, {"fusion": 0.7, "bnsl": 0.4}),
@@ -183,7 +183,7 @@ def test_significance_rows() -> None:
         "wilcoxon-signed-rank-2-sided(fusion, bnsl) as first",
         "wilcoxon-signed-rank-2-sided(fusion, llm) as second",
     )
-    rows: List[_Row] = [
+    rows: list[_Row] = [
         ({"network": "alarm"}, {"fusion": 0.9, "bnsl": 0.5, "llm": 0.4}),
         ({"network": "asia"}, {"fusion": 0.8, "bnsl": 0.6, "llm": 0.5}),
     ]
@@ -235,7 +235,7 @@ def test_spearman_and_paired_summary() -> None:
     spec = _specs("wilcoxon-signed-rank-2-sided(fusion, bnsl) as comparison")[
         0
     ]
-    rows: List[_Row] = [
+    rows: list[_Row] = [
         ({"network": "a"}, {"fusion": 0.9, "bnsl": 0.5}),
         ({"network": "b"}, {"fusion": 0.4, "bnsl": 0.6}),
         ({"network": "c"}, {"fusion": 0.7, "bnsl": 0.7}),

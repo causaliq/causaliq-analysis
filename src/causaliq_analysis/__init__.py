@@ -2,8 +2,6 @@
 causaliq-analysis: Tools for analysing and visualising causal graphs
 """
 
-from typing import Optional
-
 __version__ = "0.5.0.dev7"
 __author__ = "CausalIQ"
 __email__ = "info@causaliq.org"
@@ -38,7 +36,7 @@ def _parse_version(version_str: str) -> tuple:
     return tuple(parts)
 
 
-def _try_int(value: str) -> Optional[int]:
+def _try_int(value: str) -> int | None:
     """Return the integer value of a version part, or None.
 
     Args:

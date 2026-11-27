@@ -1,7 +1,7 @@
 """Shared helpers for the evaluate_graph action tests."""
 
 import json
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from .conftest import (
@@ -24,7 +24,7 @@ def _block(result: Any, name: str) -> Any:
     return result[1][name]
 
 
-def _run_evaluate(parameters: Dict[str, Any], context: Any = None) -> Any:
+def _run_evaluate(parameters: dict[str, Any], context: Any = None) -> Any:
     """Run evaluate_graph with mocked graph reads and comparisons."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 

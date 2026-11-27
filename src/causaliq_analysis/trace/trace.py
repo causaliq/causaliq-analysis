@@ -5,7 +5,7 @@ from gzip import BadGzipFile
 from os import makedirs
 from re import compile
 from time import asctime, localtime, time
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Union, cast
 
 from causaliq_core import SOFTWARE_VERSION
 from causaliq_core.graph import DAG, SDG
@@ -75,7 +75,7 @@ class Trace:
         ValueError: If invalid context fields provided.
     """
 
-    def __init__(self, context: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, context: dict[str, Any] | None = None) -> None:
 
         if context is not None and not isinstance(context, dict):
             raise TypeError("Trace() bad arg type")
@@ -89,13 +89,13 @@ class Trace:
         context.update({"software_version": SOFTWARE_VERSION})
 
         self.context = context
-        self.trace: Dict[str, List[Any]] = {"time": [], "activity": []}
+        self.trace: dict[str, list[Any]] = {"time": [], "activity": []}
         self.trace.update({d.value[0]: [] for d in GraphActionDetail})
         self.start = time()
-        self.result: Optional[SDG] = None
+        self.result: SDG | None = None
         self.treestats = None
 
-    def rename(self, name_map: Dict[str, str]) -> None:
+    def rename(self, name_map: dict[str, str]) -> None:
         """Rename nodes in trace in place according to name map.
 
         Args:
@@ -143,7 +143,7 @@ class Trace:
     @classmethod
     def read(
         self, partial_id: str, root_dir: str
-    ) -> Optional[Dict[str, "Trace"]]:
+    ) -> dict[str, "Trace"] | None:
         """Read set of Traces matching partial_id from serialised file.
 
         Args:
@@ -169,7 +169,7 @@ class Trace:
         return traces if traces != {} else None
 
     def add(
-        self, activity: GraphAction, details: Dict[GraphActionDetail, Any]
+        self, activity: GraphAction, details: dict[GraphActionDetail, Any]
     ) -> "Trace":
         """Add an entry to the structure learning trace.
 
@@ -213,12 +213,12 @@ class Trace:
     def update_scores(
         self,
         series: str,
-        networks: List[str],
+        networks: list[str],
         score: str,
         root_dir: str,
         save: bool = False,
         test: bool = False,
-    ) -> Dict[Tuple[str, str], Tuple[Optional[float], float]]:
+    ) -> dict[tuple[str, str], tuple[float | None, float]]:
         """Update score in all traces of a series.
 
         Args:
@@ -303,7 +303,7 @@ class Trace:
     @classmethod
     def _read_file(
         self, id: str, root_dir: str
-    ) -> Tuple[str, str, str, Dict[str, "Trace"]]:
+    ) -> tuple[str, str, str, dict[str, "Trace"]]:
         """Read a composite trace file.
 
         Args:
@@ -334,7 +334,7 @@ class Trace:
         ):
             raise ValueError("Trace._read_file() bad .pkl.gz file")
 
-        return (path, file_name, key, cast(Dict[str, "Trace"], traces))
+        return (path, file_name, key, cast(dict[str, "Trace"], traces))
 
     def save(self, root_dir: str) -> None:
         """Save the trace to a composite serialised (pickle) file.
@@ -386,8 +386,8 @@ class Trace:
     @classmethod
     def _blocked_same(
         self,
-        entry: Optional[List[Any]],
-        ref: Optional[List[Any]],
+        entry: list[Any] | None,
+        ref: list[Any] | None,
         strict: bool,
     ) -> bool:
         """Compare the blocked field from two trace entries.
@@ -409,11 +409,11 @@ class Trace:
     @classmethod
     def _compare_entry(
         self,
-        entry: Dict[str, Any],
-        ref: Dict[str, Any],
+        entry: dict[str, Any],
+        ref: dict[str, Any],
         strict: bool,
         ignore: set,
-    ) -> Optional[DiffType]:
+    ) -> DiffType | None:
         """Compare an individual entry from trace with reference trace.
 
         Args:
@@ -433,10 +433,10 @@ class Trace:
     def _update_diffs(
         self,
         iter: int,
-        trace: Optional[Dict[str, Any]],
-        ref: Optional[Dict[str, Any]],
-        diffs: Dict[Any, Any],
-    ) -> Dict[Any, Any]:
+        trace: dict[str, Any] | None,
+        ref: dict[str, Any] | None,
+        diffs: dict[Any, Any],
+    ) -> dict[Any, Any]:
         """Update dictionary of differences keyed on activity and arc.
 
         Updates with a difference for a specific iteration.
@@ -455,8 +455,8 @@ class Trace:
 
     @classmethod
     def _merge_opposites(
-        self, activity: str, diffs: Dict[Any, Any]
-    ) -> Dict[Any, Any]:
+        self, activity: str, diffs: dict[Any, Any]
+    ) -> dict[Any, Any]:
         """Merge activities done on opposing arcs.
 
         Extra add A --> B and missing add A <-- B is merged into
@@ -473,7 +473,7 @@ class Trace:
 
     def diffs_from(
         self, ref: "Trace", strict: bool = True
-    ) -> Optional[Tuple[Dict[Any, Any], List[int], str]]:
+    ) -> tuple[dict[Any, Any], list[int], str] | None:
         """Find differences of trace from reference trace.
 
         Args:
@@ -497,7 +497,7 @@ class Trace:
     @classmethod
     def _diffs_summary(
         self,
-        diffs: Dict[Any, Any],
+        diffs: dict[Any, Any],
         final_score_diff: bool,
         trace_iters: int,
         ref_iters: int,
@@ -516,7 +516,7 @@ class Trace:
         return diffs_summary(diffs, final_score_diff, trace_iters, ref_iters)
 
     @classmethod
-    def context_string(self, context: Dict[str, Any], start: float) -> str:
+    def context_string(self, context: dict[str, Any], start: float) -> str:
         """Return a trace context as a human readable string.
 
         Args:
@@ -607,7 +607,7 @@ class Trace:
         )
 
 
-def _validate_context(context: Dict[str, Any]) -> None:
+def _validate_context(context: dict[str, Any]) -> None:
     """Validate a Trace context against CONTEXT_FIELDS and the id rules."""
     if not set(context.keys()).issubset(set(CONTEXT_FIELDS.keys())):
         raise ValueError("Trace() invalid context keys")
@@ -637,8 +637,8 @@ def _bad_id(id: str) -> bool:
 
 
 def _map_arc(
-    arc: Optional[Tuple[str, str]], name_map: Dict[str, str]
-) -> Optional[Tuple[str, str]]:
+    arc: tuple[str, str] | None, name_map: dict[str, str]
+) -> tuple[str, str] | None:
     """Map the names in a tuple representing an arc."""
     if arc is None:
         return None
@@ -648,7 +648,7 @@ def _map_arc(
     )
 
 
-def _trace_file_parts(id: str, root_dir: str) -> Tuple[str, str, str]:
+def _trace_file_parts(id: str, root_dir: str) -> tuple[str, str, str]:
     """Split a trace id into directory path, file name and entry key."""
     parts = id.split("/")
     if len(parts) < 2:

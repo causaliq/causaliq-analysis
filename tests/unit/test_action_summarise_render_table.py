@@ -1,6 +1,6 @@
 """Unit tests for the summarise table renderers and dispatch."""
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pytest
 
@@ -25,14 +25,14 @@ from causaliq_analysis.workflow_action.actions.summarise.render import (
 )
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
-_ROW = Tuple[Dict[str, Any], Dict[str, Any]]
+_ROW = tuple[dict[str, Any], dict[str, Any]]
 
 _KEYS = ["network", "f1.mean[1]", "f1.mean[2]"]
 
 
-def _request(**overrides: Any) -> Dict[str, Any]:
+def _request(**overrides: Any) -> dict[str, Any]:
     """Build a presentation request over two metrics."""
-    request: Dict[str, Any] = {
+    request: dict[str, Any] = {
         "parsed_metrics": _parse_column_specs(["f1.mean[1]", "f1.mean[2]"]),
         "headers": ["Network", "BNSL", "LLM"],
         "format": ["", ".3f", "+.3f"],
@@ -43,7 +43,7 @@ def _request(**overrides: Any) -> Dict[str, Any]:
     return request
 
 
-def _rows() -> List[_ROW]:
+def _rows() -> list[_ROW]:
     """Build two body rows for the renderers."""
     return [
         ({"network": "alarm"}, {"f1.mean[1]": 0.804, "f1.mean[2]": 0.653}),
@@ -51,7 +51,7 @@ def _rows() -> List[_ROW]:
     ]
 
 
-def _columns(request: Dict[str, Any]) -> List[Any]:
+def _columns(request: dict[str, Any]) -> list[Any]:
     """Build the presentation columns of a request."""
     return _table_columns(["network"], request["parsed_metrics"], request)
 
@@ -283,7 +283,7 @@ def test_write_summary_reports_failure(tmp_path: Any) -> None:
 # Test the renderer logs the file it wrote.
 def test_write_summary_logs(tmp_path: Any) -> None:
     """A successful write reports the output path."""
-    messages: List[str] = []
+    messages: list[str] = []
     output = tmp_path / "summary.md"
     _write_summary(_request(output=str(output)), _rows(), messages.append)
     assert messages == [f"Summary written to {output}"]

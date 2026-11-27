@@ -20,7 +20,7 @@ expressions are lazy: only the selected branch is evaluated.
 """
 
 import ast
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, Callable, Mapping, Sequence, Set
 
 from causaliq_analysis.workflow_action.types import ActionExecutionError
 
@@ -38,7 +38,7 @@ _COMPARE_OPS = (
 )
 
 # Functions accepted in a formula, with their minimum and maximum arity
-_FUNCTION_ARITY: Dict[str, Sequence[Optional[int]]] = {
+_FUNCTION_ARITY: dict[str, Sequence[int | None]] = {
     "abs": (1, 1),
     "max": (1, None),
     "min": (1, None),
@@ -51,7 +51,7 @@ FUNCTIONS = tuple(sorted(_FUNCTION_ARITY))
 
 def _validate_formula(
     formula: str,
-    aliases: Optional[Set[str]] = None,
+    aliases: Set[str] | None = None,
 ) -> None:
     """Validate a formula's syntax, functions and column references.
 
@@ -87,7 +87,7 @@ def _parse_formula(formula: str) -> ast.expr:
         raise ValueError(f"Invalid formula '{formula}': {e.msg}") from e
 
 
-def _validate_node(node: ast.expr, aliases: Optional[Set[str]]) -> None:
+def _validate_node(node: ast.expr, aliases: Set[str] | None) -> None:
     """Validate one node of a formula expression tree.
 
     Args:
@@ -134,7 +134,7 @@ def _validate_constant(node: ast.Constant) -> None:
         )
 
 
-def _validate_compare(node: ast.Compare, aliases: Optional[Set[str]]) -> None:
+def _validate_compare(node: ast.Compare, aliases: Set[str] | None) -> None:
     """Validate a Python comparison.
 
     Args:
@@ -157,7 +157,7 @@ def _validate_compare(node: ast.Compare, aliases: Optional[Set[str]]) -> None:
 
 def _validate_if_expression(
     node: ast.IfExp,
-    aliases: Optional[Set[str]],
+    aliases: Set[str] | None,
 ) -> None:
     """Validate a Python conditional expression.
 
@@ -171,7 +171,7 @@ def _validate_if_expression(
     _validate_node(node.orelse, aliases)
 
 
-def _validate_name(node: ast.Name, aliases: Optional[Set[str]]) -> None:
+def _validate_name(node: ast.Name, aliases: Set[str] | None) -> None:
     """Validate a column alias reference.
 
     Args:
@@ -190,7 +190,7 @@ def _validate_name(node: ast.Name, aliases: Optional[Set[str]]) -> None:
     )
 
 
-def _validate_operands(node: ast.BinOp, aliases: Optional[Set[str]]) -> None:
+def _validate_operands(node: ast.BinOp, aliases: Set[str] | None) -> None:
     """Validate both operands of a binary operation.
 
     Args:
@@ -202,7 +202,7 @@ def _validate_operands(node: ast.BinOp, aliases: Optional[Set[str]]) -> None:
     _validate_node(node.right, aliases)
 
 
-def _validate_call(node: ast.Call, aliases: Optional[Set[str]]) -> None:
+def _validate_call(node: ast.Call, aliases: Set[str] | None) -> None:
     """Validate a function call in a formula.
 
     Args:
@@ -504,7 +504,7 @@ def _call_value(node: ast.Call, values: Mapping[str, Any]) -> Any:
     return _HANDLERS[func.id](arguments)
 
 
-def _number_value(value: Any) -> Optional[float]:
+def _number_value(value: Any) -> float | None:
     """Return the numeric value of a cell, or None when it is empty.
 
     Args:
@@ -525,9 +525,9 @@ def _number_value(value: Any) -> Optional[float]:
 
 
 def _numeric_values(
-    values: List[Any],
+    values: list[Any],
     ignore_empty: bool = False,
-) -> Optional[List[float]]:
+) -> list[float] | None:
     """Convert call arguments to numbers.
 
     Args:
@@ -548,7 +548,7 @@ def _numeric_values(
     return [number for number in numbers if number is not None]
 
 
-def _absolute(values: List[Any]) -> Any:
+def _absolute(values: list[Any]) -> Any:
     """Return the absolute value of the first argument.
 
     Args:
@@ -562,7 +562,7 @@ def _absolute(values: List[Any]) -> Any:
     return "" if not numbers else abs(numbers[0])
 
 
-def _maximum(values: List[Any]) -> Any:
+def _maximum(values: list[Any]) -> Any:
     """Return the largest argument, ignoring empty arguments.
 
     Args:
@@ -576,7 +576,7 @@ def _maximum(values: List[Any]) -> Any:
     return "" if not numbers else max(numbers)
 
 
-def _minimum(values: List[Any]) -> Any:
+def _minimum(values: list[Any]) -> Any:
     """Return the smallest argument, ignoring empty arguments.
 
     Args:
@@ -591,7 +591,7 @@ def _minimum(values: List[Any]) -> Any:
     return "" if not numbers else min(numbers)
 
 
-def _rounded(values: List[Any]) -> Any:
+def _rounded(values: list[Any]) -> Any:
     """Return the first argument rounded to a number of digits.
 
     Args:
@@ -610,7 +610,7 @@ def _rounded(values: List[Any]) -> Any:
     return round(number, digits)
 
 
-_HANDLERS: Dict[str, Callable[[List[Any]], Any]] = {
+_HANDLERS: dict[str, Callable[[list[Any]], Any]] = {
     "abs": _absolute,
     "max": _maximum,
     "min": _minimum,

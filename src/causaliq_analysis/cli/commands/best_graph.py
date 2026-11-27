@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Union
 
 import click
 from causaliq_core import ActionMetadata
@@ -65,7 +65,7 @@ def best_graph_cmd(
 def _run_best_graph_action(
     input: str,
     threshold: float,
-) -> Tuple[Union[ActionMetadata, Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[Union[ActionMetadata, dict[str, Any]], dict[str, Any]]:
     """Run the best_graph action and return its metadata and DAG object.
 
     Args:
@@ -104,9 +104,9 @@ def _run_best_graph_action(
 
 def _write_best_graph_outputs(
     output: str,
-    dag_obj: Dict[str, Any],
-    metadata: Union[ActionMetadata, Dict[str, Any]],
-) -> Tuple[Path, Path]:
+    dag_obj: dict[str, Any],
+    metadata: Union[ActionMetadata, dict[str, Any]],
+) -> tuple[Path, Path]:
     """Write the extracted DAG and its metadata files.
 
     Args:
@@ -143,7 +143,7 @@ def _create_output_dir(output: str) -> Path:
     return output_dir
 
 
-def _write_dag_file(output_dir: Path, dag_obj: Dict[str, Any]) -> Path:
+def _write_dag_file(output_dir: Path, dag_obj: dict[str, Any]) -> Path:
     """Write the DAG GraphML object to disk.
 
     Args:
@@ -166,8 +166,8 @@ def _write_dag_file(output_dir: Path, dag_obj: Dict[str, Any]) -> Path:
 
 def _write_best_graph_metadata(
     output_dir: Path,
-    metadata: Union[ActionMetadata, Dict[str, Any]],
-    dag_obj: Dict[str, Any],
+    metadata: Union[ActionMetadata, dict[str, Any]],
+    dag_obj: dict[str, Any],
 ) -> Path:
     """Write the best-graph metadata file.
 

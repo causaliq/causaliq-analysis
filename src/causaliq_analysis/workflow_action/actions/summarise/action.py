@@ -1,6 +1,6 @@
 """The summarise action class and parameter validation."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from causaliq_analysis.validation import validate_filter_expression
 from causaliq_analysis.workflow_action.actions.base import AnalysisAction
@@ -33,7 +33,7 @@ class SummariseAction(AnalysisAction):
     action_name = "summarise"
     pattern = ActionPattern.AGGREGATE
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate summarise parameters before execution.
 
         Args:
@@ -51,10 +51,10 @@ class SummariseAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Execute metric summarisation to a table file.
 

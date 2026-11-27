@@ -2,14 +2,14 @@
 
 import csv
 from types import SimpleNamespace
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pytest
 
-_ENTRY = Tuple[Dict[str, Any], Dict[str, Any]]
+_ENTRY = tuple[dict[str, Any], dict[str, Any]]
 
 
-def _write_cache(path: Any, entries: List[_ENTRY]) -> str:
+def _write_cache(path: Any, entries: list[_ENTRY]) -> str:
     """Write a workflow cache holding one entry per matrix and result.
 
     Args:
@@ -30,7 +30,7 @@ def _write_cache(path: Any, entries: List[_ENTRY]) -> str:
     return str(path)
 
 
-def _context(networks: List[str]) -> Any:
+def _context(networks: list[str]) -> Any:
     """Build a workflow context grouping by network."""
     return SimpleNamespace(
         matrix={"network": networks},
@@ -46,13 +46,13 @@ def _logger() -> Any:
 
 def _run(
     tmp_path: Any,
-    inputs: List[str],
-    metric: List[str],
+    inputs: list[str],
+    metric: list[str],
 ) -> Any:
     """Run the summarise action over two networks and return its result."""
     from causaliq_analysis.workflow_action import AnalysisActionProvider
 
-    parameters: Dict[str, Any] = {
+    parameters: dict[str, Any] = {
         "metric": metric,
         "input": inputs,
         "output": str(tmp_path / "summary.csv"),
@@ -66,7 +66,7 @@ def _run(
     )
 
 
-def _rows(path: Any) -> List[Dict[str, str]]:
+def _rows(path: Any) -> list[dict[str, str]]:
     """Read the summary rows of a CSV file."""
     with open(path, encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))

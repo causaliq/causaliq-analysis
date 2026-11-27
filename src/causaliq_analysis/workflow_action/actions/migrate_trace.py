@@ -6,7 +6,7 @@ is stateless, so validation and execution delegate to module-level helpers and
 each step stays within the module and method limits.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.migrate import run_migrate_trace
 from causaliq_analysis.validation import (
@@ -35,7 +35,7 @@ class MigrateTraceAction(AnalysisAction):
     action_name = "migrate_trace"
     pattern = ActionPattern.PRODUCE
 
-    def validate(self, parameters: Dict[str, Any]) -> None:
+    def validate(self, parameters: dict[str, Any]) -> None:
         """Validate migrate_trace parameters before execution.
 
         Args:
@@ -53,10 +53,10 @@ class MigrateTraceAction(AnalysisAction):
 
     def run(
         self,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         mode: str,
-        context: Optional[Any] = None,
-        logger: Optional[Any] = None,
+        context: Any | None = None,
+        logger: Any | None = None,
     ) -> ActionResult:
         """Execute trace migration to GraphML graphs.
 
@@ -101,7 +101,7 @@ class MigrateTraceAction(AnalysisAction):
             raise ActionExecutionError(f"Trace migration failed: {e}") from e
 
 
-def _require_traces_or_series_network(parameters: Dict[str, Any]) -> None:
+def _require_traces_or_series_network(parameters: dict[str, Any]) -> None:
     """Require traces, or both a series and a network.
 
     Args:
@@ -121,7 +121,7 @@ def _require_traces_or_series_network(parameters: Dict[str, Any]) -> None:
     )
 
 
-def _has_value(parameters: Dict[str, Any], name: str) -> bool:
+def _has_value(parameters: dict[str, Any], name: str) -> bool:
     """Return True when a parameter holds a value.
 
     Args:
@@ -135,7 +135,7 @@ def _has_value(parameters: Dict[str, Any], name: str) -> bool:
     return name in parameters and parameters[name] is not None
 
 
-def _require_parseable_sample_size(parameters: Dict[str, Any]) -> None:
+def _require_parseable_sample_size(parameters: dict[str, Any]) -> None:
     """Validate the sample size when one is provided.
 
     Args:
@@ -150,7 +150,7 @@ def _require_parseable_sample_size(parameters: Dict[str, Any]) -> None:
         parse_sample_size(sample_size)
 
 
-def _require_parseable_seed(parameters: Dict[str, Any]) -> None:
+def _require_parseable_seed(parameters: dict[str, Any]) -> None:
     """Validate the seed when one is provided.
 
     Args:
@@ -165,7 +165,7 @@ def _require_parseable_seed(parameters: Dict[str, Any]) -> None:
         parse_seed_workflow(seed)
 
 
-def _require_cache_output(parameters: Dict[str, Any]) -> None:
+def _require_cache_output(parameters: dict[str, Any]) -> None:
     """Validate the output path when one is provided.
 
     Args:
@@ -197,7 +197,7 @@ def _require_db_path(output_path: Any) -> None:
         )
 
 
-def _migrate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
+def _migrate_request(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build the migration request from action parameters.
 
     Args:
@@ -207,7 +207,7 @@ def _migrate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
         Request holding the trace pattern inputs and filters.
 
     """
-    request: Dict[str, Any] = {
+    request: dict[str, Any] = {
         "traces": parameters.get("traces"),
         "root_dir": parameters.get("root_dir", "experiments"),
         "series": parameters.get("series"),
@@ -218,7 +218,7 @@ def _migrate_request(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return request
 
 
-def _partial_id(request: Dict[str, Any]) -> str:
+def _partial_id(request: dict[str, Any]) -> str:
     """Build the trace path pattern for a request.
 
     Args:
@@ -241,7 +241,7 @@ def _partial_id(request: Dict[str, Any]) -> str:
     )
 
 
-def _optional_sample_size(request: Dict[str, Any]) -> Optional[int]:
+def _optional_sample_size(request: dict[str, Any]) -> int | None:
     """Parse the optional sample size filter.
 
     Args:
@@ -259,7 +259,7 @@ def _optional_sample_size(request: Dict[str, Any]) -> Optional[int]:
 
 def _dry_run_result(
     partial_id: str,
-    logger: Optional[Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Return the dry-run result for a migration.
 
@@ -273,11 +273,11 @@ def _dry_run_result(
     """
     if logger and logger.is_terminal_logging:
         print(f"Would migrate traces from {partial_id}")
-    metadata: Dict[str, Any] = {"message": "Dry-run mode", "num_graphs": 0}
+    metadata: dict[str, Any] = {"message": "Dry-run mode", "num_graphs": 0}
     return ("skipped", metadata, [])
 
 
-def _log_fn(logger: Optional[Any]) -> Optional[Any]:
+def _log_fn(logger: Any | None) -> Any | None:
     """Return the logging callback for a migration.
 
     Args:
@@ -294,8 +294,8 @@ def _log_fn(logger: Optional[Any]) -> Optional[Any]:
 
 def _no_traces_result(
     partial_id: str,
-    sample_size: Optional[int],
-    seed: Tuple[int, ...],
+    sample_size: int | None,
+    seed: tuple[int, ...],
 ) -> ActionResult:
     """Return the skipped result for a migration without matching traces.
 
@@ -308,7 +308,7 @@ def _no_traces_result(
         ActionResult tuple with status "skipped".
 
     """
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "message": (
             f"No traces for {partial_id} "
             f"sample_size={sample_size} "
@@ -340,7 +340,7 @@ def _success_result(result: Any) -> ActionResult:
     if len(graphs) != 1:
         raise ValueError(_multiple_graphs_message(len(graphs)))
     graph = graphs[0]
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "num_graphs": 1,
         "skipped": result.skipped,
         "trace_id": graph.trace_id,
@@ -349,7 +349,7 @@ def _success_result(result: Any) -> ActionResult:
     return ("success", metadata, [_graph_object(graph)])
 
 
-def _graph_object(graph: Any) -> Dict[str, Any]:
+def _graph_object(graph: Any) -> dict[str, Any]:
     """Build the GraphML object for the migrated graph.
 
     Args:

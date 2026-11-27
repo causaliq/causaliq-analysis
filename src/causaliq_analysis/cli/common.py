@@ -5,7 +5,7 @@ flattening and nested-value lookup support the ``summarise`` command,
 and the summary table formats its terminal output.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import click
 
@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 
-def _flatten_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+def _flatten_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested metadata for field access.
 
     Flattens provider/action structure to simple field names.
@@ -28,7 +28,7 @@ def _flatten_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Flat dictionary with simple and qualified field names.
     """
-    flat: Dict[str, Any] = {}
+    flat: dict[str, Any] = {}
     for provider_name, provider_data in metadata.items():
         _flatten_provider(provider_name, provider_data, flat)
     return flat
@@ -37,7 +37,7 @@ def _flatten_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
 def _flatten_provider(
     provider_name: str,
     provider_data: Any,
-    flat: Dict[str, Any],
+    flat: dict[str, Any],
 ) -> None:
     """Flatten one provider's metadata section into a flat dictionary.
 
@@ -58,7 +58,7 @@ def _flatten_action(
     provider_name: str,
     action_name: str,
     action_data: Any,
-    flat: Dict[str, Any],
+    flat: dict[str, Any],
 ) -> None:
     """Flatten one action's metadata section into a flat dictionary.
 
@@ -81,7 +81,7 @@ def _flatten_field(
     qual_key: str,
     key: str,
     value: Any,
-    flat: Dict[str, Any],
+    flat: dict[str, Any],
 ) -> None:
     """Store a single metadata field under simple and qualified keys.
 
@@ -96,7 +96,7 @@ def _flatten_field(
     flat[f"{qual_key}.{key}"] = value
 
 
-def _get_nested_value(data: Dict[str, Any], field: str) -> Any:
+def _get_nested_value(data: dict[str, Any], field: str) -> Any:
     """Get value from dict using dotted path notation.
 
     Args:
@@ -137,7 +137,7 @@ def _format_summary_value(value: Any) -> str:
     return str(value)
 
 
-def _print_summary_table(results: Dict[str, Any]) -> None:
+def _print_summary_table(results: dict[str, Any]) -> None:
     """Print summary results as a formatted table to terminal.
 
     Args:

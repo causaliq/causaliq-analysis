@@ -1,6 +1,6 @@
 """Executing one evaluate_graph comparison."""
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from causaliq_analysis.workflow_action import helpers
 from causaliq_analysis.workflow_action.types import (
@@ -24,9 +24,9 @@ __all__ = [
 
 
 def _evaluate(
-    request: Dict[str, Any],
-    parameters_block: Dict[str, Any],
-    logger: Optional[Any],
+    request: dict[str, Any],
+    parameters_block: dict[str, Any],
+    logger: Any | None,
 ) -> ActionResult:
     """Evaluate or describe the entry graph.
 
@@ -72,7 +72,7 @@ def _evaluate(
     )
 
 
-def _input_failure(entry_data: Dict[str, Any]) -> Optional[str]:
+def _input_failure(entry_data: dict[str, Any]) -> str | None:
     """Return the recorded error of a failed run, or None.
 
     A failed run holds provenance only: no object exists to evaluate, and
@@ -99,21 +99,21 @@ def _input_failure(entry_data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _history_error(blocks: Any) -> Optional[str]:
+def _history_error(blocks: Any) -> str | None:
     """Return the recorded error of one history block, or None."""
     if not isinstance(blocks, dict):
         return None
     return _result_error(blocks.get("result", {}))
 
 
-def _result_error(result: Any) -> Optional[str]:
+def _result_error(result: Any) -> str | None:
     """Return the error field of a result block, or None."""
     if isinstance(result, dict) and result.get("error"):
         return str(result["error"])
     return None
 
 
-def _entry_graph(request: Dict[str, Any]) -> Tuple[Any, str]:
+def _entry_graph(request: dict[str, Any]) -> tuple[Any, str]:
     """Extract the graph to evaluate from the matched entry.
 
     Args:
@@ -132,7 +132,7 @@ def _entry_graph(request: Dict[str, Any]) -> Tuple[Any, str]:
     return helpers._extract_graph_from_entry(entry, "cache entry")
 
 
-def _log_input_failure(logger: Optional[Any], error: str) -> None:
+def _log_input_failure(logger: Any | None, error: str) -> None:
     """Report an input failure when terminal logging is enabled.
 
     Args:
@@ -145,9 +145,9 @@ def _log_input_failure(logger: Optional[Any], error: str) -> None:
 
 
 def _log_evaluation(
-    logger: Optional[Any],
+    logger: Any | None,
     graph_type: str,
-    metrics: Dict[str, Any],
+    metrics: dict[str, Any],
 ) -> None:
     """Report the evaluation result when terminal logging is enabled.
 

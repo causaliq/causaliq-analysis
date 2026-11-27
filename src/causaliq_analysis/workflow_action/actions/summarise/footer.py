@@ -7,7 +7,7 @@ the footer of a difference column is the mean of the differences, not the
 difference of the means.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Sequence
 
 from causaliq_analysis.validation import SUPPORTED_STATS
 from causaliq_analysis.workflow_action.types import ActionExecutionError
@@ -18,15 +18,15 @@ from .stats import _stat_value
 __all__ = ["_footer_cells"]
 
 # One rendered table row: dimension values and computed column values
-_ROW = Tuple[Dict[str, Any], Dict[str, Any]]
+_ROW = tuple[dict[str, Any], dict[str, Any]]
 
 
 def _footer_cells(
-    specs: Optional[Sequence[str]],
+    specs: Sequence[str] | None,
     columns: Sequence[TableColumn],
     keys: Sequence[str],
     rows: Sequence[_ROW],
-) -> Optional[List[str]]:
+) -> list[str] | None:
     """Build the display cells of the footer row.
 
     Args:
@@ -83,7 +83,7 @@ def _footer_cell(
     return _format_cell(_stat_value(spec, values), column.format_spec)
 
 
-def _column_values(key: str, rows: Sequence[_ROW]) -> List[float]:
+def _column_values(key: str, rows: Sequence[_ROW]) -> list[float]:
     """Return the numeric values of one column across the body rows.
 
     Args:
@@ -94,7 +94,7 @@ def _column_values(key: str, rows: Sequence[_ROW]) -> List[float]:
         Numeric values in body order, omitting missing cells.
 
     """
-    values: List[float] = []
+    values: list[float] = []
     for group, results in rows:
         value = {**group, **results}.get(key)
         if isinstance(value, (int, float)) and not isinstance(value, bool):

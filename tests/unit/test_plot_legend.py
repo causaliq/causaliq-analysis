@@ -1,7 +1,7 @@
 """Unit tests for the in-panel legend helpers."""
 
 from types import SimpleNamespace
-from typing import Any, Tuple
+from typing import Any
 
 import matplotlib.pyplot as plt
 
@@ -12,7 +12,7 @@ from causaliq_analysis.plot.legend import (
 )
 
 
-def _grid() -> Tuple[Any, Any]:
+def _grid() -> tuple[Any, Any]:
     """Return a grid with two subplots and a figure legend."""
     figure, (first, second) = plt.subplots(1, 2)
     first.set_title("subplot = alpha")
