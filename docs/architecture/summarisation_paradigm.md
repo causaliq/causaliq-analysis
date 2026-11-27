@@ -54,7 +54,7 @@ automatically treats this as an aggregation operation.
 Actions implementing aggregation operations must:
 
 - Raise an error if no matrix is specified (aggregation requires grouping)
-- Process a `List[CacheEntry]` of input entries
+- Process a `list[CacheEntry]` of input entries
 - Return results with provenance metadata
 
 ## Filter Expression Syntax

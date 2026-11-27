@@ -149,8 +149,8 @@ from causaliq_analysis import merge_graphs
 from causaliq_core.graph import DAG, PDAG, PDG
 
 def merge_graphs(
-    graphs: List[Union[DAG, PDAG, PDG]],
-    weights: Optional[List[float]] = None,
+    graphs: list[DAG | PDAG | PDG],
+    weights: list[float] | None = None,
     cpdag: bool = False,
     strategy: str = "average",
 ) -> PDG:
